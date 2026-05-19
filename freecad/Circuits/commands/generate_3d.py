@@ -188,3 +188,138 @@ class Generate3DConduits:
         }
 
 Gui.addCommand("Generate3DConduits", Generate3DConduits())
+
+
+class Generate3DSwitches:
+    """Comando para gerar caixas 3D a partir dos Interruptores, Pontos de Iluminação e Tomadas.
+    
+    Lê as propriedades CaixaAltura, CaixaLargura, CaixaProfundidade e Altura3D
+    de cada objeto Switch/Lighting/Outlet posicionado na planta e gera um Part::Feature
+    (Box) na posição X,Y do símbolo 2D, elevado em Z conforme a Altura3D.
+    """
+    
+    def Activated(self):
+        doc = App.activeDocument()
+        if not doc:
+            QtWidgets.QMessageBox.warning(None, "Erro", "Nenhum documento FreeCAD aberto.")
+            return
+        
+        # Coleta objetos Switch, Lighting e Outlet (FeaturePython)
+        targets = []
+        for obj in doc.Objects:
+            if hasattr(obj, "Proxy") and hasattr(obj.Proxy, "Type"):
+                if obj.Proxy.Type in ("Switch", "Lighting", "Outlet"):
+                    targets.append(obj)
+        
+        # Coleta tomadas Sketch (criadas pelo Tugs / ComponentEletric)
+        sketch_tomadas = []
+        for obj in doc.Objects:
+            if hasattr(obj, "tipo") and getattr(obj, "tipo", "") == "tomada":
+                # Evita duplicatas se já foi coletado como FeaturePython
+                if obj not in targets:
+                    sketch_tomadas.append(obj)
+        
+        all_targets = targets + sketch_tomadas
+        
+        if not all_targets:
+            QtWidgets.QMessageBox.information(
+                None, "Aviso",
+                "Nenhum interruptor, ponto de iluminação ou tomada encontrado no documento.\n"
+                "Insira componentes primeiro usando os botões correspondentes."
+            )
+            return
+        
+        count = 0
+        
+        # --- Processa FeaturePython (Switch, Lighting, Outlet) ---
+        for obj in targets:
+            try:
+                cx = obj.CaixaLargura.Value if hasattr(obj.CaixaLargura, "Value") else float(obj.CaixaLargura)
+                cy = obj.CaixaProfundidade.Value if hasattr(obj.CaixaProfundidade, "Value") else float(obj.CaixaProfundidade)
+                cz = obj.CaixaAltura.Value if hasattr(obj.CaixaAltura, "Value") else float(obj.CaixaAltura)
+                alt = obj.Altura3D.Value if hasattr(obj.Altura3D, "Value") else float(obj.Altura3D)
+                
+                if cx <= 0 or cy <= 0 or cz <= 0:
+                    App.Console.PrintWarning(f"Dimensões inválidas para {obj.Label}, ignorando.\n")
+                    continue
+                
+                pos = obj.Placement.Base
+                x = pos.x - cx / 2.0
+                y = pos.y - cy / 2.0
+                z = alt - cz / 2.0
+                
+                obj3d_name = f"{obj.Name}_3D"
+                old = doc.getObject(obj3d_name)
+                if old:
+                    doc.removeObject(obj3d_name)
+                
+                box = Part.makeBox(cx, cy, cz, App.Vector(x, y, z))
+                feat = doc.addObject("Part::Feature", obj3d_name)
+                feat.Shape = box
+                
+                tipo = obj.Proxy.Type
+                if tipo == "Switch":
+                    feat.Label = f"Caixa Interruptor ({obj.Label})"
+                    feat.ViewObject.ShapeColor = (0.9, 0.85, 0.7)  # Bege
+                elif tipo == "Outlet":
+                    feat.Label = f"Caixa Tomada ({obj.Label})"
+                    feat.ViewObject.ShapeColor = (0.7, 0.85, 0.95)  # Azul claro
+                else:
+                    feat.Label = f"Caixa Iluminação ({obj.Label})"
+                    feat.ViewObject.ShapeColor = (1.0, 0.95, 0.6)  # Amarelo claro
+                
+                feat.ViewObject.Transparency = 30
+                count += 1
+                
+            except Exception as e:
+                App.Console.PrintError(f"Erro ao gerar 3D para {obj.Label}: {e}\n")
+        
+        # --- Processa tomadas Sketch (Tugs / ComponentEletric) ---
+        for obj in sketch_tomadas:
+            try:
+                # Lê dimensões da caixa (se disponíveis, senão usa padrão)
+                cx = float(getattr(obj, "CaixaLargura", 60.0))
+                cy = float(getattr(obj, "CaixaProfundidade", 40.0))
+                cz = float(getattr(obj, "CaixaAltura", 100.0))
+                alt = float(getattr(obj, "altura_piso", 30.0))
+                
+                if cx <= 0 or cy <= 0 or cz <= 0:
+                    App.Console.PrintWarning(f"Dimensões inválidas para {obj.Label}, ignorando.\n")
+                    continue
+                
+                pos = obj.Placement.Base
+                x = pos.x - cx / 2.0
+                y = pos.y - cy / 2.0
+                z = alt - cz / 2.0
+                
+                obj3d_name = f"{obj.Name}_3D"
+                old = doc.getObject(obj3d_name)
+                if old:
+                    doc.removeObject(obj3d_name)
+                
+                box = Part.makeBox(cx, cy, cz, App.Vector(x, y, z))
+                feat = doc.addObject("Part::Feature", obj3d_name)
+                feat.Shape = box
+                feat.Label = f"Caixa Tomada ({obj.Label})"
+                feat.ViewObject.ShapeColor = (0.7, 0.85, 0.95)  # Azul claro
+                feat.ViewObject.Transparency = 30
+                count += 1
+                
+            except Exception as e:
+                App.Console.PrintError(f"Erro ao gerar 3D para {obj.Label}: {e}\n")
+        
+        doc.recompute()
+        App.Console.PrintMessage(f"{count} caixa(s) 3D gerada(s) com sucesso.\n")
+    
+    def IsActive(self):
+        return True
+    
+    def GetResources(self):
+        return {
+            'Pixmap': os.path.join(WB.ICON_PATH, 'gerar3d_switch.svg'),
+            'MenuText': 'Gerar Caixas 3D (Interruptores/Tomadas/Iluminação)',
+            'ToolTip': 'Gera caixas 3D a partir das medidas dos interruptores, tomadas e pontos de iluminação'
+        }
+
+
+Gui.addCommand("Generate3DSwitches", Generate3DSwitches())

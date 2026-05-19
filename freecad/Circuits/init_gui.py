@@ -129,9 +129,13 @@ class CircuitsWorkbench(gui.Workbench):
         "InsertComponent",
         "InsertTugs",
         "InsertEquipaments",
+        "InsertSwitch",
+        "InsertLighting",
+        "InsertOutlet",
         "InsertWire",
         "InsertConduit",
         "Generate3DConduits",
+        "Generate3DSwitches",
         "InsertCableTray",
     ]
 
