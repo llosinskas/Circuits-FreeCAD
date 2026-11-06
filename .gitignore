@@ -1,5 +1,5 @@
- Byte-compiled / optimized / DLL files
-*/__pycache__/
+# Byte-compiled / optimized / DLL files
+__pycache__/
 *.py[cod]
 *$py.class
 
@@ -113,5 +113,6 @@ ENV/
 tmp.py
 # FreeCAD backup files.
 *.fcstd1
+*.FCBak
 .github/
 test_pdf.py

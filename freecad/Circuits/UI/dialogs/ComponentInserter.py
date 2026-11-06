@@ -11,14 +11,7 @@ from typing import Optional, Callable, Any
 import FreeCAD as App
 import FreeCADGui as Gui
 
-try:
-    from PySide2 import QtGui, QtCore, QtWidgets
-except ImportError:
-    try:
-        from PySide6 import QtGui, QtCore, QtWidgets
-    except ImportError:
-        from PySide import QtGui, QtCore
-        QtWidgets = QtGui
+from freecad.Circuits.qt import QtCore, QtGui, QtWidgets
 
 from .ComponentSelectorDialog import ComponentSelectorDialog
 

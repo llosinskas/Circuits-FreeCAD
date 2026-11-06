@@ -1,11 +1,11 @@
-from PySide import QtGui, QtCore
+from freecad.Circuits.qt import QtCore, QtWidgets
 
 
 global userCancelled, userOK
 userCancelled = "Cancelled"
 userOK = "OK"
 
-class InsertCircuit(QtGui.QDialog):
+class InsertCircuit(QtWidgets.QDialog):
         
     def __init__(self):
         super(InsertCircuit, self).__init__()
@@ -17,7 +17,7 @@ class InsertCircuit(QtGui.QDialog):
         self.labels_array =[]
         label_controle= ""
         for label in labels:
-            label_controle = QtGui.QLabel(label, self)
+            label_controle = QtWidgets.QLabel(label, self)
             self.labels_array.append(label_controle)
             label_controle.move(10,colum)
             colum+=30
@@ -55,17 +55,17 @@ class InsertCircuit(QtGui.QDialog):
         
 
         # Botão de visibilidade
-        pushButton1 = QtGui.QPushButton("Toggle visibility", self)
+        pushButton1 = QtWidgets.QPushButton("Toggle visibility", self)
         pushButton1.clicked.connect(self.onPushButton1)
         pushButton1.setMinimumWidth(150)
         pushButton1.move(210, 20)
 		
-        cancelButton = QtGui.QPushButton('Cancel', self)
+        cancelButton = QtWidgets.QPushButton('Cancel', self)
         cancelButton.clicked.connect(self.onCancel)
         cancelButton.setAutoDefault(True)
 		
         cancelButton.move(150, 110)
-        okButton = QtGui.QPushButton('OK', self)
+        okButton = QtWidgets.QPushButton('OK', self)
 		
         okButton.clicked.connect(self.onOk)
 		

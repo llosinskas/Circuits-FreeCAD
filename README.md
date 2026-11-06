@@ -54,8 +54,8 @@ Toolbar "Componentes" → Botão "Inserir Componente"
 ## 🚀 Começar Rapidinho
 
 ### Prérequisitos
-- FreeCAD 1.0.2+
-- Python 3.7+
+- FreeCAD 1.1+
+- Python 3.10+
 - PySide (incluído no FreeCAD)
 
 ### Instalação
@@ -78,80 +78,51 @@ Já está incluída! Apenas:
 
 ### Sistema de Componentes
 Para documentação completa sobre seleção e inserção de componentes:
-👉 [UI/dialogs/README.md](UI/dialogs/README.md)
+👉 [docs/componentes/README.md](docs/componentes/README.md)
 
 ### Arquitetura
-Para entender a arquitetura interna:
-👉 [UI/dialogs/ARCHITECTURE.md](UI/dialogs/ARCHITECTURE.md)
+Para entender a arquitetura:
+👉 [AGENTS.md](AGENTS.md)
 
 ### Quick Start
 Para começar em 5 minutos:
-👉 [UI/dialogs/QUICKSTART.md](UI/dialogs/QUICKSTART.md)
+👉 [docs/componentes/QUICKSTART.md](docs/componentes/QUICKSTART.md)
 
 ### Exemplos de Integração
 Para ver exemplos com cálculos:
-👉 [UI/dialogs/examples_cable_calculation.py](UI/dialogs/examples_cable_calculation.py)
+👉 [docs/componentes/examples_cable_calculation.py](docs/componentes/examples_cable_calculation.py)
 
 ---
 
 ## 🗂️ Estrutura do Projeto
 
 ```
-eletroAlpha/
-├── InitGui.py                 # Inicialização da bancada
-├── InsertComponent.py         # Comandos de inserção
-├── Tools.py                   # Ferramentas diversas
-├── NewProject.py              # Criar novo projeto
-├── EletricProject.py          # Gerenciar projeto
-├── Reports.py                 # Gerar relatórios
-├── GerarUnifilar.py          # Gerar diagrama unifilar
-├── importQEletrotech.py      # Importar QEletrotech
-├── ProjetoQuadro.py          # Projetos de quadro
-│
-├── UI/
-│   ├── dialogs/              # 🆕 Sistema de componentes
-│   │   ├── ComponentSelectorDialog.py
-│   │   ├── ComponentInserter.py
-│   │   ├── README.md
-│   │   ├── QUICKSTART.md
-│   │   ├── ARCHITECTURE.md
-│   │   └── examples_cable_calculation.py
-│   ├── Cards.py
-│   └── insert_circuit.py
-│
-├── core/
-│   ├── functions/
-│   │   ├── Cabo/             # Cálculos de cabo
-│   │   │   ├── Cabo.py
-│   │   │   ├── Correntes.py
-│   │   │   ├── queda_tensao.py
-│   │   │   └── ...
-│   │   ├── Barramento.py
-│   │   └── ...
-│   └── eletromecanico/
-│
-├── Tables/
-│   ├── NBR5410/              # Tabelas NBR 5410
-│   └── NBR14039/             # Tabelas NBR 14039
-│
-├── Componentes/
-│   └── Eletrica/             # Biblioteca de componentes
-│       ├── Tomada.FCStd
-│       ├── Lampada.FCStd
-│       └── ...
-│
-├── config/
+Circuits/
+├── AGENTS.md                  # Guia da arquitetura (para pessoas e IAs)
+├── package.xml                # Metadados do Addon Manager
+├── docs/                      # Guias e documentação do sistema de componentes
 ├── tests/
-├── docs/                      # Documentação
-└── Resources/
-    └── Icons/                 # Ícones da bancada
+│   ├── unit/                  # Rodam sem FreeCAD
+│   └── gui/                   # Regressão com o FreeCAD real
+└── freecad/Circuits/
+    ├── init_gui.py            # Registro da bancada, toolbars e menus
+    ├── qt.py                  # Importação única do Qt
+    ├── commands/              # Comandos do FreeCAD (botões)
+    ├── UI/                    # Diálogos
+    ├── services/              # Operações no documento
+    ├── objects/               # Objetos FeaturePython
+    ├── core/                  # Regras e tabelas puras, sem FreeCAD
+    ├── Componentes/           # Biblioteca de modelos .FCStd
+    └── Resources/             # Ícones, dados e arquivos .ui
 ```
+
+Ver [AGENTS.md](AGENTS.md) para as regras de cada camada.
 
 ---
 
 ## 📖 Menu da Bancada
 
-Ao ativar a bancada "Eletro Alpha", você terá acesso a:
+Ao ativar a bancada "Engenharia", você terá acesso a:
 
 ### Menu "Componentes"
 - ✅ Inserir Componente
@@ -184,7 +155,7 @@ Ao ativar a bancada "Eletro Alpha", você terá acesso a:
 ### Pasta de Componentes
 Os componentes estão em:
 ```
-Componentes/Eletrica/
+freecad/Circuits/Componentes/Eletrica/
 ├── Tomada.FCStd
 ├── Lampada.FCStd
 ├── Tomadas.FCStd
@@ -194,7 +165,7 @@ Componentes/Eletrica/
 **Para adicionar novo componente:**
 1. Crie arquivo 3D no FreeCAD: `File → Save As → component.FCStd`
 2. Adicione um thumbnail (salva automaticamente no formato correto)
-3. Coloque em `Componentes/Eletrica/`
+3. Coloque em `freecad/Circuits/Componentes/Eletrica/`
 4. Pronto! Aparecerá no seletor ao clicar no botão
 
 ---
@@ -212,7 +183,7 @@ Componentes/Eletrica/
 
 ### Exemplo 2: Integrar com Cálculo
 ```python
-from UI.dialogs import ComponentInserter
+from freecad.Circuits.UI.dialogs import ComponentInserter
 
 def meu_callback(filepath, objeto):
     print(f"Componente inserido: {objeto.Label}")
@@ -225,7 +196,7 @@ inserter = ComponentInserter(
 inserter.insert_component()
 ```
 
-Ver arquivo `UI/dialogs/examples_cable_calculation.py` para 3 exemplos completos!
+Ver arquivo `docs/componentes/examples_cable_calculation.py` para 3 exemplos completos!
 
 ---
 
@@ -256,7 +227,7 @@ Ver arquivo `UI/dialogs/examples_cable_calculation.py` para 3 exemplos completos
 ## 🐛 Troubleshooting
 
 ### "Sistema de Componentes não aparece"
-- Verifique pasta `Componentes/Eletrica/`
+- Verifique pasta `freecad/Circuits/Componentes/Eletrica/`
 - Arquivos devem ser `.FCStd` (não `.FCBak`)
 - Recrie a pasta se necessário
 
@@ -270,17 +241,7 @@ Ver arquivo `UI/dialogs/examples_cable_calculation.py` para 3 exemplos completos
 
 ### "Bancada não aparece"
 - Reinicie FreeCAD
-- Verifique pasta `Mod/eletroAlpha/`
-
-### "Ícones muito escuros em tema dark"
-- Os ícones são aprimorados automaticamente ao ativar a bancada
-- Se não funcionar, execute manualmente:
-  ```bash
-  cd c:\Users\lucas\AppData\Roaming\FreeCAD\v1-1\Mod\eletroAlpha
-  python utils/icon_manager.py
-  ```
-- Reinicie a bancada para aplicar as mudanças
-- Ver: [utils/ICON_MANAGER.md](utils/ICON_MANAGER.md) para mais detalhes
+- Verifique se o repositório está em `%APPDATA%\FreeCAD\v1-1\Mod\Circuits`
 
 ---
 
@@ -311,7 +272,7 @@ A bancada foi estruturada para ser fácil de estender:
 
 **Integrar com cálculos:**
 ```python
-from UI.dialogs import ComponentInserter
+from freecad.Circuits.UI.dialogs import ComponentInserter
 
 inserter = ComponentInserter(
     "sua/pasta/componentes",
@@ -319,14 +280,14 @@ inserter = ComponentInserter(
 )
 ```
 
-Ver `UI/dialogs/README.md` para API completa!
+Ver `docs/componentes/README.md` para API completa!
 
 ---
 
 ## 📞 Suporte
 
-- Versão do FreeCAD: 0.19+
-- Python: 3.7+
+- Versão do FreeCAD: 1.1+
+- Python: 3.10+
 - Sistema: Windows, Linux, macOS
 - Licença: (Defina sua licença)
 
@@ -334,12 +295,10 @@ Ver `UI/dialogs/README.md` para API completa!
 
 ## 🎓 Aprender Mais
 
-- [Documentação técnica de Componentes](UI/dialogs/README.md)
-- [Arquitetura interna](UI/dialogs/ARCHITECTURE.md)
-- [Quick Start em 5 minutos](UI/dialogs/QUICKSTART.md)
-- [Exemplos com cálculos](UI/dialogs/examples_cable_calculation.py)
-- [Gerenciador de Ícones (Tema Dark)](utils/ICON_MANAGER.md)
-- [Resumo de Atualização Dark Theme](DARK_THEME_UPDATE.md)
+- [Arquitetura da bancada](AGENTS.md)
+- [Documentação técnica de Componentes](docs/componentes/README.md)
+- [Quick Start em 5 minutos](docs/componentes/QUICKSTART.md)
+- [Exemplos com cálculos](docs/componentes/examples_cable_calculation.py)
 
 ---
 

@@ -67,7 +67,7 @@ class MockFreeCADGui:
 #===========================================================
 
 @pytest.fixture
-def mock_freecad(monkeypath):
+def mock_freecad():
     """Injeta mocks de FreeCAD em todos os testes"""
     sys.modules["FreeCAD"]      = MagicMock()
     sys.modules["FreeCADGui"]   = MagicMock()

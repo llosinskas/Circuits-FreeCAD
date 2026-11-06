@@ -1,7 +1,10 @@
-import os 
+"""Comando para iniciar o projeto de um quadro elétrico."""
 import FreeCAD as App
 import FreeCADGui as Gui
-import freecad.Circuits as WB
+
+from freecad.Circuits.commands._base import recursos
+from freecad.Circuits.services.documento import GRUPOS_QUADRO, criar_grupos
+
 
 class NewQuadro:
     def Activated(self):
@@ -9,18 +12,10 @@ class NewQuadro:
         if doc is None:
             App.Console.PrintError("No active document found.\n")
             return
-        folder = doc.addObject("App::DocumentObjectGroup", "Dados")
-        folder = doc.addObject("App::DocumentObjectGroup", "Estrutura funcional")
-        folder = doc.addObject("App::DocumentObjectGroup", "Estrutura física")
-        folder = doc.addObject("App::DocumentObjectGroup", "Documentacao")
-        folder = doc.addObject("App::DocumentObjectGroup", "Dispositivos")
-        folder = doc.addObject("App::DocumentObjectGroup", "Conexoes")
-        folder = doc.addObject("App::DocumentObjectGroup", "Listagem")
-
-        doc.recompute()
+        criar_grupos(doc, GRUPOS_QUADRO)
 
     def GetResources(self):
-        return {'Pixmap': os.path.join(WB.ICON_PATH, 'newProject.svg'), 'MenuText': "Criar Quadro", 'ToolTip':"Criar um novo quadro elétrico"}
-    
-        
+        return recursos("newProject.svg", "Criar Quadro", "Criar um novo quadro elétrico")
+
+
 Gui.addCommand("NewQuadro", NewQuadro())

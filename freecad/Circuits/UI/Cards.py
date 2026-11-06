@@ -2,10 +2,7 @@ import os
 import FreeCAD as App
 import FreeCADGui as Gui
 import zipfile
-try:
-    from PySide2 import QtWidgets, QtCore, QtGui
-except ImportError:
-    from PySide6 import QtWidgets, QtCore, QtGui
+from freecad.Circuits.qt import QtCore, QtGui, QtWidgets
 
 class PartCard(QtWidgets.QWidget):
     def __init__(self, name, path, parent=None):

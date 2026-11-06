@@ -1,85 +1,52 @@
+"""Comandos utilitários e de desenvolvimento da bancada."""
+import importlib
+import sys
 
 import FreeCAD as App
 import FreeCADGui as Gui
-import os
-import sys 
-import importlib
 
-# Caminho correto para os ícones (dois níveis acima de commands/)
-ICON_PATH = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "Resources", "Icons")
+from freecad.Circuits.commands._base import recursos
+
+_PACOTE = "freecad.Circuits"
+_CHAVE_BANCADA = "CircuitsWorkbench"
 
 
-class GetSpaces():
+class GetSpaces:
     def Activated(self):
         doc = App.ActiveDocument
         if doc is None:
             App.Console.PrintError("No active document found.\n")
-            return 
-        spaces = []
+            return
         for obj in doc.Objects:
-            spaces.append(obj)
             App.Console.PrintMessage(f"  → {obj.Label}\n")
 
     def GetResources(self):
-        return {
-            'Pixmap': os.path.join(ICON_PATH, 'newProject.svg'),
-            'MenuText': "Pegar Espaços",
-            'ToolTip': "Pegar todos os espaços do projeto",
-        }
+        return recursos("newProject.svg", "Pegar Espaços", "Pegar todos os espaços do projeto")
 
-    
-class ReiniciarBancada():
+
+class ReiniciarBancada:
+    """Recarrega todo o código da bancada sem fechar o FreeCAD."""
+
     def Activated(self):
         try:
-            import WorkbenchBase
-            workbench_name = WorkbenchBase.__title__
-            
-            # Lista de módulos para remover e recarregar
-            modules_to_reload = [
-                'freecad.Circuits.commands.new_project',
-                'freecad.Circuits.commands.projeto_eletrico',
-                'freecad.Circuits.commands.insert_component',
-                'freecad.Circuits.commands.tools',
-                'freecad.Circuits.commands.gerar_unifilar',
-                'freecad.Circuits.commands.reports',
-                'freecad.Circuits.commands.import_QEletrotech',
-                'freecad.Circuits.commands.manager_workbench',
-                'freecad.Circuits.commands.eletro_libs',
-                'freecad.Circuits.commands.calculo_cabo',
-                'freecad.Circuits.init_gui',
-                'freecad.Circuits.UI.dialogs',
-                'freecad.Circuits.UI.ListaPeca',
-            ]
-            
-            # Remove módulos do sys.modules
-            for module_name in list(sys.modules.keys()):
-                if any(module_name == mod or module_name.startswith(mod + '.') for mod in modules_to_reload):
-                    del sys.modules[module_name]
-            
-            # Recarrega WorkbenchBase
-            importlib.reload(WorkbenchBase)
-            
-            # Remove InitGui para forçar reimportação limpa
-            if 'InitGui' in sys.modules:
-                del sys.modules['InitGui']
-            
-            import InitGui
-            
-            # Ativa a bancada novamente
-            Gui.activateWorkbench(workbench_name)
+            for nome in [m for m in sys.modules if m == _PACOTE or m.startswith(_PACOTE + ".")]:
+                del sys.modules[nome]
+
+            Gui.removeWorkbench(_CHAVE_BANCADA)
+            importlib.import_module(_PACOTE + ".init_gui")
+            Gui.activateWorkbench(_CHAVE_BANCADA)
             Gui.updateGui()
-            
             App.Console.PrintMessage("✓ Bancada recarregada com sucesso!\n")
-            
         except Exception as e:
             App.Console.PrintError(f"Erro ao recarregar bancada: {str(e)}\n")
 
     def GetResources(self):
-        return {
-            'Pixmap': os.path.join(ICON_PATH, 'recompute.svg'), 
-            'MenuText': "Reiniciar Bancada", 
-            'ToolTip': "Recarregar todos os módulos da bancada sem fechar o FreeCAD",
-        }
-    
+        return recursos(
+            "recompute.svg",
+            "Reiniciar Bancada",
+            "Recarregar todos os módulos da bancada sem fechar o FreeCAD",
+        )
+
+
 Gui.addCommand("GetSpaces", GetSpaces())
-Gui.addCommand("ReiniciarBancada", ReiniciarBancada())
+Gui.addCommand("ReiniciarBancada", ReiniciarBancada())

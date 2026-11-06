@@ -8,17 +8,7 @@ import zipfile
 from pathlib import Path
 from typing import Optional
 
-try:
-    from PySide2 import QtGui, QtCore, QtWidgets
-    from PySide2.QtCore import Qt, Signal, Slot
-except ImportError:
-    try:
-        from PySide6 import QtGui, QtCore, QtWidgets
-        from PySide6.QtCore import Qt, Signal, Slot
-    except ImportError:
-        from PySide import QtGui, QtCore
-        QtWidgets = QtGui
-        from PySide.QtCore import Qt, Signal, Slot
+from freecad.Circuits.qt import QtCore, QtGui, QtWidgets, Qt, Signal, Slot
 
 import FreeCAD as App
 import FreeCADGui as Gui

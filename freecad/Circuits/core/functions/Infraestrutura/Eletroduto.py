@@ -5,4 +5,4 @@ DISTANCIA_MAX_FIXACAO_METALICO = pd.DataFrame({
     "distancia_maxima":[3, 3, 3.7, 4.3, 4.3, 4.8,4.8, 6]
     })
 
-DISTANCIA_MAX_FIXACAO_ISOLANTE = pd.DataFrame({
+# TODO: tabela DISTANCIA_MAX_FIXACAO_ISOLANTE ainda não preenchida.

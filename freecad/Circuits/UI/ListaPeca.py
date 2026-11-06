@@ -2,15 +2,9 @@ import os
 import FreeCAD as App
 import FreeCADGui as Gui
 import zipfile
-try:
-    from PySide2 import QtWidgets, QtCore, QtGui
-except ImportError:
-    from PySide6 import QtWidgets, QtCore, QtGui
+from freecad.Circuits.qt import QtCore, QtGui, QtWidgets
 from .Cards import PartCard
-import WorkbenchBase
-
-
-LIBRARY_PATH = WorkbenchBase.LIBRARY_PATH
+from freecad.Circuits import LIBRARY_PATH
 
 class PartsBrowserDialog(QtWidgets.QDialog):
     def __init__(self, title, parent=None):

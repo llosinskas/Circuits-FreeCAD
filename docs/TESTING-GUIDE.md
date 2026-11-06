@@ -1,3 +1,5 @@
+> **Nota:** guia escrito antes da reorganização; caminhos e imports podem estar desatualizados. A estrutura atual está em [AGENTS.md](../AGENTS.md).
+
 # 🧪 Guia Completo de Testes Unitários - eletroAlpha
 
 ## Índice
