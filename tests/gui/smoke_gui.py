@@ -175,6 +175,26 @@ def scenario(doc):
 
     avisos = []
     QtWidgets.QMessageBox.information = staticmethod(lambda *a, **k: avisos.append(a[2]))
+    dialogo = locate("freecad.Circuits.UI.dialogs.circuito_dialog:DefinirCircuitoDialog")
+    dialogo.exec_ = lambda self: 1
+    dialogo.get_dados = lambda self: {"circuito": "2", "quadro": None}
+    luzes = [o for o in doc.Objects if getattr(o, "Simbolo", "") in ("luz_teto", "arandela")]
+    interruptores = [o for o in doc.Objects if getattr(getattr(o, "Proxy", None), "Type", "") == "Switch"]
+    Gui.Selection.clearSelection()
+    for obj in luzes:
+        Gui.Selection.addSelection(obj)
+    run("DefinirCircuito")
+    Gui.Selection.addSelection(interruptores[0])
+    run("LigarInterruptor")
+    Gui.Selection.clearSelection()
+    run("IdentificarPontos")
+    run("IdentificarPontos")  # segunda execução: precisa substituir, não duplicar
+    result["steps"]["identificacao"] = {
+        "circuitos": [o.Circuito for o in luzes + interruptores[:1]],
+        "comandos": [o.Comando for o in luzes + interruptores[:1]],
+        "grupos": [o["name"] for o in snapshot(doc) if o["name"].startswith("Identificacao")],
+    }
+
     run("LegendaSimbolos")
     run("LegendaSimbolos")  # segunda execução: precisa substituir, não duplicar
     result["steps"]["legenda"] = [o["name"] for o in snapshot(doc) if o["name"].startswith("Legenda")]

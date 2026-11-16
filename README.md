@@ -48,7 +48,7 @@ Depois use **Elétrica > Outros > Reiniciar Bancada** ou reabra o FreeCAD. Mante
 
 1. **Novo projeto** (botão *Projeto*): cria os grupos do documento.
 2. **Insira os pontos** pelos botões *Tomadas*, *Energia*, *Iluminação* e *Interruptores*. Depois do clique, o próximo ponto do mesmo tipo já vem no cursor. Veja as teclas em [Inserir e alinhar símbolos](#inserir-e-alinhar-símbolos).
-3. **Defina o circuito** de cada ponto na propriedade `Circuito`. Pontos de uso específico, como o chuveiro, precisam de circuito exclusivo.
+3. **Defina os circuitos** (botão *Circuitos*): selecione os pontos de um circuito e use **Definir circuito**. Pontos de uso específico, como o chuveiro, precisam de circuito exclusivo. Veja [Circuitos e interruptores](#circuitos-e-interruptores).
 4. **Novo quadro** (barra *Quadros e documentos*): informe tensão, fases, disjuntor geral e DPS.
 5. **Montar circuitos:** grava no quadro uma linha por circuito, com potência, corrente, cabo, disjuntor e fases. Use **Circuito** para acrescentar ou corrigir uma linha à mão.
 6. **Unifilar:** gera o diagrama de cada quadro.
@@ -75,13 +75,21 @@ O alinhamento automático puxa o símbolo para a mesma vertical ou horizontal de
 
 Para símbolos já colocados, selecione-os com Ctrl + clique e use **Alinhar** (coloca em linha com o primeiro selecionado) ou **Distribuir** (iguala o espaço entre eles), no fim da barra *Modificador* ou em **Elétrica > Alinhar símbolos**.
 
+## Circuitos e interruptores
+
+O botão **Circuitos** da barra *Planta elétrica* reúne três comandos:
+
+- **Definir circuito:** selecione os pontos (Ctrl + clique) e escolha o número do circuito, existente ou novo, e opcionalmente o quadro. O comando já sugere o próximo número livre.
+- **Ligar interruptor:** selecione um interruptor e os pontos de luz (ou ventilador) que ele comanda. Todos recebem a mesma letra de comando (a, b, c...) e o interruptor recebe o circuito da luz. Para interruptores paralelos, selecione os dois junto com as luzes.
+- **Identificar pontos:** escreve ao lado de cada símbolo o circuito, a letra do comando e a potência, por exemplo `C1 · a · 100 VA`. Depois de criada, a identificação se atualiza quando você usa os dois comandos acima. Se mudar uma propriedade à mão, clique em *Identificar pontos* de novo.
+
 ## Barras de ferramentas
 
 As barras da bancada têm poucos botões. Os que têm uma seta (▾) abrem uma lista: o botão mostra o último item usado, e a seta mostra os outros.
 
 | Barra | Botões |
 |---|---|
-| Planta elétrica | Projeto ▾, Tomadas ▾, Energia ▾, Iluminação ▾, Interruptores ▾, Eletrodutos ▾ |
+| Planta elétrica | Projeto ▾, Tomadas ▾, Energia ▾, Iluminação ▾, Interruptores ▾, Circuitos ▾, Eletrodutos ▾ |
 | Quadros e documentos | Novo quadro, Montar circuitos, Circuito, Unifilar, Cálculos ▾, Documentos ▾ |
 | Modelo e biblioteca | Modelo 3D ▾, Biblioteca ▾ |
 
@@ -92,6 +100,7 @@ As barras da bancada têm poucos botões. Os que têm uma seta (▾) abrem uma l
 | Energia | Chuveiro, Ar-condicionado, Ventilador, Ponto de força |
 | Iluminação | Luz de teto, Arandela, Luminária tubular, Luz embutida, Luz de emergência |
 | Interruptores | Simples, paralelo, intermediário |
+| Circuitos | Definir circuito, Ligar interruptor, Identificar pontos |
 | Eletrodutos | Eletroduto, Dividir trecho, Fiação |
 | Cálculos | Demanda, Pressurização, Bomba de recalque |
 | Documentos | Legenda, Relatório PDF |

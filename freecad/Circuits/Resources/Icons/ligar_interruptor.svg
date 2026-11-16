@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64">
+  <!-- Ligar interruptor: interruptor conectado ao ponto de luz -->
+  <path d="M23 46A9 9 0 1 1 5 46A9 9 0 1 1 23 46 M23 46H30 M57 18A11 11 0 1 1 35 18A11 11 0 1 1 57 18 M35 18H57M46 7V29 M20 38Q24 22 35 20" fill="none" stroke-linecap="round" stroke-linejoin="round" stroke="#ffffff" stroke-width="7" stroke-opacity="0.85"/>
+  <path d="M23 46A9 9 0 1 1 5 46A9 9 0 1 1 23 46 M23 46H30 M57 18A11 11 0 1 1 35 18A11 11 0 1 1 57 18 M35 18H57M46 7V29" fill="none" stroke-linecap="round" stroke-linejoin="round" stroke="#5f6368" stroke-width="3"/>
+  <path d="M20 38Q24 22 35 20" fill="none" stroke-linecap="round" stroke-linejoin="round" stroke="#1a73e8" stroke-width="3"/>
+</svg>

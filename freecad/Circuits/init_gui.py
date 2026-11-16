@@ -81,6 +81,7 @@ OUTLET_TOOLS = ["Ponto_tomada_baixa", "Ponto_tomada_media", "Ponto_tomada_alta",
 POWER_TOOLS = ["Ponto_chuveiro", "Ponto_ar_condicionado", "Ponto_ventilador", "Ponto_ponto_forca"]
 LIGHTING_TOOLS = ["Ponto_luz_teto", "Ponto_arandela", "Ponto_fluorescente", "Ponto_embutida", "Ponto_emergencia"]
 SWITCH_TOOLS = ["InsertSwitch", "InsertSwitchParalelo", "InsertSwitchIntermediario"]
+CIRCUIT_TOOLS = ["DefinirCircuito", "LigarInterruptor", "IdentificarPontos"]
 INFRA_TOOLS = ["InsertConduit", "Add_Node", "Cabo"]
 BOARD_TOOLS = ["GerarPlanilha", "MontarCircuitos", "AddCircuito", "GerarUnifilar"]
 CALC_TOOLS = ["CalcDemanda", "CalcPressurizacao", "CalcRecalque"]
@@ -109,6 +110,7 @@ GROUPS = {
     "Grupo_Energia": ("Energia", "Chuveiro, ar-condicionado, ventilador e ponto de força", POWER_TOOLS),
     "Grupo_Iluminacao": ("Iluminação", "Luz de teto, arandela, luminária tubular, embutida e de emergência", LIGHTING_TOOLS),
     "Grupo_Interruptores": ("Interruptores", "Interruptor simples, paralelo e intermediário", SWITCH_TOOLS),
+    "Grupo_Circuitos": ("Circuitos", "Definir o circuito dos pontos, ligar interruptores e identificar na planta", CIRCUIT_TOOLS),
     "Grupo_Infra": ("Eletrodutos", "Caminho de eletroduto, divisão de trecho e fiação", INFRA_TOOLS),
     "Grupo_Calculos": ("Cálculos", "Demanda do quadro, pressurização de escada e bomba de recalque", CALC_TOOLS),
     "Grupo_Documentos": ("Documentos", "Legenda de símbolos e relatório em PDF", DOCUMENT_TOOLS),
@@ -120,7 +122,15 @@ _tr = QtCore.QT_TRANSLATE_NOOP
 ELECTRIC_TOOLBARS = [
     (
         _tr("Workbench", "Planta elétrica"),
-        ["Grupo_Projeto", "Grupo_Tomadas", "Grupo_Energia", "Grupo_Iluminacao", "Grupo_Interruptores", "Grupo_Infra"],
+        [
+            "Grupo_Projeto",
+            "Grupo_Tomadas",
+            "Grupo_Energia",
+            "Grupo_Iluminacao",
+            "Grupo_Interruptores",
+            "Grupo_Circuitos",
+            "Grupo_Infra",
+        ],
     ),
     (
         _tr("Workbench", "Quadros e documentos"),
@@ -142,6 +152,7 @@ MENUS = [
     ([MENU, "Pontos de energia"], POWER_TOOLS),
     ([MENU, "Iluminação"], LIGHTING_TOOLS),
     ([MENU, "Interruptores"], SWITCH_TOOLS),
+    ([MENU, "Circuitos e comandos"], CIRCUIT_TOOLS),
     ([MENU, "Alinhar símbolos"], ALIGN_TOOLS),
     ([MENU, "Eletrodutos e fiação"], INFRA_TOOLS),
     ([MENU, "Quadros e diagramas"], BOARD_TOOLS),
@@ -199,6 +210,7 @@ class CircuitsWorkbench(gui.Workbench):
         # Cada módulo registra os próprios comandos ao ser importado.
         from .commands import (  # noqa: F401
             alinhar,
+            identificacao,
             calculos,
             generate_3d,
             gerar_unifilar,

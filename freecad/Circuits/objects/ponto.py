@@ -86,7 +86,7 @@ class PontoEletrico:
         if nova("App::PropertyString", "Quadro", "Elétrica", "Quadro que alimenta o ponto (vazio: qualquer quadro)"):
             obj.Quadro = ""
         if nova("App::PropertyString", "Comando", "Elétrica", "Letra do interruptor que comanda o ponto (iluminação)"):
-            obj.Comando = "a" if dados["categoria"] == simbolos.ILUMINACAO else ""
+            obj.Comando = ""  # preenchido pelo comando Ligar interruptor
 
         # --- Símbolo 2D ---
         if nova("App::PropertyDistance", "Tamanho", "Símbolo 2D", "Tamanho do símbolo na planta"):

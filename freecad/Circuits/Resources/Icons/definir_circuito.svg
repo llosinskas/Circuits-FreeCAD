@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64">
+  <!-- Definir circuito: pontos reunidos sob o mesmo número -->
+  <path d="M18 14A6 6 0 1 1 6 14A6 6 0 1 1 18 14 M18 32A6 6 0 1 1 6 32A6 6 0 1 1 18 32 M18 50A6 6 0 1 1 6 50A6 6 0 1 1 18 50 M18 14H30V50H18M18 32H38 M60 32A11 11 0 1 1 38 32A11 11 0 1 1 60 32 M46 28L50 25V39" fill="none" stroke-linecap="round" stroke-linejoin="round" stroke="#ffffff" stroke-width="7" stroke-opacity="0.85"/>
+  <path d="M18 14A6 6 0 1 1 6 14A6 6 0 1 1 18 14 M18 32A6 6 0 1 1 6 32A6 6 0 1 1 18 32 M18 50A6 6 0 1 1 6 50A6 6 0 1 1 18 50" fill="none" stroke-linecap="round" stroke-linejoin="round" stroke="#5f6368" stroke-width="3"/>
+  <path d="M18 14H30V50H18M18 32H38 M60 32A11 11 0 1 1 38 32A11 11 0 1 1 60 32 M46 28L50 25V39" fill="none" stroke-linecap="round" stroke-linejoin="round" stroke="#1a73e8" stroke-width="3"/>
+</svg>

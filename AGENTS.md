@@ -38,6 +38,7 @@ Circuits/                        pasta dentro de Mod/, raiz do repositório
     │   ├── tables/              tabelas NBR 5410, NBR 14039 e eletrodutos
     │   ├── simbolos.py          catálogo e geometria dos pontos elétricos
     │   ├── alinhamento.py       travas, alinhamento automático, alinhar e distribuir símbolos
+    │   ├── identificacao.py     letra de comando, próximo circuito e texto de anotação
     │   ├── circuitos.py         circuitos a partir dos pontos: soma, cabo, disjuntor, fases
     │   ├── planilha.py          layout das planilhas de quadro e circuitos
     │   ├── qet.py               leitura de condutores do QElectroTech
@@ -88,6 +89,7 @@ Regras gerais:
 | `InsertSwitch`, `InsertSwitchParalelo`, `InsertSwitchIntermediario`, `InsertLighting`, `InsertOutlet` | `insert_component` | `objects/switch`, `lighting`, `outlet` |
 | `Ponto_<símbolo>` (um por entrada de `core.simbolos.CATALOGO`) | `pontos` | `objects/ponto`; `core/simbolos` |
 | `LegendaSimbolos` | `pontos` | `services/legenda` |
+| `DefinirCircuito`, `LigarInterruptor`, `IdentificarPontos` | `identificacao` | `services/identificacao`; `core/identificacao`; `UI/dialogs/circuito_dialog` |
 | `AlinharPontos`, `DistribuirPontos` | `alinhar` | `services/alinhamento`; `core/alinhamento` |
 | `InsertConduit` | `insert_component` | `Draft_Wire` nativo |
 | `InsertWire`, `InsertCableTray` | `insert_component` | ainda não implementados: só exibem um aviso |
@@ -105,7 +107,7 @@ As barras ficam em `init_gui.py`. As três barras próprias são enxutas: os com
 
 | Barra | Botões (▾ = grupo) |
 |---|---|
-| Planta elétrica | Projeto ▾, Tomadas ▾, Energia ▾, Iluminação ▾, Interruptores ▾, Eletrodutos ▾ |
+| Planta elétrica | Projeto ▾, Tomadas ▾, Energia ▾, Iluminação ▾, Interruptores ▾, Circuitos ▾, Eletrodutos ▾ |
 | Quadros e documentos | `GerarPlanilha`, `MontarCircuitos`, `AddCircuito`, `GerarUnifilar` (nesta ordem de uso), Cálculos ▾, Documentos ▾ |
 | Modelo e biblioteca | Modelo 3D ▾, Biblioteca ▾ |
 | Desenho, Modificador, Snap, Arquitetura | só os comandos nativos de uso frequente em planta; *Modificador* termina com `AlinharPontos` e `DistribuirPontos` |
@@ -117,6 +119,7 @@ As barras ficam em `init_gui.py`. As três barras próprias são enxutas: os com
 | `Grupo_Energia` | `Ponto_chuveiro`, `_ar_condicionado`, `_ventilador`, `_ponto_forca` |
 | `Grupo_Iluminacao` | `Ponto_luz_teto`, `_arandela`, `_fluorescente`, `_embutida`, `_emergencia` |
 | `Grupo_Interruptores` | `InsertSwitch`, `InsertSwitchParalelo`, `InsertSwitchIntermediario` |
+| `Grupo_Circuitos` | `DefinirCircuito`, `LigarInterruptor`, `IdentificarPontos` |
 | `Grupo_Infra` | `InsertConduit`, `Add_Node`, `Cabo` |
 | `Grupo_Calculos` | `CalcDemanda`, `CalcPressurizacao`, `CalcRecalque` |
 | `Grupo_Documentos` | `LegendaSimbolos`, `GenerateReport` |
@@ -126,7 +129,7 @@ As barras ficam em `init_gui.py`. As três barras próprias são enxutas: os com
 - **Menus:** todo comando da bancada está no menu **Elétrica**, e todo comando nativo, inclusive os que saíram das barras, no menu **Desenho 2D**.
 - Só no menu **Elétrica > Outros**: `InsertOutlet` e `InsertLighting` (substituídos pelos pontos novos), `ComponentEletric`, `InsertWire`, `InsertCableTray`, `AddSpreadsheet`, `NewQuadro`, `GetSpaces`, `ReiniciarBancada`.
 - **Legenda:** o `MenuText` de cada comando aparece embaixo do ícone nas barras próprias. Mantenha-o curto (até 24 caracteres) e único; a explicação vai no `ToolTip`. A preferência booleana `LegendaBotoes` em `BaseApp/Preferences/Mod/Circuits` desliga as legendas.
-- `tests/unit/test_toolbars.py` falha se um comando ficar fora do menu, se uma barra ou grupo citar um comando que não existe, se uma barra própria passar de 6 botões, se faltar um ícone ou se a legenda for longa ou repetida.
+- `tests/unit/test_toolbars.py` falha se um comando ficar fora do menu, se uma barra ou grupo citar um comando que não existe, se uma barra própria passar de 7 botões, se faltar um ícone ou se a legenda for longa ou repetida.
 
 ## Inserção de símbolos na planta
 
@@ -151,6 +154,8 @@ Os comandos se encontram pelos objetos do documento, não por estado em Python:
 - **Tomada em Sketch:** propriedade `tipo == "tomada"`, além de `Fase`, `neutro`, `terra` e `altura_piso`.
 - **Objetos FeaturePython:** `obj.Proxy.Type` vale `Ponto`, `Switch`, `Lighting`, `Outlet` ou `ConduitPath`.
 - **Ponto elétrico (`Ponto`):** a propriedade `Simbolo` é a chave de `core.simbolos.CATALOGO`. `Potencia` em VA, `FatorPotencia`, `Tensao`, `Ligacao` (`F+N`, `F+F`, `3F`), `Circuito` e `Quadro` (vazio vale para qualquer quadro). `MontarCircuitos` também lê `Outlet`, `Lighting` e as tomadas em Sketch.
+- **Circuito e comando:** `DefinirCircuito` grava `Circuito` (e `Quadro`) nos pontos selecionados. `LigarInterruptor` grava a mesma letra em `Comando` no interruptor e nos pontos de luz selecionados, e copia para o interruptor o circuito da primeira luz. A ligação é só essa letra em comum; não há link entre os objetos.
+- **Identificação:** grupo `Identificacao_pontos`, com um texto por símbolo (`C1 · a · 100 VA`). É recriado por `IdentificarPontos` e, se já existir, atualizado sozinho quando o circuito ou o comando mudam por esses comandos. Editar a propriedade à mão não atualiza o texto.
 - **Circuitos montados:** `MontarCircuitos` soma os pontos por `Circuito`, dimensiona e grava uma linha por circuito no quadro. Uma linha com o mesmo número é atualizada no lugar; as outras ficam como estão.
 - **Quadro:** planilha `Spreadsheet::Sheet` com a propriedade `quadro`. A linha 3 tem os dados, com aliases iguais a `core.planilha.CABECALHO_QUADRO`, que são lidos pelo unifilar. Os circuitos ficam da linha 6 em diante, conforme `COLUNAS_CIRCUITO`.
 - **Demanda:** `CalcDemanda` grava `potencia_instalada` e `potencia_demanda` (kW) na linha 3 do quadro, e o unifilar as mostra.
@@ -225,7 +230,7 @@ Todos foram confirmados no código ou em execução e já existiam antes da reor
 - `core/circuitos.py`, `dimensionar`: o disjuntor de motores é escolhido só pela corrente nominal, sem considerar a partida.
 - `services/circuitos.py`, `_de_tomada_sketch`: lê potência e tensão das tomadas em Sketch pelo número bruto, porque elas são gravadas sem unidade. Falta confirmar no FreeCAD e migrar para grandezas com unidade.
 - `services/pdf_generator.py`, `_get_calculos_table`: lê a linha 2 (cabeçalhos) em vez da linha 3 e percorre todas as planilhas, não só os quadros.
-- Os botões de grupo (lista suspensa), as teclas da inserção (Espaço, R, L), os comandos Alinhar e Distribuir, os pontos novos, a legenda, `MontarCircuitos`, os cálculos prediais e as mudanças do unifilar têm teste unitário da lógica, mas ainda não foram executados no FreeCAD real: rode o `smoke_gui.py` e atualize este item.
+- Os botões de grupo (lista suspensa), as teclas da inserção (Espaço, R, L), os comandos Alinhar, Distribuir, Definir circuito, Ligar interruptor e Identificar pontos, os pontos novos, a legenda, `MontarCircuitos`, os cálculos prediais e as mudanças do unifilar têm teste unitário da lógica, mas ainda não foram executados no FreeCAD real: rode o `smoke_gui.py` e atualize este item.
 
 **Cálculos e tabelas, ainda sem uso na interface**
 - `core/functions/Barramento.py`: `Sec_tubular` gera `TypeError` (falta `*` em `math.pi(...)`) e não tem `return`. `Corrente_carga_maxima` usa `Qc*Qr-Qs`; conferir com a fonte, pois o balanço térmico sugere soma.
