@@ -1,10 +1,11 @@
 """Barras e botões: todo comando tem botão ou menu, legenda curta e ícone existente."""
+import pathlib
 import re
 import unittest
 
 from tests import ROOT
 
-PACOTE = ROOT / "freecad" / "Circuits"
+PACOTE = pathlib.Path(ROOT) / "freecad" / "Circuits"
 COMANDOS = sorted((PACOTE / "commands").glob("*.py"))
 INIT_GUI = (PACOTE / "init_gui.py").read_text(encoding="utf-8")
 RECURSOS = re.compile(r'recursos\(\s*"([^"]+)",\s*"([^"]+)",\s*"([^"]+)",?\s*\)')
