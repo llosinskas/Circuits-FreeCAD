@@ -100,8 +100,42 @@ class InsertSwitch(_CriarEPosicionar):
     def GetResources(self):
         return recursos(
             "interruptor.svg",
-            "Interruptor",
-            "Insere o símbolo de interruptor (simples, paralelo ou intermediário) e posiciona com o mouse",
+            "Interruptor simples",
+            "Insere um interruptor simples (uma tecla, um ponto de comando) e posiciona com o mouse",
+        )
+
+
+def _criar_interruptor(tipo):
+    def criar():
+        obj = create_switch()
+        if obj:
+            obj.Tipo = tipo
+            App.activeDocument().recompute()
+        return obj
+    return criar
+
+
+class InsertSwitchParalelo(_CriarEPosicionar):
+    criar = staticmethod(_criar_interruptor("Paralelo"))
+    mensagem = "Interruptor paralelo criado."
+
+    def GetResources(self):
+        return recursos(
+            "interruptor_paralelo.svg",
+            "Interruptor paralelo",
+            "Insere um interruptor paralelo (three-way), para comandar a luz de dois lugares",
+        )
+
+
+class InsertSwitchIntermediario(_CriarEPosicionar):
+    criar = staticmethod(_criar_interruptor("Intermediário"))
+    mensagem = "Interruptor intermediário criado."
+
+    def GetResources(self):
+        return recursos(
+            "interruptor_intermediario.svg",
+            "Interruptor intermed.",
+            "Insere um interruptor intermediário (four-way), para comandar a luz de três ou mais lugares",
         )
 
 
@@ -112,7 +146,7 @@ class InsertLighting(_CriarEPosicionar):
     def GetResources(self):
         return recursos(
             "iluminacao.svg",
-            "Iluminação",
+            "Iluminação antiga",
             "Insere o símbolo de ponto de iluminação e posiciona com o mouse",
         )
 
@@ -124,7 +158,7 @@ class InsertOutlet(_CriarEPosicionar):
     def GetResources(self):
         return recursos(
             "tomadas.svg",
-            "Tomada",
+            "Tomada antiga",
             "Insere o símbolo de tomada (127 V, 220 V ou bifásica) e posiciona com o mouse",
         )
 
@@ -191,5 +225,7 @@ Gui.addCommand("InsertWire", Wire())
 Gui.addCommand("InsertConduit", Conduit())
 Gui.addCommand("InsertCableTray", CableTray())
 Gui.addCommand("InsertSwitch", InsertSwitch())
+Gui.addCommand("InsertSwitchParalelo", InsertSwitchParalelo())
+Gui.addCommand("InsertSwitchIntermediario", InsertSwitchIntermediario())
 Gui.addCommand("InsertLighting", InsertLighting())
 Gui.addCommand("InsertOutlet", InsertOutlet())

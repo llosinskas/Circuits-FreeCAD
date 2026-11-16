@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64">
+  <!-- Tomada média: gerado por tools/gerar_icones_simbolos.py -->
+  <path d="M7.00 32.00L23.67 32.00M23.67 19.50L23.67 44.50M23.67 19.50L57.00 32.00M23.67 44.50L57.00 32.00M29.22 42.42L29.22 32.00M34.78 40.33L34.78 32.00M40.33 38.25L40.33 32.00M45.89 36.17L45.89 32.00M51.44 34.08L51.44 32.00M23.67 32.00L57.00 32.00" fill="none" stroke-linecap="round" stroke-linejoin="round" stroke="#ffffff" stroke-width="7" stroke-opacity="0.85"/>
+  <path d="M7.00 32.00L23.67 32.00M23.67 19.50L23.67 44.50M23.67 19.50L57.00 32.00M23.67 44.50L57.00 32.00M29.22 42.42L29.22 32.00M34.78 40.33L34.78 32.00M40.33 38.25L40.33 32.00M45.89 36.17L45.89 32.00M51.44 34.08L51.44 32.00M23.67 32.00L57.00 32.00" fill="none" stroke-linecap="round" stroke-linejoin="round" stroke="#1a73e8" stroke-width="3"/>
+</svg>

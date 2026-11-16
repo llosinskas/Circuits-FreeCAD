@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64">
+  <!-- Luz de emergência: gerado por tools/gerar_icones_simbolos.py -->
+  <path d="M7.00 46.00L57.00 46.00M57.00 46.00L57.00 18.00M57.00 18.00L7.00 18.00M7.00 18.00L7.00 46.00M7.00 46.00L57.00 18.00M7.00 18.00L57.00 46.00" fill="none" stroke-linecap="round" stroke-linejoin="round" stroke="#ffffff" stroke-width="7" stroke-opacity="0.85"/>
+  <path d="M7.00 46.00L57.00 46.00M57.00 46.00L57.00 18.00M57.00 18.00L7.00 18.00M7.00 18.00L7.00 46.00M7.00 46.00L57.00 18.00M7.00 18.00L57.00 46.00" fill="none" stroke-linecap="round" stroke-linejoin="round" stroke="#b06000" stroke-width="3"/>
+</svg>

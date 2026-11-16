@@ -3,6 +3,8 @@ import FreeCAD as App
 import FreeCADGui as Gui
 from collections import defaultdict
 
+from freecad.Circuits.core.simbolos import CATALOGO
+
 try:
     from reportlab.lib.pagesizes import A4
     from reportlab.lib import colors
@@ -101,7 +103,7 @@ class PDFGenerator:
                 diagramas_encontrados = False
                 for obj in self.doc.Objects:
                     if hasattr(obj, "ViewObject") and obj.ViewObject:
-                        if obj.Label.startswith("diagrama "):
+                        if obj.Label.startswith("diagrama"):
                             obj.ViewObject.Visibility = True
                             diagramas_encontrados = True
                         else:
@@ -129,7 +131,7 @@ class PDFGenerator:
                 # Mostrar tudo EXCETO diagramas
                 for obj in self.doc.Objects:
                     if hasattr(obj, "ViewObject") and obj.ViewObject:
-                        if obj.Label.startswith("diagrama "):
+                        if obj.Label.startswith("diagrama"):
                             obj.ViewObject.Visibility = False
                         else:
                             # Tenta focar na arquitetura e eletrodutos/caixas 3D
@@ -184,6 +186,8 @@ class PDFGenerator:
                     contagem["Ponto de Iluminação"] += 1
                 elif tipo == "Outlet":
                     contagem["Tomada"] += 1
+                elif tipo == "Ponto":
+                    contagem[CATALOGO[obj.Simbolo]["legenda"]] += 1
                 elif tipo == "ConduitPath":
                     diametro = getattr(obj, "Diametro", "3/4\"")
                     if hasattr(diametro, "Value"): diametro = diametro.Value

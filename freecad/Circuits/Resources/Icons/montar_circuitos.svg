@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64">
+  <!-- Montar circuitos: pontos da planta reunidos em um quadro -->
+  <path d="M8 12A4 4 0 1 1 16 12A4 4 0 1 1 8 12M8 32A4 4 0 1 1 16 32A4 4 0 1 1 8 32M8 52A4 4 0 1 1 16 52A4 4 0 1 1 8 52M16 12H26V52H16M16 32H38 M38 16H56V48H38ZM44 24V32M50 24V32M43 40H51" fill="none" stroke-linecap="round" stroke-linejoin="round" stroke="#ffffff" stroke-width="7" stroke-opacity="0.85"/>
+  <path d="M8 12A4 4 0 1 1 16 12A4 4 0 1 1 8 12M8 32A4 4 0 1 1 16 32A4 4 0 1 1 8 32M8 52A4 4 0 1 1 16 52A4 4 0 1 1 8 52M16 12H26V52H16M16 32H38" fill="none" stroke-linecap="round" stroke-linejoin="round" stroke="#b06000" stroke-width="3"/>
+  <path d="M38 16H56V48H38ZM44 24V32M50 24V32M43 40H51" fill="none" stroke-linecap="round" stroke-linejoin="round" stroke="#1a73e8" stroke-width="3"/>
+</svg>

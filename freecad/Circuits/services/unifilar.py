@@ -8,6 +8,8 @@ from freecad.Circuits.services import planilhas
 from freecad.Circuits.services.cabos import desenhar_cabo_unifilar
 
 ALTURA_PADRAO = 100
+ESPACAMENTO_CIRCUITOS = 5  # distância entre circuitos, em alturas de texto
+ALTURA_CABECALHO = 16  # espaço do cabeçalho e dos dados do quadro, em alturas de texto
 
 
 def add_texto(texto, posicao, angulo, h, grupo):
@@ -115,8 +117,12 @@ def desenhar_quadro(doc, h, grupo, planilha):
     desenhar_cabo_unifilar(doc, numero_fases, False, False, h, App.Vector(11 * h + fator * h, 3.5 * h, 0), grupo)
 
 
-def desenhar_circuito(doc, potencia, dr, bitola, posicao, corrente, comprimento, grupo):
-    """Ramificação horizontal de um circuito, com disjuntor e DR opcional."""
+def desenhar_circuito(doc, potencia, dr, bitola, posicao, corrente, comprimento, grupo, protecao="", fases=""):
+    """Ramificação horizontal de um circuito, com disjuntor e DR opcional.
+
+    ``protecao`` (ex.: 'C16A') substitui a corrente de projeto ao lado do
+    disjuntor; ``fases`` (ex.: 'R' ou 'RS') aparece embaixo dele.
+    """
     sketch = doc.addObject("Sketcher::SketchObject", "Circuito")
     sketch.Placement = posicao
 
@@ -143,39 +149,69 @@ def desenhar_circuito(doc, potencia, dr, bitola, posicao, corrente, comprimento,
     grupo.addObject(sketch)
 
     y_texto = comprimento / 3
-    if corrente:
-        add_texto(f"{corrente}A", posicao.Base + App.Vector(tamanho / 5 + comprimento / 4, y_texto, 0), 0, comprimento / 2.5, grupo)
+    altura = comprimento / 2.5
+    x_disjuntor = tamanho / 5 + comprimento / 4
+    if protecao:
+        add_texto(protecao, posicao.Base + App.Vector(x_disjuntor, y_texto, 0), 0, altura, grupo)
+    elif corrente:
+        add_texto(f"{corrente}A", posicao.Base + App.Vector(x_disjuntor, y_texto, 0), 0, altura, grupo)
+    if fases:
+        add_texto(fases, posicao.Base + App.Vector(x_disjuntor, -y_texto - altura, 0), 0, altura, grupo)
     if bitola:
-        add_texto(f"#{bitola}", posicao.Base + App.Vector(tamanho / 2 - comprimento, y_texto, 0), 0, comprimento / 2.5, grupo)
+        add_texto(f"#{bitola}", posicao.Base + App.Vector(tamanho / 2 - comprimento, y_texto, 0), 0, altura, grupo)
     if potencia:
-        add_texto(f"{potencia}W", posicao.Base + App.Vector(tamanho - comprimento * 2, y_texto, 0), 0, comprimento / 2.5, grupo)
+        add_texto(f"{potencia}W", posicao.Base + App.Vector(tamanho - comprimento * 2, y_texto, 0), 0, altura, grupo)
+
+
+def _celula(quadro, endereco):
+    """Texto da célula; vazia ou inexistente devolve ''."""
+    try:
+        valor = quadro.get(endereco)
+    except Exception:
+        return ""
+    if isinstance(valor, float) and valor.is_integer():
+        valor = int(valor)
+    return str(valor).strip()
 
 
 def _desenhar_circuitos(doc, h, grupo, quadro):
-    """Lê os circuitos da planilha e os desenha descendo pelo barramento."""
+    """Lê os circuitos da planilha e os desenha descendo pelo barramento.
+
+    Returns:
+        Quantidade de circuitos desenhados.
+    """
     ultima = planilhas.ultima_linha(quadro)
     if ultima < PRIMEIRA_LINHA_CIRCUITOS:
-        return
+        return 0
 
     desenhados = 0
-    espacamento = 5 * h
+    espacamento = ESPACAMENTO_CIRCUITOS * h
     for linha in range(PRIMEIRA_LINHA_CIRCUITOS, ultima + 1):
-        numero = quadro.get(f"A{linha}")
+        numero = _celula(quadro, f"A{linha}")
         if not numero:
             continue
 
-        destino = quadro.get(f"B{linha}")
-        potencia = quadro.get(f"C{linha}")
-        corrente = quadro.get(f"H{linha}")
-        bitola = quadro.get(f"J{linha}")
-        dr = str(quadro.get(f"U{linha}")).lower() == "true"
+        destino = _celula(quadro, f"B{linha}")
+        potencia = _celula(quadro, f"C{linha}")
+        corrente = _celula(quadro, f"H{linha}")
+        bitola = _celula(quadro, f"J{linha}")
+        disjuntor = _celula(quadro, f"N{linha}")
+        curva = _celula(quadro, f"O{linha}")
+        dr = _celula(quadro, f"U{linha}").lower() == "true"
+        protecao = f"{curva}{disjuntor}A" if disjuntor else ""
+        fases = "".join(
+            fase for fase, coluna in zip("RST", "PQR") if _celula(quadro, f"{coluna}{linha}").lower() == "true"
+        )
 
         posicao = App.Vector(18 * h, 5 / 2 * h - desenhados * espacamento, 0)
         if desenhados > 0:
             anterior = App.Vector(18 * h, 5 / 2 * h - (desenhados - 1) * espacamento, 0)
             grupo.addObject(Draft.make_line(anterior, posicao))
 
-        desenhar_circuito(doc, potencia, dr, bitola, App.Placement(posicao, App.Rotation(0, 0, 0)), corrente, h, grupo)
+        desenhar_circuito(
+            doc, potencia, dr, bitola, App.Placement(posicao, App.Rotation(0, 0, 0)), corrente, h, grupo,
+            protecao=protecao, fases=fases,
+        )
 
         ponta = posicao + App.Vector(h * 7 + h / 2, 0, 0)
         add_texto(f"Circ. {numero}", ponta + App.Vector(0, h / 3, 0), 0, h * 0.5, grupo)
@@ -183,23 +219,56 @@ def _desenhar_circuitos(doc, h, grupo, quadro):
             add_texto(destino, ponta + App.Vector(0, -h / 2, 0), 0, h * 0.5, grupo)
 
         desenhados += 1
+    return desenhados
+
+
+def _remover_diagrama_anterior(doc, quadro):
+    """Apaga o diagrama já gerado para o quadro, inclusive os de versões antigas."""
+    antigos = [
+        obj for obj in doc.Objects
+        if getattr(obj, "quadro_origem", None) == quadro.Name
+    ]
+    legado = doc.getObject(f"diagrama_{quadro.Label}")
+    if legado and legado not in antigos and not hasattr(legado, "quadro_origem"):
+        antigos.append(legado)
+    for grupo in antigos:
+        nome = grupo.Name
+        grupo.removeObjectsFromDocument()
+        doc.removeObject(nome)
+    if antigos:
+        doc.recompute()
+
+
+def _deslocar(grupo, deslocamento):
+    for obj in grupo.Group:
+        posicao = obj.Placement
+        posicao.Base = posicao.Base + deslocamento
+        obj.Placement = posicao
 
 
 def gerar_diagramas(doc, quadros, h=ALTURA_PADRAO):
-    """Recria o diagrama de cada quadro, substituindo o anterior se existir."""
+    """Recria o diagrama de cada quadro, substituindo o anterior se existir.
+
+    Os diagramas são empilhados de cima para baixo, um por quadro, para não se
+    sobreporem.
+    """
+    topo = 0.0
     for quadro in quadros:
-        nome_diagrama = f"diagrama_{quadro.Label}"
-        anterior = doc.getObject(nome_diagrama)
-        if anterior:
-            anterior.removeObjectsFromDocument()
-            doc.removeObject(nome_diagrama)
-            doc.recompute()
-        grupo = doc.addObject("App::DocumentObjectGroup", f"diagrama {quadro.Label}")
+        _remover_diagrama_anterior(doc, quadro)
+        grupo = doc.addObject("App::DocumentObjectGroup", "diagrama")
+        grupo.Label = f"diagrama_{quadro.Label}"
+        grupo.addProperty("App::PropertyString", "quadro_origem", "Diagrama", "Planilha do quadro que gerou o diagrama")
+        grupo.quadro_origem = quadro.Name
         desenhar_quadro(doc, h, grupo, quadro)
 
+        circuitos = 0
         try:
-            _desenhar_circuitos(doc, h, grupo, quadro)
+            circuitos = _desenhar_circuitos(doc, h, grupo, quadro)
         except Exception as e:
             App.Console.PrintWarning(f"Não foi possível gerar os circuitos do quadro {quadro.Label}: {e}\n")
+
+        if topo:
+            _deslocar(grupo, App.Vector(0, -topo, 0))
+        topo += (ALTURA_CABECALHO + max(circuitos, 1) * ESPACAMENTO_CIRCUITOS) * h
 
     doc.recompute()

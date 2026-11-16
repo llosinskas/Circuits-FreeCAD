@@ -43,6 +43,9 @@ class TestPlanilha(unittest.TestCase):
         self.assertEqual(ultima_linha([]), 0)
         self.assertEqual(ultima_linha(["A1", "C5", "B3"]), 5)
 
+    def test_ultima_linha_com_dois_digitos(self):
+        self.assertEqual(ultima_linha(["A1", "A9", "A12", "AB10"]), 12)
+
 
 class TestQet(unittest.TestCase):
     def linhas(self, xml):

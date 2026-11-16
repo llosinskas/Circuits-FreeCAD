@@ -36,6 +36,8 @@ Circuits/                        pasta dentro de Mod/, raiz do repositório
     ├── core/                    regras e tabelas puras
     │   ├── functions/           cálculos (Cabo/, Barramento, Infraestrutura/)
     │   ├── tables/              tabelas NBR 5410, NBR 14039 e eletrodutos
+    │   ├── simbolos.py          catálogo e geometria dos pontos elétricos
+    │   ├── circuitos.py         circuitos a partir dos pontos: soma, cabo, disjuntor, fases
     │   ├── planilha.py          layout das planilhas de quadro e circuitos
     │   ├── qet.py               leitura de condutores do QElectroTech
     │   └── simbologia.py        geometria dos símbolos
@@ -82,11 +84,13 @@ Regras gerais:
 | `ComponentEletric`, `Gerar3D`, `Cabo` | `projeto_eletrico` | `services/tomadas`, `cabos` |
 | `InsertComponent`, `InsertEquipaments` | `insert_component` | `UI/dialogs/ComponentInserter` |
 | `InsertTugs` | `insert_component` | `services/tomadas` |
-| `InsertSwitch`, `InsertLighting`, `InsertOutlet` | `insert_component` | `objects/switch`, `lighting`, `outlet` |
+| `InsertSwitch`, `InsertSwitchParalelo`, `InsertSwitchIntermediario`, `InsertLighting`, `InsertOutlet` | `insert_component` | `objects/switch`, `lighting`, `outlet` |
+| `Ponto_<símbolo>` (um por entrada de `core.simbolos.CATALOGO`) | `pontos` | `objects/ponto`; `core/simbolos` |
+| `LegendaSimbolos` | `pontos` | `services/legenda` |
 | `InsertConduit` | `insert_component` | `Draft_Wire` nativo |
 | `InsertWire`, `InsertCableTray` | `insert_component` | ainda não implementados: só exibem um aviso |
 | `Generate3DConduits`, `Generate3DSwitches` | `generate_3d` | `services/eletrodutos`, `caixas_3d` |
-| `GerarUnifilar`, `GerarPlanilha`, `AddCircuito` | `gerar_unifilar` | `services/unifilar`, `planilhas`; `UI/dialogs/quadro_dialogs` |
+| `GerarPlanilha`, `MontarCircuitos`, `AddCircuito`, `GerarUnifilar` | `gerar_unifilar` | `services/planilhas`, `circuitos`, `unifilar`; `core/circuitos`; `UI/dialogs/quadro_dialogs` |
 | `ImportQET`, `Add_Node` | `import_QEletrotech` | `services/qet_import`, `eletrodutos`; `core/qet` |
 | `GenerateReport` | `reports` | `services/pdf_generator`; `UI/dialogs/report_dialog` |
 | `GetSpaces`, `ReiniciarBancada` | `tools` | no próprio módulo |
@@ -98,15 +102,17 @@ As barras ficam em `init_gui.py`, na ordem do fluxo de um projeto em planta, com
 | Barra | Comandos |
 |---|---|
 | Projeto elétrico | `newProjetctEletrical`, `newSpreadsheet`, `ImportQET` |
-| Pontos elétricos | `InsertOutlet`, `InsertTugs`, `InsertSwitch`, `InsertLighting`, `InsertEquipaments`, `InsertComponent` |
+| Tomadas | `Ponto_tomada_baixa`, `_media`, `_alta`, `_piso`; `InsertTugs` |
+| Pontos de energia | `Ponto_chuveiro`, `_ar_condicionado`, `_ventilador`, `_ponto_forca`; `InsertEquipaments`, `InsertComponent` |
+| Iluminação e comando | `Ponto_luz_teto`, `_arandela`, `_fluorescente`, `_embutida`, `_emergencia`; `InsertSwitch`, `InsertSwitchParalelo`, `InsertSwitchIntermediario` |
 | Infraestrutura | `InsertConduit`, `Add_Node`, `Cabo` |
-| Quadros e diagramas | `GerarPlanilha`, `AddCircuito`, `GerarUnifilar` |
-| Documentação | texto, cota, chamada, corte e vistas nativos; `GenerateReport` |
+| Quadros e diagramas | `GerarPlanilha`, `MontarCircuitos`, `AddCircuito`, `GerarUnifilar` (nesta ordem de uso) |
+| Documentação | texto, cota, chamada, corte e vistas nativos; `LegendaSimbolos`, `GenerateReport` |
 | Desenho, Modificador, Snap, Arquitetura | comandos nativos do Draft e do BIM |
 | Modelo 3D | `Generate3DSwitches`, `Generate3DConduits`, `Gerar3D` |
 | Biblioteca e ferramentas | `CreateModel`, `ListElements`, `ReiniciarBancada` |
 
-- Só no menu **Elétrica > Outros**: `ComponentEletric`, `InsertWire`, `InsertCableTray`, `AddSpreadsheet`, `NewQuadro`, `GetSpaces`.
+- Só no menu **Elétrica > Outros**: `InsertOutlet` e `InsertLighting` (substituídos pelos pontos novos), `ComponentEletric`, `InsertWire`, `InsertCableTray`, `AddSpreadsheet`, `NewQuadro`, `GetSpaces`.
 - **Legenda:** o `MenuText` de cada comando aparece embaixo do ícone nas barras próprias. Mantenha-o curto (até 24 caracteres) e único; a explicação vai no `ToolTip`. A preferência booleana `LegendaBotoes` em `BaseApp/Preferences/Mod/Circuits` desliga as legendas.
 - `tests/unit/test_toolbars.py` falha se um comando ficar sem barra ou menu, se faltar um ícone ou se a legenda for longa ou repetida.
 
@@ -115,9 +121,12 @@ As barras ficam em `init_gui.py`, na ordem do fluxo de um projeto em planta, com
 Os comandos se encontram pelos objetos do documento, não por estado em Python:
 
 - **Tomada em Sketch:** propriedade `tipo == "tomada"`, além de `Fase`, `neutro`, `terra` e `altura_piso`.
-- **Objetos FeaturePython:** `obj.Proxy.Type` vale `Switch`, `Lighting`, `Outlet` ou `ConduitPath`.
+- **Objetos FeaturePython:** `obj.Proxy.Type` vale `Ponto`, `Switch`, `Lighting`, `Outlet` ou `ConduitPath`.
+- **Ponto elétrico (`Ponto`):** a propriedade `Simbolo` é a chave de `core.simbolos.CATALOGO`. `Potencia` em VA, `FatorPotencia`, `Tensao`, `Ligacao` (`F+N`, `F+F`, `3F`), `Circuito` e `Quadro` (vazio vale para qualquer quadro). `MontarCircuitos` também lê `Outlet`, `Lighting` e as tomadas em Sketch.
+- **Circuitos montados:** `MontarCircuitos` soma os pontos por `Circuito`, dimensiona e grava uma linha por circuito no quadro. Uma linha com o mesmo número é atualizada no lugar; as outras ficam como estão.
 - **Quadro:** planilha `Spreadsheet::Sheet` com a propriedade `quadro`. A linha 3 tem os dados, com aliases iguais a `core.planilha.CABECALHO_QUADRO`, que são lidos pelo unifilar. Os circuitos ficam da linha 6 em diante, conforme `COLUNAS_CIRCUITO`.
-- **Diagrama:** grupo `diagrama_<quadro>`, recriado a cada geração.
+- **Diagrama:** grupo com Label `diagrama_<quadro>` e propriedade `quadro_origem` com o nome da planilha, recriado a cada geração. Os diagramas são empilhados, um por quadro.
+- **Legenda:** grupo `Legenda_simbolos`, recriado a cada geração na posição em que estava.
 - **Caixas e tubos 3D:** objeto `<nome da origem>_3D`, substituído a cada geração.
 - **Unidades:** comprimentos em mm no FreeCAD; correntes em A; seções em mm².
 
@@ -134,6 +143,8 @@ Os comandos se encontram pelos objetos do documento, não por estado em Python:
 **Novo objeto FeaturePython:** siga `objects/switch.py` (classe com `Type`, ViewProvider e `create_*`). Depois de usado em projetos, o nome do módulo e da classe ficam congelados.
 
 **Novo diálogo:** arquivo em `UI/dialogs/`, devolvendo os dados por um método como `get_dados()`. Quem grava no documento é o `service`, chamado pelo comando.
+
+**Novo símbolo de ponto elétrico:** acrescente a entrada em `core.simbolos.CATALOGO` e o desenho em `_unitario`, rode `python tools/gerar_icones_simbolos.py` para gerar o ícone, e inclua `Ponto_<símbolo>` em uma barra de `init_gui.py`. O comando é criado sozinho.
 
 **Novo componente de biblioteca:** arquivo `.FCStd` em `Componentes/Eletrica/`, ou o comando `CreateModel`.
 
@@ -173,11 +184,12 @@ QT_QPA_PLATFORM=offscreen CIRCUITS_SMOKE_OUT="C:/temp/depois.json" \
 Todos foram confirmados no código ou em execução e já existiam antes da reorganização, que preservou o comportamento. Corrija com teste, e atualize esta lista.
 
 **Afetam o uso**
-- `core/planilha.py`, `ultima_linha`: lê só o primeiro dígito da linha (`A12` conta como 1). Do 5º circuito em diante, o novo circuito sobrescreve a linha 10, e o unifilar só desenha até a linha 9.
-- `services/pdf_generator.py`: procura diagramas com Label `"diagrama "`, mas o Label real é `diagrama_<quadro>`. O relatório sempre diz que não há diagrama.
-- `services/planilhas.py`, `criar_planilha_quadro`: `doc.Spreadsheet(...)` não existe. Criar um quadro com nome repetido gera erro.
-- `commands/gerar_unifilar.py`, `GerarPlanilha`: cancelar o diálogo não interrompe a criação da planilha.
 - `UI/insert_circuit.py` (`AddSpreadsheet`): os botões e o movimento do mouse usam `self.label1` e `self.label2`, que não existem. O formulário também não grava dados.
+
+- `core/circuitos.py`: o dimensionamento de `MontarCircuitos` só verifica capacidade de condução (método B1, PVC) e Ib ≤ In ≤ Iz. Não considera queda de tensão, agrupamento, temperatura nem curto-circuito.
+- `services/circuitos.py`, `_de_tomada_sketch`: lê potência e tensão das tomadas em Sketch pelo número bruto, porque elas são gravadas sem unidade. Falta confirmar no FreeCAD e migrar para grandezas com unidade.
+- `services/pdf_generator.py`, `_get_calculos_table`: lê a linha 2 (cabeçalhos) em vez da linha 3 e percorre todas as planilhas, não só os quadros.
+- Os pontos novos, a legenda, `MontarCircuitos` e as mudanças do unifilar têm teste unitário da lógica, mas ainda não foram executados no FreeCAD real: rode o `smoke_gui.py` e atualize este item.
 
 **Cálculos e tabelas, ainda sem uso na interface**
 - `core/functions/Barramento.py`: `Sec_tubular` gera `TypeError` (falta `*` em `math.pi(...)`) e não tem `return`. `Corrente_carga_maxima` usa `Qc*Qr-Qs`; conferir com a fonte, pois o balanço térmico sugere soma.

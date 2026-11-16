@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64">
+  <!-- Ar-condicionado: gerado por tools/gerar_icones_simbolos.py -->
+  <path d="M7.00 42.42L57.00 42.42M57.00 42.42L57.00 21.58M57.00 21.58L7.00 21.58M7.00 21.58L7.00 42.42M13.25 28.67L50.75 28.67M13.25 35.33L50.75 35.33" fill="none" stroke-linecap="round" stroke-linejoin="round" stroke="#ffffff" stroke-width="7" stroke-opacity="0.85"/>
+  <path d="M7.00 42.42L57.00 42.42M57.00 42.42L57.00 21.58M57.00 21.58L7.00 21.58M7.00 21.58L7.00 42.42M13.25 28.67L50.75 28.67M13.25 35.33L50.75 35.33" fill="none" stroke-linecap="round" stroke-linejoin="round" stroke="#d93025" stroke-width="3"/>
+</svg>

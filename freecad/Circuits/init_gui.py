@@ -73,16 +73,27 @@ BIM_TOOLS = [
 
 # Barras da bancada, na ordem do fluxo de um projeto em planta (2D primeiro).
 PROJECT_TOOLS = ["newProjetctEletrical", "newSpreadsheet", "ImportQET"]
-POINT_TOOLS = [
-    "InsertOutlet",
-    "InsertTugs",
-    "InsertSwitch",
-    "InsertLighting",
+OUTLET_TOOLS = ["Ponto_tomada_baixa", "Ponto_tomada_media", "Ponto_tomada_alta", "Ponto_tomada_piso", "InsertTugs"]
+POWER_TOOLS = [
+    "Ponto_chuveiro",
+    "Ponto_ar_condicionado",
+    "Ponto_ventilador",
+    "Ponto_ponto_forca",
     "InsertEquipaments",
     "InsertComponent",
 ]
+LIGHTING_TOOLS = [
+    "Ponto_luz_teto",
+    "Ponto_arandela",
+    "Ponto_fluorescente",
+    "Ponto_embutida",
+    "Ponto_emergencia",
+    "InsertSwitch",
+    "InsertSwitchParalelo",
+    "InsertSwitchIntermediario",
+]
 INFRA_TOOLS = ["InsertConduit", "Add_Node", "Cabo"]
-BOARD_TOOLS = ["GerarPlanilha", "AddCircuito", "GerarUnifilar"]
+BOARD_TOOLS = ["GerarPlanilha", "MontarCircuitos", "AddCircuito", "GerarUnifilar"]
 DOCUMENT_TOOLS = [
     "BIM_Text",
     "Draft_Dimension",
@@ -90,18 +101,30 @@ DOCUMENT_TOOLS = [
     "Arch_SectionPlane",
     "BIM_Shape2DView",
     "BIM_TDView",
+    "LegendaSimbolos",
     "GenerateReport",
 ]
 MODEL_3D_TOOLS = ["Generate3DSwitches", "Generate3DConduits", "Gerar3D"]
 LIBRARY_TOOLS = ["CreateModel", "ListElements", "ReiniciarBancada"]
 
 # Só no menu: comandos antigos, incompletos ou de uso raro.
-EXTRA_TOOLS = ["ComponentEletric", "InsertWire", "InsertCableTray", "AddSpreadsheet", "NewQuadro", "GetSpaces"]
+EXTRA_TOOLS = [
+    "InsertOutlet",
+    "InsertLighting",
+    "ComponentEletric",
+    "InsertWire",
+    "InsertCableTray",
+    "AddSpreadsheet",
+    "NewQuadro",
+    "GetSpaces",
+]
 
 _tr = QtCore.QT_TRANSLATE_NOOP
 ELECTRIC_TOOLBARS = [
     (_tr("Workbench", "Projeto elétrico"), PROJECT_TOOLS),
-    (_tr("Workbench", "Pontos elétricos"), POINT_TOOLS),
+    (_tr("Workbench", "Tomadas"), OUTLET_TOOLS),
+    (_tr("Workbench", "Pontos de energia"), POWER_TOOLS),
+    (_tr("Workbench", "Iluminação e comando"), LIGHTING_TOOLS),
     (_tr("Workbench", "Infraestrutura"), INFRA_TOOLS),
     (_tr("Workbench", "Quadros e diagramas"), BOARD_TOOLS),
     (_tr("Workbench", "Documentação"), DOCUMENT_TOOLS),
@@ -119,10 +142,12 @@ TOOLBARS = ELECTRIC_TOOLBARS + [
 MENU = "&Elétrica"
 MENUS = [
     ([MENU, "Projeto"], PROJECT_TOOLS),
-    ([MENU, "Pontos elétricos"], POINT_TOOLS),
+    ([MENU, "Tomadas"], OUTLET_TOOLS),
+    ([MENU, "Pontos de energia"], POWER_TOOLS),
+    ([MENU, "Iluminação e comando"], LIGHTING_TOOLS),
     ([MENU, "Infraestrutura"], INFRA_TOOLS),
     ([MENU, "Quadros e diagramas"], BOARD_TOOLS),
-    ([MENU, "Documentação"], ["GenerateReport"]),
+    ([MENU, "Documentação"], ["LegendaSimbolos", "GenerateReport"]),
     ([MENU, "Modelo 3D"], MODEL_3D_TOOLS),
     ([MENU, "Biblioteca e ferramentas"], LIBRARY_TOOLS),
     ([MENU, "Outros"], EXTRA_TOOLS),
@@ -175,6 +200,7 @@ class CircuitsWorkbench(gui.Workbench):
             import_QEletrotech,
             insert_component,
             new_project,
+            pontos,
             projeto_eletrico,
             projeto_quadro,
             reports,

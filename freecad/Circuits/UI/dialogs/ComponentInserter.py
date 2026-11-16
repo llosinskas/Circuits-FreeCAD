@@ -329,8 +329,17 @@ class ComponentInsertionMode:
     
     _active_instance = None  # Mantém a referência viva contra o Garbage Collector do Python
     
-    def __init__(self, obj):
+    def __init__(self, obj, ao_fixar=None, plano_z0=False):
+        """
+        Args:
+            obj: objeto que acompanha o cursor.
+            ao_fixar: função chamada depois do clique que fixa o objeto
+                (usada para inserir vários pontos em sequência).
+            plano_z0: mantém o objeto no plano Z=0, para desenho em planta.
+        """
         self.obj = obj
+        self.ao_fixar = ao_fixar
+        self.plano_z0 = plano_z0
         self.is_active = False
         self.view = Gui.ActiveDocument.ActiveView
         self.cb_mouse = None
@@ -352,7 +361,9 @@ class ComponentInsertionMode:
         self.cb_key = self.view.addEventCallback("SoKeyboardEvent", self.on_key)
         
         # Feedback no console
-        App.Console.PrintMessage("Modo de Inserção Ativo: Mova o cursor para posicionar e CLIQUE para fixar. ESC para cancelar.\n")
+        App.Console.PrintMessage(
+            "Modo de Inserção Ativo: mova o cursor, CLIQUE para fixar, R para girar 90°, ESC para cancelar.\n"
+        )
         
     def stop(self):
         self.is_active = False
@@ -371,6 +382,8 @@ class ComponentInsertionMode:
         x, y = info["Position"]
         pnt = self.view.getPoint(x, y)
         if pnt:
+            if self.plano_z0:
+                pnt.z = 0.0
             # No FreeCAD, precisamos ler, alterar e reatribuir o Placement
             pl = self.obj.Placement
             pl.Base = pnt
@@ -387,9 +400,17 @@ class ComponentInsertionMode:
             self.stop()
             # Registra no undo/redo após a colocação final
             App.ActiveDocument.recompute()
+            if self.ao_fixar:
+                self.ao_fixar()
             
     def on_key(self, info):
-        """Cancela a inserção e deleta o objeto se pressionar ESC."""
+        """ESC cancela a inserção e apaga o objeto; R gira o objeto 90° em torno de Z."""
+        if info["State"] == "DOWN" and str(info["Key"]).upper() == "R" and self.obj:
+            pl = self.obj.Placement
+            pl.Rotation = App.Rotation(App.Vector(0, 0, 1), 90).multiply(pl.Rotation)
+            self.obj.Placement = pl
+            self.view.redraw()
+            return
         if info["State"] == "DOWN" and info["Key"] == "ESCAPE":
             App.Console.PrintMessage("Inserção cancelada.\n")
             self.stop()

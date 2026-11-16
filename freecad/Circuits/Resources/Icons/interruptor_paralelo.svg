@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64">
+  <!-- Interruptor paralelo: círculo com duas linhas -->
+  <path d="M44 32A16 16 0 1 1 12 32A16 16 0 1 1 44 32 M43 26H58M43 38H58" fill="none" stroke-linecap="round" stroke-linejoin="round" stroke="#ffffff" stroke-width="7" stroke-opacity="0.85"/>
+  <path d="M44 32A16 16 0 1 1 12 32A16 16 0 1 1 44 32" fill="none" stroke-linecap="round" stroke-linejoin="round" stroke="#b06000" stroke-width="3"/>
+  <path d="M43 26H58M43 38H58" fill="none" stroke-linecap="round" stroke-linejoin="round" stroke="#1a73e8" stroke-width="3"/>
+</svg>

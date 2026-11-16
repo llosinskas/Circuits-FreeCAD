@@ -32,6 +32,8 @@ Sem um modelo `Ponto → Circuito → Quadro` ligado por propriedades `App::Prop
 
 ## 2. Bugs novos encontrados
 
+> Atualização: B1, B2 e B3 foram corrigidos junto com os pontos elétricos em planta e o comando `MontarCircuitos`, assim como `ultima_linha`, o Label do diagrama no PDF, o quadro com nome repetido e o cancelamento do diálogo de quadro. Os demais continuam abertos.
+
 Não constam em "Problemas conhecidos" do `AGENTS.md`. Todos verificados no código; os marcados com (exec.) foram executados aqui.
 
 ### Afetam o uso

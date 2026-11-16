@@ -15,13 +15,13 @@ def criar_planilha_circuitos(doc):
 def criar_planilha_quadro(doc, dados):
     """Cria a planilha de um quadro a partir dos dados do diálogo CriarQuadro."""
     nome_quadro = dados["indentificacao"]
-    if not hasattr(doc, nome_quadro):
+    planilha = next((q for q in listar_quadros(doc) if nome_quadro in (q.Label, q.Name)), None)
+    if planilha is None:
         planilha = doc.addObject("Spreadsheet::Sheet", nome_quadro)
         doc.recompute()
-    else:
-        planilha = doc.Spreadsheet(nome_quadro)
 
-    planilha.addProperty("App::PropertyString", "quadro")
+    if not hasattr(planilha, "quadro"):
+        planilha.addProperty("App::PropertyString", "quadro")
     planilha.quadro = "Quadro"
     planilha.set("A1", nome_quadro)
     planilha.mergeCells("A1:S1")
@@ -45,12 +45,41 @@ def ultima_linha(planilha):
     return layout.ultima_linha(planilha.getUsedCells())
 
 
+def _texto(planilha, celula):
+    """Conteúdo da célula como texto; célula vazia devolve ''."""
+    try:
+        valor = planilha.get(celula)
+    except Exception:
+        return ""
+    if isinstance(valor, float) and valor.is_integer():
+        valor = int(valor)
+    return str(valor).strip()
+
+
+def linha_do_circuito(planilha, numero):
+    """Linha onde o circuito ``numero`` está gravado, ou None."""
+    for linha in range(layout.PRIMEIRA_LINHA_CIRCUITOS, ultima_linha(planilha) + 1):
+        if _texto(planilha, f"A{linha}") == str(numero).strip():
+            return linha
+    return None
+
+
 def adicionar_circuito(planilha, dados):
-    """Grava o cabeçalho de circuitos e acrescenta uma linha com os dados."""
+    """Grava o cabeçalho de circuitos e a linha do circuito.
+
+    Um circuito com o mesmo número é atualizado no lugar; um novo entra depois
+    da última linha usada.
+    """
     for indice, titulo in enumerate(layout.CABECALHO_CIRCUITO_QUADRO):
         planilha.set(f"{layout.coluna(indice)}{layout.LINHA_CABECALHO_CIRCUITOS}", titulo)
 
-    ultima = ultima_linha(planilha)
-    linha = layout.PRIMEIRA_LINHA_CIRCUITOS if ultima < layout.LINHA_CABECALHO_CIRCUITOS else ultima + 1
+    linha = linha_do_circuito(planilha, dados["N_circuito"])
+    if linha is None:
+        linha = max(ultima_linha(planilha) + 1, layout.PRIMEIRA_LINHA_CIRCUITOS)
     for coluna, chave in layout.COLUNAS_CIRCUITO.items():
         planilha.set(f"{coluna}{linha}", f"'{dados[chave]}")
+    return linha
+
+
+def gravar_potencia_instalada(planilha, potencia_kw):
+    planilha.set(planilha.getCellFromAlias("potencia_instalada"), str(potencia_kw))

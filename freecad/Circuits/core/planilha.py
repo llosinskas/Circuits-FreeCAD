@@ -101,10 +101,6 @@ def coluna(indice):
 
 
 def ultima_linha(celulas):
-    """Maior linha usada, dado nomes de células como 'A1'.
-
-    Limitação conhecida: considera só o primeiro dígito, então 'A12' conta como
-    linha 1. Ver "Problemas conhecidos" no AGENTS.md.
-    """
-    linhas = [int(re.search(r"\d", celula).group()) for celula in celulas]
+    """Maior linha usada, dado nomes de células como 'A1' ou 'AB12'."""
+    linhas = [int(re.search(r"\d+$", celula).group()) for celula in celulas]
     return max(linhas) if linhas else 0

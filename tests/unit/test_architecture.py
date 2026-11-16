@@ -105,6 +105,7 @@ class TestPersistedPaths(unittest.TestCase):
             "lighting": ("Lighting", "ViewProviderLighting"),
             "outlet": ("Outlet", "ViewProviderOutlet"),
             "conduit_path": ("ConduitPath", "ViewProviderConduitPath"),
+            "ponto": ("PontoEletrico", "ViewProviderPontoEletrico"),
         }.items():
             path = os.path.join(PACKAGE, "objects", module + ".py")
             with open(path, encoding="utf-8") as handle:

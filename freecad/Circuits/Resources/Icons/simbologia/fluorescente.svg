@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64">
+  <!-- Luminária tubular: gerado por tools/gerar_icones_simbolos.py -->
+  <path d="M7.00 38.25L57.00 38.25M57.00 38.25L57.00 25.75M57.00 25.75L7.00 25.75M7.00 25.75L7.00 38.25M7.00 32.00L57.00 32.00" fill="none" stroke-linecap="round" stroke-linejoin="round" stroke="#ffffff" stroke-width="7" stroke-opacity="0.85"/>
+  <path d="M7.00 38.25L57.00 38.25M57.00 38.25L57.00 25.75M57.00 25.75L7.00 25.75M7.00 25.75L7.00 38.25M7.00 32.00L57.00 32.00" fill="none" stroke-linecap="round" stroke-linejoin="round" stroke="#b06000" stroke-width="3"/>
+</svg>

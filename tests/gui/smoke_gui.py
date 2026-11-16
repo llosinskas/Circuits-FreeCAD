@@ -152,9 +152,19 @@ def scenario(doc):
 
     for name in ("newProjetctEletrical", "NewQuadro", "newSpreadsheet", "ComponentEletric"):
         run(name)
-    for name in ("InsertTugs", "InsertSwitch", "InsertLighting", "InsertOutlet"):
+    pontos = [
+        "Ponto_tomada_baixa", "Ponto_tomada_media", "Ponto_tomada_alta", "Ponto_tomada_piso",
+        "Ponto_chuveiro", "Ponto_ar_condicionado", "Ponto_ventilador", "Ponto_ponto_forca",
+        "Ponto_luz_teto", "Ponto_arandela", "Ponto_fluorescente", "Ponto_embutida", "Ponto_emergencia",
+    ]
+    interruptores = ["InsertSwitch", "InsertSwitchParalelo", "InsertSwitchIntermediario"]
+    for name in ["InsertTugs", "InsertLighting", "InsertOutlet"] + interruptores + pontos:
         run(name)
         stop_insertion_mode()
+    # Circuitos exclusivos para os pontos de uso específico, como manda a norma.
+    for numero, obj in enumerate((o for o in doc.Objects if getattr(o, "Simbolo", "") in
+                                  ("chuveiro", "ar_condicionado", "ponto_forca")), start=10):
+        obj.Circuito = str(numero)
     doc.recompute()
     result["steps"]["inseridos"] = snapshot(doc)
 
@@ -163,8 +173,17 @@ def scenario(doc):
     run("Generate3DSwitches")
     result["steps"]["3d_caixas"] = snapshot(doc)
 
+    avisos = []
+    QtWidgets.QMessageBox.information = staticmethod(lambda *a, **k: avisos.append(a[2]))
+    run("LegendaSimbolos")
+    run("LegendaSimbolos")  # segunda execução: precisa substituir, não duplicar
+    result["steps"]["legenda"] = [o["name"] for o in snapshot(doc) if o["name"].startswith("Legenda")]
+
     run("GerarPlanilha")
     run("AddCircuito")
+    run("MontarCircuitos")
+    run("MontarCircuitos")  # segunda execução: atualiza as linhas, não duplica
+    result["steps"]["montar_circuitos"] = avisos
     run("GerarUnifilar")
     result["steps"]["unifilar"] = snapshot(doc)
     run("GerarUnifilar")  # segunda execução: precisa substituir, não duplicar
@@ -264,8 +283,8 @@ try:
     Gui.activateWorkbench(WORKBENCH)
     Gui.updateGui()
     workbench = Gui.activeWorkbench()
-    own_toolbars = ["Projeto elétrico", "Pontos elétricos", "Infraestrutura", "Quadros e diagramas", "Documentação",
-                    "Desenho", "Modificador", "Snap", "Arquitetura", "Modelo 3D", "Biblioteca e ferramentas"]
+    own_toolbars = ["Projeto elétrico", "Tomadas", "Pontos de energia", "Iluminação e comando", "Infraestrutura",
+                    "Quadros e diagramas", "Documentação", "Desenho", "Modificador", "Snap", "Arquitetura", "Modelo 3D", "Biblioteca e ferramentas"]
     items = workbench.getToolbarItems()
     result["toolbars"] = {t: items.get(t) for t in own_toolbars}
     commands = {}
