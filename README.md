@@ -1,316 +1,123 @@
-# ⚡ Bancada Engenharia
+# Bancada Engenharia (Circuits) para FreeCAD
 
-Uma bancada profissional para FreeCAD dedicada a projetos elétricos, com foco em se tornar o padrão de projeto elétrico e escalar para projetos de quadros de comando.
+Bancada para projetos elétricos prediais no FreeCAD: desenho dos pontos em planta, montagem dos circuitos, quadro de cargas e diagrama unifilar, com geração 3D e relatório em PDF.
 
-## 🎯 Visão Geral
+O projeto está em desenvolvimento. A seção [Limitações](#limitações) diz o que ainda não deve ser usado em um projeto real sem conferência.
 
-A Bancada Engenharia fornece um conjunto completo de ferramentas para:
-- **Design 3D** de instalações elétricas residenciais e comerciais
-- **Cálculos elétricos** (cabos, barramento, aterramento, fator de potência)
-- **Gestão de componentes** (tomadas, lâmpadas, equipamentos)
-- **Documentação técnica** (diagramas, relatórios, listas de materiais)
-- **Projetos executivos** completos e profissionais
+## O que a bancada faz
 
-## ✨ Funcionalidades Principais
+- **Planta 2D:** botões separados para tomadas, pontos de energia, iluminação e interruptores. Cada ponto tem símbolo próprio e dados elétricos (potência, tensão, circuito) editáveis.
+- **Circuitos:** soma os pontos da planta por circuito, escolhe cabo e disjuntor, equilibra as fases e grava no quadro.
+- **Diagrama unifilar:** gerado a partir da planilha de cada quadro, com disjuntor, fases, cabo, potência, DR e DPS.
+- **Legenda:** desenha ao lado da planta a legenda dos símbolos usados.
+- **Infraestrutura:** caminho de eletrodutos em planta e simbologia de fiação.
+- **Modelo 3D:** caixas dos pontos e tubos dos eletrodutos gerados a partir da planta.
+- **Biblioteca:** componentes `.FCStd` inseridos como link, com busca e miniatura.
+- **Relatório PDF** e importação de condutores do **QElectroTech**.
 
-### 1. **Sistema de Componentes** ✅ (Implementado)
-Insira componentes 3D diretamente do arquivo:
-- 📦 Biblioteca de componentes (Tomadas, Lâmpadas, Equipamentos, etc.)
-- 🎨 Preview/Thumbnail dos componentes
-- 🖱️ Seleção fácil com diálogo intuitivo
-- ⚙️ Configuração por callback (reutilizável)
-- 🌙 **Suporte a Tema Dark** (Ícones com contorno branco, detectados automaticamente)
+## Instalação
 
-**Como usar:**
-```
-Menu Bancada → Componentes → Inserir Componente
-ou
-Toolbar "Componentes" → Botão "Inserir Componente"
+Requer FreeCAD 1.1 ou mais novo (Python 3.10+).
+
+Clone o repositório dentro da pasta `Mod` do FreeCAD, com o nome `Circuits`. No Windows, pelo Git Bash:
+
+```bash
+cd "$APPDATA/FreeCAD/v1-1/Mod"
 ```
 
-### 2. **Cálculos Elétricos** ⏳ (Em Desenvolvimento)
-- Cálculo de seção mínima de cabo
-- Cálculo de queda de tensão
-- Verificação de corrente
-- Cálculos de barramento
-- Cálculos de infraestrutura
-- Aterramento
+```bash
+git clone -b master https://github.com/llosinskas/Circuits-FreeCAD.git Circuits
+```
 
-### 3. **Diagramas e Documentação** ⏳ (Planejado)
-- Diagrama Unifilar automático
-- Diagrama Multifilar
-- Lista de Materiais
-- Planilha de Circuitos
-- Relatórios executivos
+No Linux, a pasta é `~/.local/share/FreeCAD/v1-1/Mod`. Reinicie o FreeCAD e escolha a bancada **Engenharia**.
 
-### 4. **Infraestrutura** ⏳ (Planejado)
-- Traçado de Eletrodutos
-- Geração automática de caminhos
-- Eletrocalhas
-- Leitos
+Para atualizar uma instalação existente:
 
----
+```bash
+cd "$APPDATA/FreeCAD/v1-1/Mod/Circuits"
+```
 
-## 🚀 Começar Rapidinho
+```bash
+git pull origin master
+```
 
-### Prérequisitos
-- FreeCAD 1.1+
-- Python 3.10+
-- PySide (incluído no FreeCAD)
+Depois clique em **Reiniciar Bancada** ou reabra o FreeCAD. Mantenha uma única cópia da bancada em `Mod`: duas cópias registram os mesmos comandos e uma substitui a outra.
 
-### Instalação
-Já está incluída! Apenas:
-1. Abra FreeCAD
-2. Selecione a bancada **"Engenharia"** na barra de seleção
-3. Pronto! ✓
+## Passo a passo de um projeto
 
-### Primeiro Uso
-1. Crie um novo documento: `File → New`
-2. Ative a bancada: Selecione **"Engenharia"** no dropdown
-3. Clique em **"Inserir Componente"** (Toolbar ou Menu)
-4. Selecione um componente (ex: Tomada)
-5. Clique OK
-6. Componente inserido no projeto! 🎉
+1. **Novo projeto** (barra *Projeto elétrico*): cria os grupos do documento.
+2. **Insira os pontos** pelas barras *Tomadas*, *Pontos de energia* e *Iluminação e comando*. Depois do clique, o próximo ponto do mesmo tipo já vem no cursor. A tecla **R** gira 90° e **ESC** encerra.
+3. **Defina o circuito** de cada ponto na propriedade `Circuito`. Pontos de uso específico, como o chuveiro, precisam de circuito exclusivo.
+4. **Novo quadro** (barra *Quadros e diagramas*): informe tensão, fases, disjuntor geral e DPS.
+5. **Montar circuitos:** grava no quadro uma linha por circuito, com potência, corrente, cabo, disjuntor e fases. Use **Circuito** para acrescentar ou corrigir uma linha à mão.
+6. **Unifilar:** gera o diagrama de cada quadro.
+7. **Legenda** e **Relatório PDF** (barra *Documentação*).
 
----
+Ao repetir **Montar circuitos**, as linhas com o mesmo número são atualizadas e as demais ficam como estão.
 
-## 📚 Documentação Detalhada
+## Barras de ferramentas
 
-### Sistema de Componentes
-Para documentação completa sobre seleção e inserção de componentes:
-👉 [docs/componentes/README.md](docs/componentes/README.md)
+| Barra | Botões |
+|---|---|
+| Projeto elétrico | Novo projeto, Planilha de circuitos, Importar QET |
+| Tomadas | Tomada baixa, média, alta, de piso, Tomada TUG |
+| Pontos de energia | Chuveiro, Ar-condicionado, Ventilador, Ponto de força, Equipamento, Biblioteca |
+| Iluminação e comando | Luz de teto, Arandela, Luminária tubular, Luz embutida, Luz de emergência, Interruptor simples, paralelo e intermediário |
+| Infraestrutura | Eletroduto, Dividir trecho, Fiação |
+| Quadros e diagramas | Novo quadro, Montar circuitos, Circuito, Unifilar |
+| Documentação | Texto, cota, chamada, corte e vistas 2D do FreeCAD, Legenda, Relatório PDF |
+| Modelo 3D | Caixas 3D, Eletrodutos 3D, Tomadas 3D |
+| Biblioteca e ferramentas | Criar modelo, Importar modelo, Reiniciar Bancada |
 
-### Arquitetura
-Para entender a arquitetura:
-👉 [AGENTS.md](AGENTS.md)
+As barras *Desenho*, *Modificador*, *Snap* e *Arquitetura* trazem as ferramentas nativas do Draft e do BIM. Os comandos antigos ou ainda não implementados ficam no menu **Elétrica > Outros**.
 
-### Quick Start
-Para começar em 5 minutos:
-👉 [docs/componentes/QUICKSTART.md](docs/componentes/QUICKSTART.md)
+O texto embaixo de cada ícone pode ser desligado pela preferência `LegendaBotoes` em `BaseApp/Preferences/Mod/Circuits` (Ferramentas > Editar parâmetros).
 
-### Exemplos de Integração
-Para ver exemplos com cálculos:
-👉 [docs/componentes/examples_cable_calculation.py](docs/componentes/examples_cable_calculation.py)
+## Limitações
 
----
+- **Dimensionamento simplificado.** *Montar circuitos* verifica só a capacidade de condução (cabo de cobre com PVC, em eletroduto embutido) e a coordenação com o disjuntor. Não calcula queda de tensão, agrupamento, temperatura nem curto-circuito. Confira o resultado antes de usar.
+- **DR** é marcado em todos os circuitos de tomadas e de uso específico, mais do que a NBR 5410 exige.
+- **Tensão padrão** dos pontos é 127 V (220 V para chuveiro, ar-condicionado e ponto de força). Ajuste em cada ponto se a sua rede for diferente.
+- **Símbolos** são convenção da bancada, não cópia de uma norma.
+- **Fiação automática e eletrocalhas** ainda não existem: os botões só exibem um aviso.
+- **Tabelas e cálculos** de `core/functions` e `core/tables` ainda não são usados pela interface, e alguns têm erros conhecidos.
 
-## 🗂️ Estrutura do Projeto
+A lista completa está em "Problemas conhecidos" do [AGENTS.md](AGENTS.md). O plano de evolução está em [docs/Revisao_e_Roadmap_Predial.md](docs/Revisao_e_Roadmap_Predial.md).
+
+## Biblioteca de componentes
+
+Os modelos ficam em `freecad/Circuits/Componentes/Eletrica/`. Para acrescentar um, use o botão **Criar modelo** ou salve um `.FCStd` nessa pasta. Não renomeie a pasta: os projetos guardam links para os arquivos dela.
+
+## Desenvolvimento
 
 ```
 Circuits/
-├── AGENTS.md                  # Guia da arquitetura (para pessoas e IAs)
-├── package.xml                # Metadados do Addon Manager
-├── docs/                      # Guias e documentação do sistema de componentes
-├── tests/
-│   ├── unit/                  # Rodam sem FreeCAD
-│   └── gui/                   # Regressão com o FreeCAD real
+├── AGENTS.md              arquitetura, regras e problemas conhecidos
+├── docs/                  roadmap e guias
+├── tests/unit/            testes sem FreeCAD
+├── tests/gui/             regressão com o FreeCAD real
+├── tools/                 gerador dos ícones dos símbolos
 └── freecad/Circuits/
-    ├── init_gui.py            # Registro da bancada, toolbars e menus
-    ├── qt.py                  # Importação única do Qt
-    ├── commands/              # Comandos do FreeCAD (botões)
-    ├── UI/                    # Diálogos
-    ├── services/              # Operações no documento
-    ├── objects/               # Objetos FeaturePython
-    ├── core/                  # Regras e tabelas puras, sem FreeCAD
-    ├── Componentes/           # Biblioteca de modelos .FCStd
-    └── Resources/             # Ícones, dados e arquivos .ui
+    ├── init_gui.py        bancada, barras e menus
+    ├── commands/          comandos (botões)
+    ├── UI/                diálogos
+    ├── services/          operações no documento
+    ├── objects/           objetos paramétricos
+    ├── core/              regras, símbolos e tabelas, sem FreeCAD
+    ├── Componentes/       biblioteca .FCStd
+    └── Resources/         ícones e dados
 ```
 
-Ver [AGENTS.md](AGENTS.md) para as regras de cada camada.
+Testes unitários, a partir da raiz do repositório:
 
----
-
-## 📖 Menu da Bancada
-
-Ao ativar a bancada "Engenharia", você terá acesso a:
-
-### Menu "Componentes"
-- ✅ Inserir Componente
-- ✅ Inserir Tomada
-- ✅ Inserir Equipamento
-- ⏳ Inserir Fiação
-- ⏳ Inserir Eletroduto
-- ⏳ Inserir Eletrocalha
-
-### Menu "Novo Projeto"
-- Criar novo projeto elétrico
-- Adicionar spreadsheet
-- Criar modelo
-
-### Menu "Diagrama Unifilar"
-- Gerar diagrama unifilar
-- Gerar planilha de circuitos
-- Adicionar circuito
-
-### Menu "Quadro Elétrico"
-- Criar novo quadro
-
-### Menu "Relatórios"
-- Gerar relatório
-
----
-
-## 🔧 Configuração
-
-### Pasta de Componentes
-Os componentes estão em:
-```
-freecad/Circuits/Componentes/Eletrica/
-├── Tomada.FCStd
-├── Lampada.FCStd
-├── Tomadas.FCStd
-└── ...
+```bash
+python -B -m unittest discover -s tests/unit -t .
 ```
 
-**Para adicionar novo componente:**
-1. Crie arquivo 3D no FreeCAD: `File → Save As → component.FCStd`
-2. Adicione um thumbnail (salva automaticamente no formato correto)
-3. Coloque em `freecad/Circuits/Componentes/Eletrica/`
-4. Pronto! Aparecerá no seletor ao clicar no botão
+O [AGENTS.md](AGENTS.md) explica as camadas, como criar um comando ou um símbolo novo e como rodar a regressão no FreeCAD real.
 
----
+## Licença e autor
 
-## 💡 Exemplos de Uso
+MIT, conforme `package.xml`; o arquivo `LICENSE` ainda não foi adicionado ao repositório.
 
-### Exemplo 1: Inserir uma Tomada
-```
-1. Menu → Componentes → Inserir Tomada
-2. Diálogo abre com preview dos componentes
-3. Clique em "Tomada"
-4. Clique OK
-5. Tomada inserida no projeto
-```
-
-### Exemplo 2: Integrar com Cálculo
-```python
-from freecad.Circuits.UI.dialogs import ComponentInserter
-
-def meu_callback(filepath, objeto):
-    print(f"Componente inserido: {objeto.Label}")
-    # Executar cálculo aqui
-
-inserter = ComponentInserter(
-    "Componentes/Eletrica",
-    on_component_loaded=meu_callback
-)
-inserter.insert_component()
-```
-
-Ver arquivo `docs/componentes/examples_cable_calculation.py` para 3 exemplos completos!
-
----
-
-## 🗺️ Roadmap
-
-### ✅ Concluído (v0.1)
-- [x] Sistema de seleção e inserção de componentes
-- [x] Preview com thumbnails
-- [x] Integração com bancada
-- [x] Documentação técnica
-
-### ⏳ Próximo (v0.2)
-- [ ] Modo posicionamento com mouse
-- [ ] Cálculos de cabo básicos
-- [ ] Filtros avançados de componentes
-- [ ] Teste unitário
-
-### 🚀 Futuro (v0.3+)
-- [ ] Traçado automático de eletrodutos
-- [ ] Geração de diagrama unifilar
-- [ ] Cálculos completos (barramento, aterramento, FP)
-- [ ] Relatórios automáticos
-- [ ] Exportação (DWG, PDF)
-- [ ] Integração com QEletrotech
-
----
-
-## 🐛 Troubleshooting
-
-### "Sistema de Componentes não aparece"
-- Verifique pasta `freecad/Circuits/Componentes/Eletrica/`
-- Arquivos devem ser `.FCStd` (não `.FCBak`)
-- Recrie a pasta se necessário
-
-### "Thumbnails vazios"
-- Isso é normal, usa fallback de ícone genérico
-- Para adicionar thumbnail: abra `.FCStd` no FreeCAD e re-salve
-
-### "Erro ao inserir componente"
-- Verifique se um documento está aberto
-- Tente recarregar a bancada (Menu → Ferramentas → Reiniciar Bancada)
-
-### "Bancada não aparece"
-- Reinicie FreeCAD
-- Verifique se o repositório está em `%APPDATA%\FreeCAD\v1-1\Mod\Circuits`
-
----
-
-## 📝 Notas de Versão
-
-### v0.2 (2026-04-08)
-
-
-### v0.1 (2026-04-08)
-- ✅ Implementação do sistema de componentes
-- ✅ Diálogo com busca em tempo real
-- ✅ Preview de thumbnails
-- ✅ Integração com bancada FreeCAD
-- ✅ Documentação técnica completa
-- ✅ 3 exemplos de integração
-
----
-
-## 👨‍💻 Desenvolvimento e Contribuição
-
-### Para Desenvolvedores
-A bancada foi estruturada para ser fácil de estender:
-
-**Adicionar novo tipo de componente:**
-1. Crie pasta em `Componentes/` (ex: `Componentes/Cabos/`)
-2. Adicione arquivos `.FCStd`
-3. Use `ComponentSelectorDialog` apontando para essa pasta
-
-**Integrar com cálculos:**
-```python
-from freecad.Circuits.UI.dialogs import ComponentInserter
-
-inserter = ComponentInserter(
-    "sua/pasta/componentes",
-    on_component_loaded=seus_calculos
-)
-```
-
-Ver `docs/componentes/README.md` para API completa!
-
----
-
-## 📞 Suporte
-
-- Versão do FreeCAD: 1.1+
-- Python: 3.10+
-- Sistema: Windows, Linux, macOS
-- Licença: (Defina sua licença)
-
----
-
-## 🎓 Aprender Mais
-
-- [Arquitetura da bancada](AGENTS.md)
-- [Documentação técnica de Componentes](docs/componentes/README.md)
-- [Quick Start em 5 minutos](docs/componentes/QUICKSTART.md)
-- [Exemplos com cálculos](docs/componentes/examples_cable_calculation.py)
-
----
-
-## 📅 Histórico
-
-| Versão | Data | Alterações |
-|--------|------|-----------|
-| 0.1 | 2026-04-08 | Sistema de componentes implementado |
-| 0.0 | 2026-03 | Inicial |
-
----
-
-**Desenvolvido com ❤️ para ElectroAlpha**
-
-*Última atualização: 2026-04-08*
+Autor: Lucas Losinskas.
