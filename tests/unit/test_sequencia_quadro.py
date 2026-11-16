@@ -13,7 +13,8 @@ from tests import ROOT  # noqa: F401  (configura o caminho do pacote)
 
 MODULOS_FREECAD = ("FreeCAD", "FreeCADGui", "Part", "Draft", "Sketcher", "Spreadsheet")
 SERVICOS = ("freecad.Circuits.services.circuitos", "freecad.Circuits.services.planilhas",
-            "freecad.Circuits.services.tomadas", "freecad.Circuits.services.documento")
+            "freecad.Circuits.services.tomadas", "freecad.Circuits.services.documento",
+            "freecad.Circuits.objects.ponto")
 
 
 class PlanilhaFalsa:
@@ -102,6 +103,30 @@ class TestSequenciaQuadro(unittest.TestCase):
         doc = self.documento(*(objeto_ponto("tomada_baixa", str(n), 100) for n in range(1, 13)))
         self.circuitos.montar_circuitos(doc, quadro)
         self.assertEqual([quadro.get(f"A{linha}") for linha in range(6, 18)], [str(n) for n in range(1, 13)])
+
+    def test_demanda_e_gravada_no_quadro(self):
+        quadro = PlanilhaFalsa()
+        quadro.aliases["potencia_demanda"] = "N3"
+        doc = self.documento(
+            objeto_ponto("luz_teto", "1", 800), objeto_ponto("tomada_baixa", "2", 1200),
+            objeto_ponto("chuveiro", "3", 5500, "220V", "F+F"),
+        )
+        resultado = self.circuitos.calcular_demanda(doc, quadro)
+        self.assertAlmostEqual(resultado["demanda_w"], 2000 * 0.75 + 5500)
+        self.assertEqual((quadro.get("potencia_instalada"), quadro.get("potencia_demanda")), ("7.5", "7.0"))
+
+    def test_demanda_sem_pontos(self):
+        self.assertIsNone(self.circuitos.calcular_demanda(self.documento(), PlanilhaFalsa()))
+
+    def test_ponto_do_motor_recebe_os_dados_eletricos(self):
+        from freecad.Circuits.core.functions.Predial import motores
+        criado = types.SimpleNamespace()
+        with mock.patch.object(self.circuitos, "create_ponto", return_value=criado) as criar:
+            obj = self.circuitos.criar_ponto_motor("Bomba de recalque 2 cv", motores.dados_motor(1.2, 380))
+        criar.assert_called_once_with("ponto_forca")
+        self.assertIs(obj, criado)
+        self.assertEqual((obj.Descricao, obj.Tensao, obj.Ligacao), ("Bomba de recalque 2 cv", "380V", "3F"))
+        self.assertAlmostEqual(obj.Potencia, 2 * 0.7355 / 0.85 / 0.85 * 1000, places=0)
 
     def test_circuito_acima_das_tabelas_vira_aviso(self):
         quadro = PlanilhaFalsa()

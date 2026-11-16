@@ -3,6 +3,8 @@ import FreeCAD as App
 
 from freecad.Circuits.core import circuitos as calculo
 from freecad.Circuits.core import simbolos
+from freecad.Circuits.core.functions.Predial import demanda as calculo_demanda
+from freecad.Circuits.objects.ponto import TENSOES, create_ponto
 from freecad.Circuits.services import planilhas
 from freecad.Circuits.services.tomadas import listar_tomadas
 
@@ -90,6 +92,53 @@ def _fases_do_quadro(quadro):
         return 3
 
 
+def _circuitos_do_quadro(doc, quadro):
+    """Circuitos dos pontos sem quadro definido e dos que apontam para este quadro."""
+    nomes = (quadro.Label, quadro.Name)
+    pontos = [p for p in coletar_pontos(doc) if not p["quadro"].strip() or p["quadro"].strip() in nomes]
+    return calculo.agrupar(pontos)
+
+
+def calcular_demanda(doc, quadro):
+    """Calcula a demanda do quadro pelos pontos da planta e a grava na planilha.
+
+    Returns:
+        Resultado de ``core.functions.Predial.demanda.demanda_de_circuitos``,
+        ou None se não há pontos com circuito definido.
+    """
+    circuitos = _circuitos_do_quadro(doc, quadro)
+    if not circuitos:
+        return None
+    resultado = calculo_demanda.demanda_de_circuitos(circuitos)
+    planilhas.gravar_potencia_instalada(quadro, round(resultado["instalada_w"] / 1000.0, 2))
+    planilhas.gravar_potencia_demanda(quadro, round(resultado["demanda_w"] / 1000.0, 2))
+    doc.recompute()
+    return resultado
+
+
+def criar_ponto_motor(descricao, motor):
+    """Cria na planta um ponto de força com os dados elétricos de um motor.
+
+    Args:
+        descricao: texto que identifica a carga no quadro (ex.: 'Bomba de recalque 2 cv').
+        motor: resultado de ``core.functions.Predial.motores.dados_motor``.
+    Returns:
+        O PontoEletrico criado, ou None se não há documento ativo.
+    """
+    obj = create_ponto("ponto_forca")
+    if obj is None:
+        return None
+    tensao = f"{int(motor['tensao'])}V"
+    obj.Descricao = descricao
+    obj.Label = descricao
+    obj.Potencia = round(motor["potencia_aparente_kva"] * 1000.0, 1)
+    obj.FatorPotencia = motor["fator_potencia"]
+    if tensao in TENSOES:
+        obj.Tensao = tensao
+    obj.Ligacao = {1: "F+N", 2: "F+F"}.get(motor["fases"], "3F")
+    return obj
+
+
 def montar_circuitos(doc, quadro):
     """Monta os circuitos do quadro a partir dos pontos da planta e os grava na planilha.
 
@@ -99,9 +148,7 @@ def montar_circuitos(doc, quadro):
     Returns:
         (circuitos gravados, avisos) — avisos é uma lista de textos para o usuário.
     """
-    nomes = (quadro.Label, quadro.Name)
-    pontos = [p for p in coletar_pontos(doc) if not p["quadro"].strip() or p["quadro"].strip() in nomes]
-    circuitos = calculo.agrupar(pontos)
+    circuitos = _circuitos_do_quadro(doc, quadro)
     calculo.distribuir_fases(circuitos, _fases_do_quadro(quadro))
 
     avisos = []

@@ -9,6 +9,7 @@ O projeto está em desenvolvimento. A seção [Limitações](#limitações) diz 
 - **Planta 2D:** botões separados para tomadas, pontos de energia, iluminação e interruptores. Cada ponto tem símbolo próprio e dados elétricos (potência, tensão, circuito) editáveis.
 - **Circuitos:** soma os pontos da planta por circuito, escolhe cabo e disjuntor, equilibra as fases e grava no quadro.
 - **Diagrama unifilar:** gerado a partir da planilha de cada quadro, com disjuntor, fases, cabo, potência, DR e DPS.
+- **Cálculos prediais:** demanda do quadro, pré-dimensionamento do ventilador de pressurização de escada e da bomba de recalque, com o motor elétrico de cada um.
 - **Legenda:** desenha ao lado da planta a legenda dos símbolos usados.
 - **Infraestrutura:** caminho de eletrodutos em planta e simbologia de fiação.
 - **Modelo 3D:** caixas dos pontos e tubos dos eletrodutos gerados a partir da planta.
@@ -51,7 +52,10 @@ Depois clique em **Reiniciar Bancada** ou reabra o FreeCAD. Mantenha uma única 
 4. **Novo quadro** (barra *Quadros e diagramas*): informe tensão, fases, disjuntor geral e DPS.
 5. **Montar circuitos:** grava no quadro uma linha por circuito, com potência, corrente, cabo, disjuntor e fases. Use **Circuito** para acrescentar ou corrigir uma linha à mão.
 6. **Unifilar:** gera o diagrama de cada quadro.
-7. **Legenda** e **Relatório PDF** (barra *Documentação*).
+7. **Demanda** (barra *Cálculos prediais*): calcula a demanda do quadro e grava na planilha; gere o unifilar de novo para mostrá-la.
+8. **Legenda** e **Relatório PDF** (barra *Documentação*).
+
+**Pressurização** e **Bomba de recalque** abrem um formulário, mostram o cálculo e, com o botão *Inserir motor na planta*, criam o ponto de força do motor para entrar nos circuitos.
 
 Ao repetir **Montar circuitos**, as linhas com o mesmo número são atualizadas e as demais ficam como estão.
 
@@ -65,6 +69,7 @@ Ao repetir **Montar circuitos**, as linhas com o mesmo número são atualizadas 
 | Iluminação e comando | Luz de teto, Arandela, Luminária tubular, Luz embutida, Luz de emergência, Interruptor simples, paralelo e intermediário |
 | Infraestrutura | Eletroduto, Dividir trecho, Fiação |
 | Quadros e diagramas | Novo quadro, Montar circuitos, Circuito, Unifilar |
+| Cálculos prediais | Demanda, Pressurização, Bomba de recalque |
 | Documentação | Texto, cota, chamada, corte e vistas 2D do FreeCAD, Legenda, Relatório PDF |
 | Modelo 3D | Caixas 3D, Eletrodutos 3D, Tomadas 3D |
 | Biblioteca e ferramentas | Criar modelo, Importar modelo, Reiniciar Bancada |
@@ -76,6 +81,8 @@ O texto embaixo de cada ícone pode ser desligado pela preferência `LegendaBoto
 ## Limitações
 
 - **Dimensionamento simplificado.** *Montar circuitos* verifica só a capacidade de condução (cabo de cobre com PVC, em eletroduto embutido) e a coordenação com o disjuntor. Não calcula queda de tensão, agrupamento, temperatura nem curto-circuito. Confira o resultado antes de usar.
+- **Demanda:** usa fatores de guias de instalações residenciais, não conferidos com a fonte. Cada concessionária tem tabela própria, e a demanda do edifício inteiro (vários apartamentos) não é calculada.
+- **Pressurização de escada e bomba de recalque:** são pré-dimensionamentos para estimar a carga elétrica. Os parâmetros precisam ser conferidos com a NBR 14880, o Corpo de Bombeiros e o projeto hidráulico. O disjuntor do motor não considera a corrente de partida.
 - **DR** é marcado em todos os circuitos de tomadas e de uso específico, mais do que a NBR 5410 exige.
 - **Tensão padrão** dos pontos é 127 V (220 V para chuveiro, ar-condicionado e ponto de força). Ajuste em cada ponto se a sua rede for diferente.
 - **Símbolos** são convenção da bancada, não cópia de uma norma.

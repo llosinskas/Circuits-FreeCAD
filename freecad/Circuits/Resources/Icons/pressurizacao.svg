@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64">
+  <!-- Pressurização de escada: degraus com o ar insuflado -->
+  <path d="M8 56H20V44H32V32H44V20H56V8 M8 14H26M20 8L26 14L20 20M8 30H16M12 26L16 30L12 34" fill="none" stroke-linecap="round" stroke-linejoin="round" stroke="#ffffff" stroke-width="7" stroke-opacity="0.85"/>
+  <path d="M8 56H20V44H32V32H44V20H56V8" fill="none" stroke-linecap="round" stroke-linejoin="round" stroke="#5f6368" stroke-width="3"/>
+  <path d="M8 14H26M20 8L26 14L20 20M8 30H16M12 26L16 30L12 34" fill="none" stroke-linecap="round" stroke-linejoin="round" stroke="#1a73e8" stroke-width="3"/>
+</svg>

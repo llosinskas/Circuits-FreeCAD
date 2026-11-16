@@ -83,3 +83,7 @@ def adicionar_circuito(planilha, dados):
 
 def gravar_potencia_instalada(planilha, potencia_kw):
     planilha.set(planilha.getCellFromAlias("potencia_instalada"), str(potencia_kw))
+
+
+def gravar_potencia_demanda(planilha, potencia_kw):
+    planilha.set(planilha.getCellFromAlias("potencia_demanda"), str(potencia_kw))

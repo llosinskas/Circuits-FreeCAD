@@ -34,7 +34,7 @@ Circuits/                        pasta dentro de Mod/, raiz do repositório
     ├── services/                operações no documento, sem Qt
     ├── objects/                 objetos FeaturePython
     ├── core/                    regras e tabelas puras
-    │   ├── functions/           cálculos (Cabo/, Barramento, Infraestrutura/)
+    │   ├── functions/           cálculos (Cabo/, Barramento, Infraestrutura/, Predial/)
     │   ├── tables/              tabelas NBR 5410, NBR 14039 e eletrodutos
     │   ├── simbolos.py          catálogo e geometria dos pontos elétricos
     │   ├── circuitos.py         circuitos a partir dos pontos: soma, cabo, disjuntor, fases
@@ -92,6 +92,8 @@ Regras gerais:
 | `Generate3DConduits`, `Generate3DSwitches` | `generate_3d` | `services/eletrodutos`, `caixas_3d` |
 | `GerarPlanilha`, `MontarCircuitos`, `AddCircuito`, `GerarUnifilar` | `gerar_unifilar` | `services/planilhas`, `circuitos`, `unifilar`; `core/circuitos`; `UI/dialogs/quadro_dialogs` |
 | `ImportQET`, `Add_Node` | `import_QEletrotech` | `services/qet_import`, `eletrodutos`; `core/qet` |
+| `CalcDemanda` | `calculos` | `services/circuitos`; `core/functions/Predial/demanda` |
+| `CalcPressurizacao`, `CalcRecalque` | `calculos` | `core/functions/Predial/pressurizacao`, `recalque`, `motores`; `UI/dialogs/calculo_dialog` |
 | `GenerateReport` | `reports` | `services/pdf_generator`; `UI/dialogs/report_dialog` |
 | `GetSpaces`, `ReiniciarBancada` | `tools` | no próprio módulo |
 
@@ -107,6 +109,7 @@ As barras ficam em `init_gui.py`, na ordem do fluxo de um projeto em planta, com
 | Iluminação e comando | `Ponto_luz_teto`, `_arandela`, `_fluorescente`, `_embutida`, `_emergencia`; `InsertSwitch`, `InsertSwitchParalelo`, `InsertSwitchIntermediario` |
 | Infraestrutura | `InsertConduit`, `Add_Node`, `Cabo` |
 | Quadros e diagramas | `GerarPlanilha`, `MontarCircuitos`, `AddCircuito`, `GerarUnifilar` (nesta ordem de uso) |
+| Cálculos prediais | `CalcDemanda`, `CalcPressurizacao`, `CalcRecalque` |
 | Documentação | texto, cota, chamada, corte e vistas nativos; `LegendaSimbolos`, `GenerateReport` |
 | Desenho, Modificador, Snap, Arquitetura | comandos nativos do Draft e do BIM |
 | Modelo 3D | `Generate3DSwitches`, `Generate3DConduits`, `Gerar3D` |
@@ -125,6 +128,8 @@ Os comandos se encontram pelos objetos do documento, não por estado em Python:
 - **Ponto elétrico (`Ponto`):** a propriedade `Simbolo` é a chave de `core.simbolos.CATALOGO`. `Potencia` em VA, `FatorPotencia`, `Tensao`, `Ligacao` (`F+N`, `F+F`, `3F`), `Circuito` e `Quadro` (vazio vale para qualquer quadro). `MontarCircuitos` também lê `Outlet`, `Lighting` e as tomadas em Sketch.
 - **Circuitos montados:** `MontarCircuitos` soma os pontos por `Circuito`, dimensiona e grava uma linha por circuito no quadro. Uma linha com o mesmo número é atualizada no lugar; as outras ficam como estão.
 - **Quadro:** planilha `Spreadsheet::Sheet` com a propriedade `quadro`. A linha 3 tem os dados, com aliases iguais a `core.planilha.CABECALHO_QUADRO`, que são lidos pelo unifilar. Os circuitos ficam da linha 6 em diante, conforme `COLUNAS_CIRCUITO`.
+- **Demanda:** `CalcDemanda` grava `potencia_instalada` e `potencia_demanda` (kW) na linha 3 do quadro, e o unifilar as mostra.
+- **Motores calculados:** `CalcPressurizacao` e `CalcRecalque` podem inserir um `Ponto` do tipo `ponto_forca` com a potência aparente, a tensão e a ligação do motor; ele entra em `MontarCircuitos` como qualquer ponto.
 - **Diagrama:** grupo com Label `diagrama_<quadro>` e propriedade `quadro_origem` com o nome da planilha, recriado a cada geração. Os diagramas são empilhados, um por quadro.
 - **Legenda:** grupo `Legenda_simbolos`, recriado a cada geração na posição em que estava.
 - **Caixas e tubos 3D:** objeto `<nome da origem>_3D`, substituído a cada geração.
@@ -139,6 +144,8 @@ Os comandos se encontram pelos objetos do documento, não por estado em Python:
 4. Acrescente o ID em uma lista de `init_gui.py` (veja "Barras e legendas"). Se o módulo for novo, importe-o em `Initialize`.
 
 **Novo cálculo ou tabela de norma:** função pura em `core/functions/` ou dados em `core/tables/`, com teste em `tests/unit/`. Documente unidades no docstring.
+
+**Novo cálculo com formulário:** função `dimensionar(...)` e `relatorio(resultado)` em `core/functions/Predial/`, e um comando em `commands/calculos.py` com a lista `CAMPOS` e o `CalculoDialog`. As chaves de `CAMPOS` são os nomes dos argumentos de `dimensionar`.
 
 **Novo objeto FeaturePython:** siga `objects/switch.py` (classe com `Type`, ViewProvider e `create_*`). Depois de usado em projetos, o nome do módulo e da classe ficam congelados.
 
@@ -187,9 +194,13 @@ Todos foram confirmados no código ou em execução e já existiam antes da reor
 - `UI/insert_circuit.py` (`AddSpreadsheet`): os botões e o movimento do mouse usam `self.label1` e `self.label2`, que não existem. O formulário também não grava dados.
 
 - `core/circuitos.py`: o dimensionamento de `MontarCircuitos` só verifica capacidade de condução (método B1, PVC) e Ib ≤ In ≤ Iz. Não considera queda de tensão, agrupamento, temperatura nem curto-circuito.
+- `core/functions/Predial/demanda.py`: fatores de demanda de guias de instalações residenciais, transcritos de memória e não conferidos com a fonte. Cada concessionária tem tabela própria. Não calcula a demanda do edifício (diversidade entre apartamentos).
+- `core/functions/Predial/pressurizacao.py`: áreas de fresta, número de portas abertas e acréscimos (25 % não identificados; 15 % duto metálico, 25 % alvenaria) precisam ser conferidos com a edição vigente da NBR 14880 e com o Corpo de Bombeiros.
+- `core/functions/Predial/recalque.py`: singularidades estimadas em 30 % do comprimento e rendimento da bomba de 50 % são suposições, editáveis só no código ou no formulário (rendimento).
+- `core/circuitos.py`, `dimensionar`: o disjuntor de motores é escolhido só pela corrente nominal, sem considerar a partida.
 - `services/circuitos.py`, `_de_tomada_sketch`: lê potência e tensão das tomadas em Sketch pelo número bruto, porque elas são gravadas sem unidade. Falta confirmar no FreeCAD e migrar para grandezas com unidade.
 - `services/pdf_generator.py`, `_get_calculos_table`: lê a linha 2 (cabeçalhos) em vez da linha 3 e percorre todas as planilhas, não só os quadros.
-- Os pontos novos, a legenda, `MontarCircuitos` e as mudanças do unifilar têm teste unitário da lógica, mas ainda não foram executados no FreeCAD real: rode o `smoke_gui.py` e atualize este item.
+- Os pontos novos, a legenda, `MontarCircuitos`, os cálculos prediais e as mudanças do unifilar têm teste unitário da lógica, mas ainda não foram executados no FreeCAD real: rode o `smoke_gui.py` e atualize este item.
 
 **Cálculos e tabelas, ainda sem uso na interface**
 - `core/functions/Barramento.py`: `Sec_tubular` gera `TypeError` (falta `*` em `math.pi(...)`) e não tem `return`. `Corrente_carga_maxima` usa `Qc*Qr-Qs`; conferir com a fonte, pois o balanço térmico sugere soma.

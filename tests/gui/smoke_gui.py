@@ -184,6 +184,8 @@ def scenario(doc):
     run("MontarCircuitos")
     run("MontarCircuitos")  # segunda execução: atualiza as linhas, não duplica
     result["steps"]["montar_circuitos"] = avisos
+    run("CalcDemanda")
+    result["steps"]["demanda"] = avisos[-1]
     run("GerarUnifilar")
     result["steps"]["unifilar"] = snapshot(doc)
     run("GerarUnifilar")  # segunda execução: precisa substituir, não duplicar
@@ -232,6 +234,13 @@ def scenario_extras(doc):
 
     attempt("dialogo_quadro", lambda: module("UI.dialogs.quadro_dialogs").CriarQuadro().close() and None)
     attempt("dialogo_add_circuito", lambda: module("UI.dialogs.quadro_dialogs").Add_circuito().close() and None)
+    calculos = module("commands.calculos")
+    for nome, comando in (("pressurizacao", calculos.CalcPressurizacao), ("recalque", calculos.CalcRecalque)):
+        def calcular(comando=comando):
+            dialogo = module("UI.dialogs.calculo_dialog").CalculoDialog("Teste", comando.CAMPOS, comando._calcular, "Ok")
+            dialogo.calcular()
+            return [dialogo.saida.toPlainText(), dialogo.btn_aceitar.isEnabled()]
+        attempt("calculo_" + nome, calcular)
     attempt("dialogo_relatorio", lambda: sorted(module("UI.dialogs.report_dialog").ReportDialog().get_opcoes()))
     attempt("dialogo_circuito", lambda: module("UI.insert_circuit").InsertCircuit().close())
     attempt("seletor_componentes", lambda: module("UI.dialogs").ComponentSelectorDialog(
@@ -284,7 +293,7 @@ try:
     Gui.updateGui()
     workbench = Gui.activeWorkbench()
     own_toolbars = ["Projeto elétrico", "Tomadas", "Pontos de energia", "Iluminação e comando", "Infraestrutura",
-                    "Quadros e diagramas", "Documentação", "Desenho", "Modificador", "Snap", "Arquitetura", "Modelo 3D", "Biblioteca e ferramentas"]
+                    "Quadros e diagramas", "Cálculos prediais", "Documentação", "Desenho", "Modificador", "Snap", "Arquitetura", "Modelo 3D", "Biblioteca e ferramentas"]
     items = workbench.getToolbarItems()
     result["toolbars"] = {t: items.get(t) for t in own_toolbars}
     commands = {}

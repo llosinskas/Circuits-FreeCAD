@@ -94,6 +94,7 @@ LIGHTING_TOOLS = [
 ]
 INFRA_TOOLS = ["InsertConduit", "Add_Node", "Cabo"]
 BOARD_TOOLS = ["GerarPlanilha", "MontarCircuitos", "AddCircuito", "GerarUnifilar"]
+CALC_TOOLS = ["CalcDemanda", "CalcPressurizacao", "CalcRecalque"]
 DOCUMENT_TOOLS = [
     "BIM_Text",
     "Draft_Dimension",
@@ -127,6 +128,7 @@ ELECTRIC_TOOLBARS = [
     (_tr("Workbench", "Iluminação e comando"), LIGHTING_TOOLS),
     (_tr("Workbench", "Infraestrutura"), INFRA_TOOLS),
     (_tr("Workbench", "Quadros e diagramas"), BOARD_TOOLS),
+    (_tr("Workbench", "Cálculos prediais"), CALC_TOOLS),
     (_tr("Workbench", "Documentação"), DOCUMENT_TOOLS),
 ]
 SUPPORT_TOOLBARS = [
@@ -147,6 +149,7 @@ MENUS = [
     ([MENU, "Iluminação e comando"], LIGHTING_TOOLS),
     ([MENU, "Infraestrutura"], INFRA_TOOLS),
     ([MENU, "Quadros e diagramas"], BOARD_TOOLS),
+    ([MENU, "Cálculos prediais"], CALC_TOOLS),
     ([MENU, "Documentação"], ["LegendaSimbolos", "GenerateReport"]),
     ([MENU, "Modelo 3D"], MODEL_3D_TOOLS),
     ([MENU, "Biblioteca e ferramentas"], LIBRARY_TOOLS),
@@ -195,6 +198,7 @@ class CircuitsWorkbench(gui.Workbench):
 
         # Cada módulo registra os próprios comandos ao ser importado.
         from .commands import (  # noqa: F401
+            calculos,
             generate_3d,
             gerar_unifilar,
             import_QEletrotech,
