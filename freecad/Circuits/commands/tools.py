@@ -21,7 +21,11 @@ class GetSpaces:
             App.Console.PrintMessage(f"  → {obj.Label}\n")
 
     def GetResources(self):
-        return recursos("newProject.svg", "Pegar Espaços", "Pegar todos os espaços do projeto")
+        return recursos(
+            "listar_objetos.svg",
+            "Listar objetos",
+            "Lista no painel de relatório todos os objetos do documento",
+        )
 
 
 class ReiniciarBancada:

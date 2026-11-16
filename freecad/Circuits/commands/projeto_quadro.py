@@ -15,7 +15,11 @@ class NewQuadro:
         criar_grupos(doc, GRUPOS_QUADRO)
 
     def GetResources(self):
-        return recursos("newProject.svg", "Criar Quadro", "Criar um novo quadro elétrico")
+        return recursos(
+            "estrutura_quadro.svg",
+            "Estrutura de quadro",
+            "Cria os grupos do projeto de um quadro elétrico: dados, dispositivos, conexões e listagem",
+        )
 
 
 Gui.addCommand("NewQuadro", NewQuadro())

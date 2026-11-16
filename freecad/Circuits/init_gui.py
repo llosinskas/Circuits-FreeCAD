@@ -10,7 +10,7 @@ import FreeCAD as app
 import FreeCADGui as gui
 
 from freecad.Circuits import ICON_PATH, TRANSLATIONS_PATH
-from freecad.Circuits.qt import QtCore
+from freecad.Circuits.qt import QtCore, QtWidgets
 
 gui.addLanguagePath(TRANSLATIONS_PATH)
 gui.updateLocale()
@@ -70,51 +70,81 @@ BIM_TOOLS = [
     "BIM_Door",
     "BIM_Library",
 ]
-ANNOTATION_TOOLS = ["BIM_Text", "Arch_SectionPlane", "BIM_TDView", "BIM_Shape2DView"]
-PROJECT_TOOLS = ["ComponentEletric", "Gerar3D", "Cabo"]
-NEW_PROJECT_TOOLS = ["newProjetctEletrical", "newSpreadsheet", "AddSpreadsheet", "ListElements", "CreateModel"]
-INSERT_COMPONENTS_TOOLS = [
-    "InsertComponent",
+
+# Barras da bancada, na ordem do fluxo de um projeto em planta (2D primeiro).
+PROJECT_TOOLS = ["newProjetctEletrical", "newSpreadsheet", "ImportQET"]
+POINT_TOOLS = [
+    "InsertOutlet",
     "InsertTugs",
-    "InsertEquipaments",
     "InsertSwitch",
     "InsertLighting",
-    "InsertOutlet",
-    "InsertWire",
-    "InsertConduit",
-    "Generate3DConduits",
-    "Generate3DSwitches",
-    "InsertCableTray",
+    "InsertEquipaments",
+    "InsertComponent",
 ]
-REPORT_TOOLS = ["GenerateReport"]
-UTILITY_TOOLS = ["GetSpaces", "ReiniciarBancada"]
-UNIFILAR_TOOLS = ["GerarUnifilar", "GerarPlanilha", "AddCircuito"]
-QELETROTECH_TOOLS = ["ImportQET", "Add_Node"]
-QUADRO_TOOLS = ["NewQuadro"]
+INFRA_TOOLS = ["InsertConduit", "Add_Node", "Cabo"]
+BOARD_TOOLS = ["GerarPlanilha", "AddCircuito", "GerarUnifilar"]
+DOCUMENT_TOOLS = [
+    "BIM_Text",
+    "Draft_Dimension",
+    "Draft_Label",
+    "Arch_SectionPlane",
+    "BIM_Shape2DView",
+    "BIM_TDView",
+    "GenerateReport",
+]
+MODEL_3D_TOOLS = ["Generate3DSwitches", "Generate3DConduits", "Gerar3D"]
+LIBRARY_TOOLS = ["CreateModel", "ListElements", "ReiniciarBancada"]
+
+# Só no menu: comandos antigos, incompletos ou de uso raro.
+EXTRA_TOOLS = ["ComponentEletric", "InsertWire", "InsertCableTray", "AddSpreadsheet", "NewQuadro", "GetSpaces"]
 
 _tr = QtCore.QT_TRANSLATE_NOOP
-TOOLBARS = [
-    (_tr("Workbench", "Snap"), SNAP_TOOLS),
+ELECTRIC_TOOLBARS = [
+    (_tr("Workbench", "Projeto elétrico"), PROJECT_TOOLS),
+    (_tr("Workbench", "Pontos elétricos"), POINT_TOOLS),
+    (_tr("Workbench", "Infraestrutura"), INFRA_TOOLS),
+    (_tr("Workbench", "Quadros e diagramas"), BOARD_TOOLS),
+    (_tr("Workbench", "Documentação"), DOCUMENT_TOOLS),
+]
+SUPPORT_TOOLBARS = [
+    (_tr("Workbench", "Modelo 3D"), MODEL_3D_TOOLS),
+    (_tr("Workbench", "Biblioteca e ferramentas"), LIBRARY_TOOLS),
+]
+TOOLBARS = ELECTRIC_TOOLBARS + [
     (_tr("Workbench", "Desenho"), DRAWING_TOOLS),
     (_tr("Workbench", "Modificador"), MODIFY_TOOLS),
-    (_tr("Workbench", "BIM"), BIM_TOOLS),
-    (_tr("Workbench", "Anotações"), ANNOTATION_TOOLS),
-    (_tr("Workbench", "Inserir Componentes"), PROJECT_TOOLS),
-    (_tr("Workbench", "Novo Projeto"), NEW_PROJECT_TOOLS),
-    (_tr("Workbench", "Componentes"), INSERT_COMPONENTS_TOOLS),
-    (_tr("Workbench", "Relatórios"), REPORT_TOOLS),
-    (_tr("Workbench", "Ferramentas"), UTILITY_TOOLS),
-    (_tr("Workbench", "Diagrama Unifilar"), UNIFILAR_TOOLS),
-    (_tr("Workbench", "QEletrotech"), QELETROTECH_TOOLS),
-    (_tr("Workbench", "Quadro Elétrico"), QUADRO_TOOLS),
-]
+    (_tr("Workbench", "Snap"), SNAP_TOOLS),
+    (_tr("Workbench", "Arquitetura"), BIM_TOOLS),
+] + SUPPORT_TOOLBARS
+MENU = "&Elétrica"
 MENUS = [
-    ("&Componentes", INSERT_COMPONENTS_TOOLS),
-    ("&Novo Projeto", NEW_PROJECT_TOOLS),
-    ("&Diagrama Unifilar", UNIFILAR_TOOLS),
-    ("&Quadro Elétrico", QUADRO_TOOLS),
-    ("&Relatórios", REPORT_TOOLS),
+    ([MENU, "Projeto"], PROJECT_TOOLS),
+    ([MENU, "Pontos elétricos"], POINT_TOOLS),
+    ([MENU, "Infraestrutura"], INFRA_TOOLS),
+    ([MENU, "Quadros e diagramas"], BOARD_TOOLS),
+    ([MENU, "Documentação"], ["GenerateReport"]),
+    ([MENU, "Modelo 3D"], MODEL_3D_TOOLS),
+    ([MENU, "Biblioteca e ferramentas"], LIBRARY_TOOLS),
+    ([MENU, "Outros"], EXTRA_TOOLS),
 ]
+
+# Barras que mostram a legenda (texto) embaixo de cada ícone.
+BARRAS_COM_LEGENDA = [label for label, _ in ELECTRIC_TOOLBARS + SUPPORT_TOOLBARS]
+PREFERENCIAS = "User parameter:BaseApp/Preferences/Mod/Circuits"
+
+
+def _aplicar_legendas(mostrar):
+    """Mostra ou esconde o texto dos botões nas barras próprias da bancada.
+
+    Desligue pela preferência booleana ``LegendaBotoes`` em ``PREFERENCIAS``.
+    """
+    estilo = QtCore.Qt.ToolButtonTextUnderIcon if mostrar else QtCore.Qt.ToolButtonIconOnly
+    try:
+        for barra in gui.getMainWindow().findChildren(QtWidgets.QToolBar):
+            if barra.objectName() in BARRAS_COM_LEGENDA:
+                barra.setToolButtonStyle(estilo)
+    except Exception as erro:  # a legenda é só estética: nunca impede a ativação
+        app.Console.PrintWarning(f"Circuits: não foi possível ajustar as legendas dos botões: {erro}\n")
 
 
 class CircuitsWorkbench(gui.Workbench):
@@ -160,9 +190,13 @@ class CircuitsWorkbench(gui.Workbench):
 
     def Activated(self):
         app.Console.PrintMessage("✓ Bancada Circuits ativada!\n")
+        if app.ParamGet(PREFERENCIAS).GetBool("LegendaBotoes", True):
+            # As barras só existem depois que o FreeCAD termina de montar a bancada.
+            QtCore.QTimer.singleShot(0, lambda: _aplicar_legendas(True))
 
     def Deactivated(self):
-        pass
+        # Outra bancada pode reutilizar uma barra com o mesmo nome.
+        _aplicar_legendas(False)
 
     def ContextMenu(self, recipient):
         pass

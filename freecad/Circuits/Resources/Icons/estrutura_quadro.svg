@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64">
+  <!-- Estrutura de pastas do projeto de quadro -->
+  <rect x="6" y="6" width="22" height="14" rx="2" fill="#f5f5f5" stroke="#222222" stroke-width="3"/>
+  <path d="M17 20v32h17M17 36h17" fill="none" stroke="#ffffff" stroke-width="7" stroke-opacity="0.85" stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="M17 20v32h17M17 36h17" fill="none" stroke="#222222" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>
+  <rect x="36" y="29" width="22" height="13" rx="2" fill="#f5f5f5" stroke="#1a73e8" stroke-width="3"/>
+  <rect x="36" y="46" width="22" height="13" rx="2" fill="#f5f5f5" stroke="#1a73e8" stroke-width="3"/>
+</svg>

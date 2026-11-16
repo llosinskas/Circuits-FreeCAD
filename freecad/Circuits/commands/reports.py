@@ -62,8 +62,8 @@ class GenerateReport:
     def GetResources(self):
         return recursos(
             "gerarPDF.svg",
-            "Gerar Relatório PDF...",
-            "Configurar e exportar relatório técnico do projeto em PDF",
+            "Relatório PDF",
+            "Configura e exporta o relatório técnico do projeto em PDF",
         )
 
 

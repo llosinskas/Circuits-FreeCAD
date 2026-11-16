@@ -91,6 +91,25 @@ Regras gerais:
 | `GenerateReport` | `reports` | `services/pdf_generator`; `UI/dialogs/report_dialog` |
 | `GetSpaces`, `ReiniciarBancada` | `tools` | no próprio módulo |
 
+## Barras e legendas
+
+As barras ficam em `init_gui.py`, na ordem do fluxo de um projeto em planta, com o 2D primeiro:
+
+| Barra | Comandos |
+|---|---|
+| Projeto elétrico | `newProjetctEletrical`, `newSpreadsheet`, `ImportQET` |
+| Pontos elétricos | `InsertOutlet`, `InsertTugs`, `InsertSwitch`, `InsertLighting`, `InsertEquipaments`, `InsertComponent` |
+| Infraestrutura | `InsertConduit`, `Add_Node`, `Cabo` |
+| Quadros e diagramas | `GerarPlanilha`, `AddCircuito`, `GerarUnifilar` |
+| Documentação | texto, cota, chamada, corte e vistas nativos; `GenerateReport` |
+| Desenho, Modificador, Snap, Arquitetura | comandos nativos do Draft e do BIM |
+| Modelo 3D | `Generate3DSwitches`, `Generate3DConduits`, `Gerar3D` |
+| Biblioteca e ferramentas | `CreateModel`, `ListElements`, `ReiniciarBancada` |
+
+- Só no menu **Elétrica > Outros**: `ComponentEletric`, `InsertWire`, `InsertCableTray`, `AddSpreadsheet`, `NewQuadro`, `GetSpaces`.
+- **Legenda:** o `MenuText` de cada comando aparece embaixo do ícone nas barras próprias. Mantenha-o curto (até 24 caracteres) e único; a explicação vai no `ToolTip`. A preferência booleana `LegendaBotoes` em `BaseApp/Preferences/Mod/Circuits` desliga as legendas.
+- `tests/unit/test_toolbars.py` falha se um comando ficar sem barra ou menu, se faltar um ícone ou se a legenda for longa ou repetida.
+
 ## Como os dados ficam no documento
 
 Os comandos se encontram pelos objetos do documento, não por estado em Python:
@@ -108,7 +127,7 @@ Os comandos se encontram pelos objetos do documento, não por estado em Python:
 1. Coloque a lógica em `services/`, ou em `core/` se não precisar do FreeCAD.
 2. Crie a classe em `commands/` com `Activated` e `GetResources`, usando `recursos()` e `documento_ou_aviso()` de `commands/_base.py`.
 3. Registre no fim do módulo com `Gui.addCommand("MeuId", MinhaClasse())`.
-4. Acrescente o ID em uma lista de `init_gui.py`. Se o módulo for novo, importe-o em `Initialize`.
+4. Acrescente o ID em uma lista de `init_gui.py` (veja "Barras e legendas"). Se o módulo for novo, importe-o em `Initialize`.
 
 **Novo cálculo ou tabela de norma:** função pura em `core/functions/` ou dados em `core/tables/`, com teste em `tests/unit/`. Documente unidades no docstring.
 

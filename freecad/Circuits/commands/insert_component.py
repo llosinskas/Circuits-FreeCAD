@@ -55,7 +55,11 @@ class _CriarEPosicionar:
 
 class InsertComponent(_InserirDaBiblioteca):
     def GetResources(self):
-        return recursos("Componentes.svg", "Inserir novo circuito elétrico", "Inserir um novo circuito elétrico")
+        return recursos(
+            "Componentes.svg",
+            "Biblioteca",
+            "Escolhe um componente da biblioteca e o posiciona na planta",
+        )
 
 
 class Equipaments(_InserirDaBiblioteca):
@@ -63,7 +67,11 @@ class Equipaments(_InserirDaBiblioteca):
     mensagem = "Equipamento inserido (link com posicionamento)"
 
     def GetResources(self):
-        return recursos("equipamentos.svg", "Inserir um equipamento elétrico", "Inserir um novo equipamento elétrico")
+        return recursos(
+            "equipamentos.svg",
+            "Equipamento",
+            "Escolhe um equipamento elétrico da biblioteca e o posiciona na planta",
+        )
 
 
 class Tugs:
@@ -79,9 +87,9 @@ class Tugs:
 
     def GetResources(self):
         return recursos(
-            "tomadas.svg",
-            "Inserir ponto de conexão de energia",
-            "Inserir tomada com simbologia 2D (clique para posicionar)",
+            "tug.svg",
+            "Tomada TUG",
+            "Insere uma tomada de uso geral com fases, neutro, terra e circuito (clique para posicionar)",
         )
 
 
@@ -90,7 +98,11 @@ class InsertSwitch(_CriarEPosicionar):
     mensagem = "Interruptor criado."
 
     def GetResources(self):
-        return recursos("interruptor.svg", "Inserir Interruptor", "Inserir um interruptor na planta e posicionar com o mouse")
+        return recursos(
+            "interruptor.svg",
+            "Interruptor",
+            "Insere o símbolo de interruptor (simples, paralelo ou intermediário) e posiciona com o mouse",
+        )
 
 
 class InsertLighting(_CriarEPosicionar):
@@ -100,8 +112,8 @@ class InsertLighting(_CriarEPosicionar):
     def GetResources(self):
         return recursos(
             "iluminacao.svg",
-            "Inserir Ponto de Iluminação",
-            "Inserir um ponto de iluminação na planta e posicionar com o mouse",
+            "Iluminação",
+            "Insere o símbolo de ponto de iluminação e posiciona com o mouse",
         )
 
 
@@ -110,7 +122,11 @@ class InsertOutlet(_CriarEPosicionar):
     mensagem = "Tomada criada."
 
     def GetResources(self):
-        return recursos("tomadas.svg", "Inserir Tomada", "Inserir uma tomada na planta e posicionar com o mouse")
+        return recursos(
+            "tomadas.svg",
+            "Tomada",
+            "Insere o símbolo de tomada (127 V, 220 V ou bifásica) e posiciona com o mouse",
+        )
 
 
 class Wire:
@@ -124,7 +140,11 @@ class Wire:
         return True
 
     def GetResources(self):
-        return recursos("fio.svg", "Inserir fiação", "Inserir fiação no projeto")
+        return recursos(
+            "fio.svg",
+            "Fiação automática",
+            "Traçado automático da fiação (em breve)",
+        )
 
 
 class Conduit:
@@ -143,8 +163,8 @@ class Conduit:
     def GetResources(self):
         return recursos(
             "conduite.svg",
-            "Desenhar Eletroduto (Draft Wire)",
-            "Desenha a linha guia do eletroduto usando a ferramenta nativa de Wire",
+            "Eletroduto",
+            "Desenha na planta o caminho do eletroduto, ponto a ponto",
         )
 
 
@@ -157,7 +177,11 @@ class CableTray:
         return True
 
     def GetResources(self):
-        return recursos("eletrocalha.svg", "Inserir eletrocalha na instalação", "Inserir eletrocalha na instalação")
+        return recursos(
+            "eletrocalha.svg",
+            "Eletrocalha",
+            "Eletrocalhas (em breve)",
+        )
 
 
 Gui.addCommand("InsertComponent", InsertComponent())

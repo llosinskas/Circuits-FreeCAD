@@ -27,7 +27,11 @@ class Generate3DConduits:
         return True
 
     def GetResources(self):
-        return recursos("conduite.svg", "Gerar Eletrodutos 3D", "Converte caminhos de eletrodutos em tubos 3D")
+        return recursos(
+            "eletroduto3d.svg",
+            "Eletrodutos 3D",
+            "Gera os tubos 3D dos caminhos selecionados, ou de todos se nada estiver selecionado",
+        )
 
 
 class Generate3DSwitches:
@@ -57,8 +61,8 @@ class Generate3DSwitches:
     def GetResources(self):
         return recursos(
             "gerar3d_switch.svg",
-            "Gerar Caixas 3D (Interruptores/Tomadas/Iluminação)",
-            "Gera caixas 3D a partir das medidas dos interruptores, tomadas e pontos de iluminação",
+            "Caixas 3D",
+            "Gera as caixas 3D de interruptores, tomadas e pontos de iluminação",
         )
 
 

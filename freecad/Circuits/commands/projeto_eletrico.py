@@ -19,7 +19,11 @@ class ComponentEletric:
         return True
 
     def GetResources(self):
-        return recursos("Componentes.svg", "Inserir um componente elétrico", "Inserir um componente no projeto")
+        return recursos(
+            "tug.svg",
+            "Tomada no ponto",
+            "Insere uma tomada 2D no ponto selecionado, ou na origem se nada estiver selecionado",
+        )
 
 
 class Gerar3D:
@@ -31,7 +35,11 @@ class Gerar3D:
         doc.recompute()
 
     def GetResources(self):
-        return recursos("tomadas.svg", "Converter em 3D", "Converter as informações inseridas em modelo 3D")
+        return recursos(
+            "tomada3d.svg",
+            "Tomadas 3D",
+            "Gera a caixa 3D de cada tomada TUG e oculta os símbolos 2D",
+        )
 
 
 class Cabo:
@@ -41,7 +49,11 @@ class Cabo:
         doc.recompute()
 
     def GetResources(self):
-        return recursos("fio.svg", "Gerar cabo", "Gera a simbologia do cabo em 2D")
+        return recursos(
+            "fio.svg",
+            "Fiação",
+            "Desenha na planta os traços de fase, neutro e terra de cada tomada TUG",
+        )
 
 
 Gui.addCommand("ComponentEletric", ComponentEletric())

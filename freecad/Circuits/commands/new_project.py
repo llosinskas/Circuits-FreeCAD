@@ -21,7 +21,11 @@ class newProjetctEletrical:
         criar_grupos(doc, GRUPOS_PROJETO)
 
     def GetResources(self):
-        return recursos("newProject.svg", "Novo Projeto", "Iniciar um novo projeto")
+        return recursos(
+            "newProject.svg",
+            "Novo projeto",
+            "Cria no documento os grupos do projeto elétrico: pontos, quadros, eletrodutos, cabos e diagramas",
+        )
 
 
 class CreateModel:
@@ -34,7 +38,11 @@ class CreateModel:
             QtWidgets.QMessageBox.warning(None, "Cancelado", "Operação cancelada")
 
     def GetResources(self):
-        return recursos("add_model.svg", "Criar Model", "Botão para criar Models")
+        return recursos(
+            "add_model.svg",
+            "Criar modelo",
+            "Cria um novo modelo de componente (.FCStd) na biblioteca",
+        )
 
 
 class newSpreadsheet:
@@ -42,7 +50,11 @@ class newSpreadsheet:
         planilhas.criar_planilha_circuitos(App.ActiveDocument)
 
     def GetResources(self):
-        return recursos("planilha.svg", "Nova Planilha", "Criar uma nova planilha de circuitos")
+        return recursos(
+            "planilha.svg",
+            "Planilha de circuitos",
+            "Cria a planilha geral de circuitos do projeto",
+        )
 
 
 class addCircuit:
@@ -53,7 +65,11 @@ class addCircuit:
         return True
 
     def GetResources(self):
-        return recursos("record-svgrepo-com.svg", "Add Planilha", "Adicionar os circuitos na planilha")
+        return recursos(
+            "record-svgrepo-com.svg",
+            "Formulário de circuito",
+            "Abre o formulário de circuito (em desenvolvimento: ainda não grava os dados)",
+        )
 
 
 class listElements:
@@ -78,7 +94,11 @@ class listElements:
         biblioteca.importar_modelo(doc, item)
 
     def GetResources(self):
-        return recursos("listElements.svg", "Listar Elementos", "Listar elementos elétricos")
+        return recursos(
+            "listElements.svg",
+            "Importar modelo",
+            "Escolhe um modelo da biblioteca e o importa para o documento",
+        )
 
 
 Gui.addCommand("newProjetctEletrical", newProjetctEletrical())

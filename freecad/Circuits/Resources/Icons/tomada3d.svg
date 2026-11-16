@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64">
+  <!-- Caixa 3D de tomada: cubo com o símbolo de tomada -->
+  <path d="M10 22L32 10L54 22V46L32 58L10 46Z" fill="#f5f5f5" stroke="#222222" stroke-width="3" stroke-linejoin="round"/>
+  <path d="M10 22L32 34L54 22M32 34V58" fill="none" stroke="#222222" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="M38 38v10M38 38l11 0M38 48l11 -10" fill="none" stroke="#1a73e8" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>
+</svg>

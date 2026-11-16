@@ -72,8 +72,8 @@ class ImportQET:
     def GetResources(self):
         return recursos(
             "QET-logo.png",
-            "Importar .qet",
-            "Importar um arquivo do QEletroTech para a geração de componentes 3D e cabos",
+            "Importar QET",
+            "Importa um arquivo do QElectroTech para gerar componentes e cabos",
         )
 
 
@@ -91,8 +91,8 @@ class Add_Node:
     def GetResources(self):
         return recursos(
             "Draft_AddPoint.svg",
-            "Adicionar ponto",
-            "Adicionar um ponto na linha para edição do caminho dos cabos",
+            "Dividir trecho",
+            "Insere um ponto no meio de cada trecho da linha selecionada, para ajustar o caminho",
         )
 
 

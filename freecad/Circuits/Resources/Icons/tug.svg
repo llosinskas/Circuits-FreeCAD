@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64">
+  <!-- Tomada de uso geral: triângulo com linha de conexão e traços de fase/neutro/terra -->
+  <path d="M6 32H22M22 18V46M22 18L54 32L22 46" fill="none" stroke="#ffffff" stroke-width="7" stroke-opacity="0.85" stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="M6 32H22M22 18V46M22 18L54 32L22 46" fill="none" stroke="#222222" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="M36 8v10M44 8v10M52 8v10M49 8h6" fill="none" stroke="#ffffff" stroke-width="7" stroke-opacity="0.85" stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="M36 8v10M44 8v10M52 8v10M49 8h6" fill="none" stroke="#1a73e8" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>
+</svg>

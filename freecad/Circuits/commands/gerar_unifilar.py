@@ -16,7 +16,11 @@ class GerarPlanilha:
         doc.recompute()
 
     def GetResources(self):
-        return recursos("planilha.svg", "Gerar unifilar", "Gerar diagrama unifilar dos quadros do projeto")
+        return recursos(
+            "quadro_novo.svg",
+            "Novo quadro",
+            "Cria a planilha de um quadro de distribuição: tensão, fases, disjuntor geral e DPS",
+        )
 
 
 def _quadros_ou_criar(doc):
@@ -36,7 +40,11 @@ class GerarUnifilar:
         return True
 
     def GetResources(self):
-        return recursos("unifilar.svg", "Gerar unifilar", "Gerar diagrama unifilar dos quadros do projeto")
+        return recursos(
+            "unifilar.svg",
+            "Unifilar",
+            "Gera o diagrama unifilar de cada quadro do projeto",
+        )
 
 
 class AddCircuito:
@@ -55,7 +63,11 @@ class AddCircuito:
         doc.recompute()
 
     def GetResources(self):
-        return recursos("adicionar.svg", "Adicionar um circuito no diagrama", "Adicionar um circuito no quadro")
+        return recursos(
+            "adicionar.svg",
+            "Circuito",
+            "Adiciona um circuito à planilha dos quadros do projeto",
+        )
 
 
 Gui.addCommand("AddCircuito", AddCircuito())
