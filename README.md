@@ -9,7 +9,8 @@ O projeto está em desenvolvimento. A seção [Limitações](#limitações) diz 
 - **Planta 2D:** botões separados para tomadas, pontos de energia, iluminação e interruptores. Cada ponto tem símbolo próprio e dados elétricos (potência, tensão, circuito) editáveis.
 - **Quadros na planta:** símbolos de quadro de distribuição, quadro de comando, quadro de medição e medição agrupada.
 - **Circuitos:** soma os pontos da planta por circuito, escolhe cabo e disjuntor, equilibra as fases e grava no quadro.
-- **Diagrama unifilar:** gerado a partir da planilha de cada quadro, com disjuntor, fases, cabo, potência, DR e DPS.
+- **Diagrama unifilar:** gerado a partir da planilha de cada quadro, com medidor, disjuntor geral, DPS, barramentos de fases, neutro e terra, e disjuntor, DR, fases, cabo e potência de cada circuito.
+- **Componentes do quadro:** lista de disjuntores, DR, DPS, barramentos e tamanho da caixa em módulos.
 - **Cálculos prediais:** demanda do quadro, pré-dimensionamento do ventilador de pressurização de escada e da bomba de recalque, com o motor elétrico de cada um.
 - **Legenda:** desenha ao lado da planta a legenda dos símbolos usados.
 - **Infraestrutura:** caminho de eletrodutos em planta e simbologia de fiação.
@@ -50,11 +51,12 @@ Depois use **Elétrica > Outros > Reiniciar Bancada** ou reabra o FreeCAD. Mante
 1. **Novo projeto** (botão *Projeto*): cria os grupos do documento.
 2. **Insira os pontos** pelos botões *Tomadas*, *Energia*, *Iluminação* e *Interruptores*. Depois do clique, o próximo ponto do mesmo tipo já vem no cursor. Veja as teclas em [Inserir e alinhar símbolos](#inserir-e-alinhar-símbolos).
 3. **Defina os circuitos** (botão *Circuitos*): selecione os pontos de um circuito e use **Definir circuito**. Pontos de uso específico, como o chuveiro, precisam de circuito exclusivo. Veja [Circuitos e interruptores](#circuitos-e-interruptores).
-4. **Quadros** (barra *Quadros e documentos*): posicione na planta o quadro de distribuição, o de comando e a medição. Depois, em **Planilha do quadro**, informe tensão, fases, disjuntor geral e DPS.
-5. **Montar circuitos:** grava no quadro uma linha por circuito, com potência, corrente, cabo, disjuntor e fases. Use **Circuito** para acrescentar ou corrigir uma linha à mão.
-6. **Unifilar:** gera o diagrama de cada quadro.
-7. **Demanda** (botão *Cálculos*): calcula a demanda do quadro e grava na planilha; gere o unifilar de novo para mostrá-la.
-8. **Legenda** e **Relatório PDF** (botão *Documentos*).
+4. **Quadros** (barra *Quadros e documentos*): posicione na planta o quadro de distribuição, o de comando e a medição. Depois, com o símbolo do quadro selecionado, use **Dados do quadro > Planilha do quadro** e informe tensão, fases, disjuntor geral e DPS.
+5. **Montar circuitos:** grava no quadro uma linha por circuito, com potência, corrente, cabo, disjuntor e fases. Use **Dados do quadro > Circuito** para acrescentar ou corrigir uma linha à mão.
+6. **Componentes:** lista o que vai dentro do quadro.
+7. **Unifilar:** gera o diagrama de cada quadro.
+8. **Demanda** (botão *Cálculos*): calcula a demanda do quadro e grava na planilha; gere o unifilar de novo para mostrá-la.
+9. **Legenda** e **Relatório PDF** (botão *Documentos*).
 
 **Pressurização** e **Bomba de recalque** abrem um formulário, mostram o cálculo e, com o botão *Inserir motor na planta*, criam o ponto de força do motor para entrar nos circuitos.
 
@@ -89,7 +91,22 @@ O botão **Quadros** insere quatro símbolos, do mesmo jeito que os outros ponto
 
 Edite a sigla na propriedade `Descricao` (por exemplo QD1, QD2) e, na medição, a quantidade em `Medidores`. **Identificar pontos** escreve a sigla ao lado do símbolo, e **Caixas 3D** gera o volume de cada quadro. Os quadros não entram na soma de carga dos circuitos.
 
-O símbolo na planta e a **Planilha do quadro** ainda são independentes: mudar um não altera o outro.
+**Ligação com a planilha:** selecione o símbolo do quadro antes de abrir **Planilha do quadro**. A identificação já vem preenchida com a sigla, e o símbolo passa a guardar o nome da planilha.
+
+**Medição no unifilar:** escreva no campo *Origem* do quadro a sigla da medição (QM ou CM, a mesma do símbolo). O unifilar desenha então o medidor na entrada.
+
+### Componentes do quadro
+
+O botão **Componentes** lê a planilha do quadro e monta a lista do que vai dentro dele:
+
+- disjuntor geral (polos, corrente, curva e capacidade de interrupção);
+- DPS, um por fase mais um para o neutro;
+- disjuntores dos circuitos, agrupados por polos e corrente;
+- interruptores DR dos circuitos que têm DR, bipolares ou tetrapolares;
+- barramentos de fases, de neutro e de terra, com o número de terminais;
+- caixa do quadro em módulos DIN, com a reserva de circuitos da NBR 5410.
+
+A lista aparece na tela e fica gravada na planilha `Componentes <quadro>`. Os valores comerciais são gerais, não de um fabricante.
 
 ## Circuitos e interruptores
 
@@ -106,7 +123,7 @@ As barras da bancada têm poucos botões. Os que têm uma seta (▾) abrem uma l
 | Barra | Botões |
 |---|---|
 | Planta elétrica | Projeto ▾, Tomadas ▾, Energia ▾, Iluminação ▾, Interruptores ▾, Circuitos ▾, Eletrodutos ▾ |
-| Quadros e documentos | Quadros ▾, Planilha do quadro, Montar circuitos, Circuito, Unifilar, Cálculos ▾, Documentos ▾ |
+| Quadros e documentos | Quadros ▾, Dados do quadro ▾, Montar circuitos, Componentes, Unifilar, Cálculos ▾, Documentos ▾ |
 | Modelo e biblioteca | Modelo 3D ▾, Biblioteca ▾ |
 
 | Botão com lista | Itens |
@@ -117,6 +134,7 @@ As barras da bancada têm poucos botões. Os que têm uma seta (▾) abrem uma l
 | Iluminação | Luz de teto, Arandela, Luminária tubular, Luz embutida, Luz de emergência |
 | Interruptores | Simples, paralelo, intermediário |
 | Quadros | Quadro distribuição, Quadro de comando, Quadro de medição, Medição agrupada |
+| Dados do quadro | Planilha do quadro, Circuito |
 | Circuitos | Definir circuito, Ligar interruptor, Identificar pontos |
 | Eletrodutos | Eletroduto, Dividir trecho, Fiação |
 | Cálculos | Demanda, Pressurização, Bomba de recalque |

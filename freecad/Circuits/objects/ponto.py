@@ -88,6 +88,10 @@ class PontoEletrico:
         if nova("App::PropertyString", "Comando", "Elétrica", "Letra do interruptor que comanda o ponto (iluminação)"):
             obj.Comando = ""  # preenchido pelo comando Ligar interruptor
 
+        if dados["categoria"] == simbolos.QUADRO and nova(
+            "App::PropertyString", "Planilha", "Elétrica", "Nome da planilha com os dados deste quadro"
+        ):
+            obj.Planilha = ""
         if "medidores" in dados and nova("App::PropertyInteger", "Medidores", "Elétrica", "Quantidade de medidores"):
             obj.Medidores = dados["medidores"]
 

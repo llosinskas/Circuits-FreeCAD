@@ -104,6 +104,25 @@ class TestSequenciaQuadro(unittest.TestCase):
         self.circuitos.montar_circuitos(doc, quadro)
         self.assertEqual([quadro.get(f"A{linha}") for linha in range(6, 18)], [str(n) for n in range(1, 13)])
 
+    def test_componentes_lidos_da_planilha(self):
+        from freecad.Circuits.core import quadro as regras
+        planilha = PlanilhaFalsa()
+        planilha.aliases.update({"corrente_nominal_disjuntor": "K3", "curva_disjuntor": "J3", "neutro": "I3",
+                                 "terra": "H3", "DPS": "P3"})
+        planilha.celulas.update({"K3": 40.0, "J3": "C", "I3": "True", "H3": "True", "P3": "False"})
+        doc = self.documento(objeto_ponto("luz_teto", "1", 300), objeto_ponto("tomada_baixa", "2", 1200))
+        self.circuitos.montar_circuitos(doc, planilha)
+
+        dados = self.planilhas.ler_quadro(planilha)
+        linhas = self.planilhas.ler_circuitos(planilha)
+        self.assertEqual((dados["corrente_nominal_disjuntor"], dados["numero_fases"]), ("40", "3"))
+        self.assertEqual([linha["N_circuito"] for linha in linhas], ["1", "2"])
+        itens = {(i["item"], i["especificacao"]): i["quantidade"] for i in regras.componentes(dados, linhas)}
+        self.assertEqual(itens[("Disjuntor geral", "3P 40 A curva C")], 1)
+        self.assertEqual(itens[("Disjuntor de circuito", "1P 6 A curva C")], 1)
+        self.assertEqual(itens[("Disjuntor de circuito", "1P 10 A curva C")], 1)
+        self.assertEqual(itens[("Interruptor DR", "2P 25 A, 30mA")], 1)
+
     def test_simbolo_de_quadro_nao_entra_como_carga(self):
         quadro = PlanilhaFalsa()
         doc = self.documento(

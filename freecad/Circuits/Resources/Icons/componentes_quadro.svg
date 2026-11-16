@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64">
+  <!-- Componentes do quadro: barramento com disjuntores e a lista ao lado -->
+  <path d="M8 10H34M12 10V26M21 10V26M30 10V26M9 26H15V44H9ZM18 26H24V44H18ZM27 26H33V44H27ZM12 44V54M21 44V54M30 44V54 M42 18H58M42 30H58M42 42H58" fill="none" stroke-linecap="round" stroke-linejoin="round" stroke="#ffffff" stroke-width="7" stroke-opacity="0.85"/>
+  <path d="M8 10H34M12 10V26M21 10V26M30 10V26M12 44V54M21 44V54M30 44V54" fill="none" stroke-linecap="round" stroke-linejoin="round" stroke="#5f6368" stroke-width="3"/>
+  <path d="M9 26H15V44H9ZM18 26H24V44H18ZM27 26H33V44H27ZM42 18H58M42 30H58M42 42H58" fill="none" stroke-linecap="round" stroke-linejoin="round" stroke="#1a73e8" stroke-width="3"/>
+</svg>

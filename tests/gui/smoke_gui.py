@@ -205,6 +205,8 @@ def scenario(doc):
     run("MontarCircuitos")
     run("MontarCircuitos")  # segunda execução: atualiza as linhas, não duplica
     result["steps"]["montar_circuitos"] = avisos
+    run("ComponentesQuadro")
+    result["steps"]["componentes"] = avisos[-1]
     run("CalcDemanda")
     result["steps"]["demanda"] = avisos[-1]
     run("GerarUnifilar")

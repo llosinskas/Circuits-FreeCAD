@@ -39,6 +39,7 @@ Circuits/                        pasta dentro de Mod/, raiz do repositório
     │   ├── simbolos.py          catálogo e geometria dos pontos elétricos
     │   ├── alinhamento.py       travas, alinhamento automático, alinhar e distribuir símbolos
     │   ├── identificacao.py     letra de comando, próximo circuito e texto de anotação
+    │   ├── quadro.py            componentes do quadro: disjuntores, DR, DPS, barramentos, módulos
     │   ├── circuitos.py         circuitos a partir dos pontos: soma, cabo, disjuntor, fases
     │   ├── planilha.py          layout das planilhas de quadro e circuitos
     │   ├── qet.py               leitura de condutores do QElectroTech
@@ -94,7 +95,7 @@ Regras gerais:
 | `InsertConduit` | `insert_component` | `Draft_Wire` nativo |
 | `InsertWire`, `InsertCableTray` | `insert_component` | ainda não implementados: só exibem um aviso |
 | `Generate3DConduits`, `Generate3DSwitches` | `generate_3d` | `services/eletrodutos`, `caixas_3d` |
-| `GerarPlanilha`, `MontarCircuitos`, `AddCircuito`, `GerarUnifilar` | `gerar_unifilar` | `services/planilhas`, `circuitos`, `unifilar`; `core/circuitos`; `UI/dialogs/quadro_dialogs` |
+| `GerarPlanilha`, `MontarCircuitos`, `AddCircuito`, `ComponentesQuadro`, `GerarUnifilar` | `gerar_unifilar` | `services/planilhas`, `circuitos`, `unifilar`, `identificacao`; `core/circuitos`, `quadro`; `UI/dialogs/quadro_dialogs` |
 | `ImportQET`, `Add_Node` | `import_QEletrotech` | `services/qet_import`, `eletrodutos`; `core/qet` |
 | `CalcDemanda` | `calculos` | `services/circuitos`; `core/functions/Predial/demanda` |
 | `CalcPressurizacao`, `CalcRecalque` | `calculos` | `core/functions/Predial/pressurizacao`, `recalque`, `motores`; `UI/dialogs/calculo_dialog` |
@@ -108,7 +109,7 @@ As barras ficam em `init_gui.py`. As três barras próprias são enxutas: os com
 | Barra | Botões (▾ = grupo) |
 |---|---|
 | Planta elétrica | Projeto ▾, Tomadas ▾, Energia ▾, Iluminação ▾, Interruptores ▾, Circuitos ▾, Eletrodutos ▾ |
-| Quadros e documentos | Quadros ▾, `GerarPlanilha`, `MontarCircuitos`, `AddCircuito`, `GerarUnifilar` (nesta ordem de uso), Cálculos ▾, Documentos ▾ |
+| Quadros e documentos | Quadros ▾, Dados do quadro ▾, `MontarCircuitos`, `ComponentesQuadro`, `GerarUnifilar` (nesta ordem de uso), Cálculos ▾, Documentos ▾ |
 | Modelo e biblioteca | Modelo 3D ▾, Biblioteca ▾ |
 | Desenho, Modificador, Snap, Arquitetura | só os comandos nativos de uso frequente em planta; *Modificador* termina com `AlinharPontos` e `DistribuirPontos` |
 
@@ -120,6 +121,7 @@ As barras ficam em `init_gui.py`. As três barras próprias são enxutas: os com
 | `Grupo_Iluminacao` | `Ponto_luz_teto`, `_arandela`, `_fluorescente`, `_embutida`, `_emergencia` |
 | `Grupo_Interruptores` | `InsertSwitch`, `InsertSwitchParalelo`, `InsertSwitchIntermediario` |
 | `Grupo_Quadros` | `Ponto_quadro_distribuicao`, `_quadro_comando`, `_quadro_medicao`, `_medicao_agrupada` |
+| `Grupo_DadosQuadro` | `GerarPlanilha`, `AddCircuito` |
 | `Grupo_Circuitos` | `DefinirCircuito`, `LigarInterruptor`, `IdentificarPontos` |
 | `Grupo_Infra` | `InsertConduit`, `Add_Node`, `Cabo` |
 | `Grupo_Calculos` | `CalcDemanda`, `CalcPressurizacao`, `CalcRecalque` |
@@ -155,7 +157,9 @@ Os comandos se encontram pelos objetos do documento, não por estado em Python:
 - **Tomada em Sketch:** propriedade `tipo == "tomada"`, além de `Fase`, `neutro`, `terra` e `altura_piso`.
 - **Objetos FeaturePython:** `obj.Proxy.Type` vale `Ponto`, `Switch`, `Lighting`, `Outlet` ou `ConduitPath`.
 - **Ponto elétrico (`Ponto`):** a propriedade `Simbolo` é a chave de `core.simbolos.CATALOGO`. `Potencia` em VA, `FatorPotencia`, `Tensao`, `Ligacao` (`F+N`, `F+F`, `3F`), `Circuito` e `Quadro` (vazio vale para qualquer quadro). `MontarCircuitos` também lê `Outlet`, `Lighting` e as tomadas em Sketch.
-- **Quadros na planta:** também são `Ponto`, com `Simbolo` de categoria `QUADRO` (`quadro_distribuicao`, `quadro_comando`, `quadro_medicao`, `medicao_agrupada`). Não são carga: `MontarCircuitos` e `CalcDemanda` os ignoram. `Descricao` guarda a sigla (QD1, QC, QM, CM), `Medidores` a quantidade de medidores (só nos de medição) e `Circuito`, vazio por padrão, o circuito que alimenta o quadro. O símbolo na planta e a planilha do quadro (`GerarPlanilha`) são independentes: nada liga um ao outro ainda.
+- **Quadros na planta:** também são `Ponto`, com `Simbolo` de categoria `QUADRO` (`quadro_distribuicao`, `quadro_comando`, `quadro_medicao`, `medicao_agrupada`). Não são carga: `MontarCircuitos` e `CalcDemanda` os ignoram. `Descricao` guarda a sigla (QD1, QC, QM, CM), `Medidores` a quantidade de medidores (só nos de medição) e `Circuito`, vazio por padrão, o circuito que alimenta o quadro. `GerarPlanilha` com um símbolo de quadro selecionado cria a planilha para ele: copia a sigla para a identificação e grava o nome da planilha na propriedade `Planilha` do símbolo.
+- **Componentes do quadro:** `ComponentesQuadro` lê a planilha do quadro e recria a planilha `Componentes_<nome do quadro>` (propriedade `componentes_de`) com item, especificação, quantidade e unidade.
+- **Medição no unifilar:** o medidor é desenhado na entrada quando a `origem` do quadro é a sigla de um símbolo de medição da planta, ou começa com QM, CM ou "medi". O unifilar também identifica o barramento de fases e desenha as barras de neutro e de terra.
 - **Circuito e comando:** `DefinirCircuito` grava `Circuito` (e `Quadro`) nos pontos selecionados. `LigarInterruptor` grava a mesma letra em `Comando` no interruptor e nos pontos de luz selecionados, e copia para o interruptor o circuito da primeira luz. A ligação é só essa letra em comum; não há link entre os objetos.
 - **Identificação:** grupo `Identificacao_pontos`, com um texto por símbolo (`C1 · a · 100 VA`). É recriado por `IdentificarPontos` e, se já existir, atualizado sozinho quando o circuito ou o comando mudam por esses comandos. Editar a propriedade à mão não atualiza o texto.
 - **Circuitos montados:** `MontarCircuitos` soma os pontos por `Circuito`, dimensiona e grava uma linha por circuito no quadro. Uma linha com o mesmo número é atualizada no lugar; as outras ficam como estão.
@@ -231,8 +235,8 @@ Todos foram confirmados no código ou em execução e já existiam antes da reor
 - `core/functions/Predial/recalque.py`: singularidades estimadas em 30 % do comprimento e rendimento da bomba de 50 % são suposições, editáveis só no código ou no formulário (rendimento).
 - `core/circuitos.py`, `dimensionar`: o disjuntor de motores é escolhido só pela corrente nominal, sem considerar a partida.
 - `services/circuitos.py`, `_de_tomada_sketch`: lê potência e tensão das tomadas em Sketch pelo número bruto, porque elas são gravadas sem unidade. Falta confirmar no FreeCAD e migrar para grandezas com unidade.
-- `services/pdf_generator.py`, `_get_calculos_table`: lê a linha 2 (cabeçalhos) em vez da linha 3 e percorre todas as planilhas, não só os quadros.
-- Os símbolos de quadro e medição, os botões de grupo (lista suspensa), as teclas da inserção (Espaço, R, L), os comandos Alinhar, Distribuir, Definir circuito, Ligar interruptor e Identificar pontos, os pontos novos, a legenda, `MontarCircuitos`, os cálculos prediais e as mudanças do unifilar têm teste unitário da lógica, mas ainda não foram executados no FreeCAD real: rode o `smoke_gui.py` e atualize este item.
+- `core/quadro.py`: correntes comerciais de DR e de barramento, quantidade de DPS e módulos da caixa são regras gerais, não de um fabricante. O DR é sempre por circuito; não há DR geral nem agrupamento de circuitos em um DR.
+- Os símbolos de quadro e medição, a lista de componentes do quadro, o medidor e os barramentos no unifilar, os botões de grupo (lista suspensa), as teclas da inserção (Espaço, R, L), os comandos Alinhar, Distribuir, Definir circuito, Ligar interruptor e Identificar pontos, os pontos novos, a legenda, `MontarCircuitos`, os cálculos prediais e as mudanças do unifilar têm teste unitário da lógica, mas ainda não foram executados no FreeCAD real: rode o `smoke_gui.py` e atualize este item.
 
 **Cálculos e tabelas, ainda sem uso na interface**
 - `core/functions/Barramento.py`: `Sec_tubular` gera `TypeError` (falta `*` em `math.pi(...)`) e não tem `return`. `Corrente_carga_maxima` usa `Qc*Qr-Qs`; conferir com a fonte, pois o balanço térmico sugere soma.

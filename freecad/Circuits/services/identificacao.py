@@ -130,6 +130,22 @@ def eh_quadro(obj):
     return _tipo(obj) == "Ponto" and simbolos.CATALOGO[obj.Simbolo]["categoria"] == simbolos.QUADRO
 
 
+def quadro_selecionado(objetos):
+    """Primeiro símbolo de quadro (não de medição) entre os objetos, ou None."""
+    for obj in objetos:
+        if eh_quadro(obj) and "medidores" not in simbolos.CATALOGO[obj.Simbolo]:
+            return obj
+    return None
+
+
+def vincular_planilha(doc, simbolo, planilha, identificacao_quadro):
+    """Liga o símbolo de quadro da planta à planilha criada para ele."""
+    simbolo.Descricao = identificacao_quadro
+    simbolo.Label = identificacao_quadro
+    simbolo.Planilha = planilha.Name
+    atualizar_anotacao(doc)
+
+
 def texto_do_objeto(obj):
     """Texto de identificação do símbolo: circuito, comando e potência; nos quadros, a sigla."""
     if eh_quadro(obj):

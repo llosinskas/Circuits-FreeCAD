@@ -3,6 +3,8 @@ import Draft
 import FreeCAD as App
 import Part
 
+from freecad.Circuits.core import quadro as regras_quadro
+from freecad.Circuits.core import simbolos
 from freecad.Circuits.core.planilha import PRIMEIRA_LINHA_CIRCUITOS
 from freecad.Circuits.services import planilhas
 from freecad.Circuits.services.cabos import desenhar_cabo_unifilar
@@ -115,6 +117,53 @@ def desenhar_quadro(doc, h, grupo, planilha):
 
     fator = {1: 0, 2: -0.25, 3: -0.5}.get(numero_fases, 1)
     desenhar_cabo_unifilar(doc, numero_fases, False, False, h, App.Vector(11 * h + fator * h, 3.5 * h, 0), grupo)
+
+
+def tem_medicao(doc, origem):
+    """O quadro é alimentado por uma medição.
+
+    Vale quando a origem do quadro é a sigla de um símbolo de medição da planta
+    (quadro de medição ou medição agrupada), ou quando começa com QM, CM ou "medi".
+    """
+    origem = str(origem).strip().lower()
+    if not origem:
+        return False
+    if origem.startswith(("qm", "cm", "medi")):
+        return True
+    for obj in doc.Objects:
+        if getattr(getattr(obj, "Proxy", None), "Type", "") != "Ponto":
+            continue
+        if "medidores" in simbolos.CATALOGO[obj.Simbolo] and str(obj.Descricao).strip().lower() == origem:
+            return True
+    return False
+
+
+def desenhar_medidor(h, grupo):
+    """Medidor de energia na entrada do quadro: círculo com 'kWh' sobre a linha de entrada."""
+    pl = App.Placement()
+    pl.Base = App.Vector(2.5 * h, 5 / 2 * h, 0)
+    grupo.addObject(Draft.make_circle(radius=0.9 * h, placement=pl, face=False, support=None))
+    add_texto("kWh", App.Vector(1.9 * h, 2.3 * h, 0), 0, 0.45 * h, grupo)
+    add_texto("Medição", App.Vector(1.4 * h, 3.6 * h, 0), 0, 0.5 * h, grupo)
+
+
+def desenhar_barramentos(h, grupo, dados, circuitos):
+    """Identificação do barramento de fases e as barras de neutro e de terra do quadro."""
+    corrente = regras_quadro.corrente_do_barramento(dados)
+    if corrente:
+        add_texto(f"Barramento {corrente} A", App.Vector(18.3 * h, 4 * h, 0), 0, 0.5 * h, grupo)
+
+    # As barras ficam embaixo do último circuito, ligadas ao barramento vertical.
+    y = 5 / 2 * h - (max(circuitos, 1) - 1) * ESPACAMENTO_CIRCUITOS * h
+    barras = []
+    if regras_quadro.verdadeiro(dados.get("neutro", "")):
+        barras.append("N")
+    if regras_quadro.verdadeiro(dados.get("terra", "")):
+        barras.append("PE")
+    for indice, nome in enumerate(barras, start=1):
+        y_barra = y - (1.5 + indice * 1.2) * h
+        grupo.addObject(Draft.make_line(App.Vector(19 * h, y_barra, 0), App.Vector(23 * h, y_barra, 0)))
+        add_texto(f"Barra {nome}", App.Vector(23.4 * h, y_barra - 0.2 * h, 0), 0, 0.5 * h, grupo)
 
 
 def desenhar_circuito(doc, potencia, dr, bitola, posicao, corrente, comprimento, grupo, protecao="", fases=""):
@@ -266,6 +315,14 @@ def gerar_diagramas(doc, quadros, h=ALTURA_PADRAO):
             circuitos = _desenhar_circuitos(doc, h, grupo, quadro)
         except Exception as e:
             App.Console.PrintWarning(f"Não foi possível gerar os circuitos do quadro {quadro.Label}: {e}\n")
+
+        try:
+            dados = planilhas.ler_quadro(quadro)
+            if tem_medicao(doc, dados["origem"]):
+                desenhar_medidor(h, grupo)
+            desenhar_barramentos(h, grupo, dados, circuitos)
+        except Exception as e:
+            App.Console.PrintWarning(f"Não foi possível desenhar os componentes do quadro {quadro.Label}: {e}\n")
 
         if topo:
             _deslocar(grupo, App.Vector(0, -topo, 0))

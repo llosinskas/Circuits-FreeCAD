@@ -56,6 +56,41 @@ def _texto(planilha, celula):
     return str(valor).strip()
 
 
+def ler_quadro(planilha):
+    """Dados da linha 3 do quadro, em texto, pelas chaves de ``CABECALHO_QUADRO``."""
+    return {alias: _texto(planilha, alias) for alias in layout.CABECALHO_QUADRO}
+
+
+def ler_circuitos(planilha):
+    """Circuitos gravados no quadro, em texto, pelas chaves de ``COLUNAS_CIRCUITO``."""
+    circuitos = []
+    for linha in range(layout.PRIMEIRA_LINHA_CIRCUITOS, ultima_linha(planilha) + 1):
+        if not _texto(planilha, f"A{linha}"):
+            continue
+        circuitos.append({chave: _texto(planilha, f"{coluna}{linha}") for coluna, chave in layout.COLUNAS_CIRCUITO.items()})
+    return circuitos
+
+
+def gravar_componentes(doc, quadro, itens):
+    """Recria a planilha ``Componentes_<quadro>`` com a lista de componentes do quadro."""
+    nome = f"Componentes_{quadro.Name}"
+    if doc.getObject(nome):
+        doc.removeObject(nome)
+    planilha = doc.addObject("Spreadsheet::Sheet", nome)
+    planilha.Label = f"Componentes {quadro.Label}"
+    planilha.addProperty("App::PropertyString", "componentes_de", "Quadro", "Planilha do quadro que gerou a lista")
+    planilha.componentes_de = quadro.Name
+    for coluna, titulo in zip("ABCD", ("Item", "Especificação", "Quantidade", "Unidade")):
+        planilha.set(f"{coluna}1", titulo)
+    for linha, item in enumerate(itens, start=2):
+        planilha.set(f"A{linha}", f"'{item['item']}")
+        planilha.set(f"B{linha}", f"'{item['especificacao']}")
+        planilha.set(f"C{linha}", str(item["quantidade"]))
+        planilha.set(f"D{linha}", f"'{item['unidade']}")
+    doc.recompute()
+    return planilha
+
+
 def linha_do_circuito(planilha, numero):
     """Linha onde o circuito ``numero`` está gravado, ou None."""
     for linha in range(layout.PRIMEIRA_LINHA_CIRCUITOS, ultima_linha(planilha) + 1):

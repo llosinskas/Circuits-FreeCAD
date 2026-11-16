@@ -8,20 +8,28 @@ import FreeCADGui as Gui
 
 from freecad.Circuits.commands._base import documento_ou_aviso, recursos
 from freecad.Circuits.qt import QtWidgets
-from freecad.Circuits.services import circuitos, planilhas, unifilar
+from freecad.Circuits.core import quadro as regras_quadro
+from freecad.Circuits.services import circuitos, identificacao, planilhas, unifilar
 from freecad.Circuits.UI.dialogs.quadro_dialogs import Add_circuito, CriarQuadro
 
 
 def _criar_quadro(doc):
     """Abre o diálogo de quadro. Devolve a planilha criada, ou None se cancelado."""
+    # Com um símbolo de quadro selecionado na planta, a planilha é criada para ele.
+    simbolo = identificacao.quadro_selecionado(Gui.Selection.getSelection())
     dialog = CriarQuadro()
+    if simbolo is not None:
+        dialog.identificacao.setText(str(simbolo.Descricao))
     if not dialog.exec_():
         return None
     dados = dialog.get_dados()
-    if not str(dados["indentificacao"]).strip():
-        QtWidgets.QMessageBox.warning(None, "Novo quadro", "Informe a identificação do quadro.")
+    nome = str(dados["indentificacao"]).strip()
+    if not nome:
+        QtWidgets.QMessageBox.warning(None, "Planilha do quadro", "Informe a identificação do quadro.")
         return None
     planilha = planilhas.criar_planilha_quadro(doc, dados)
+    if simbolo is not None:
+        identificacao.vincular_planilha(doc, simbolo, planilha, nome)
     doc.recompute()
     return planilha
 
@@ -58,7 +66,7 @@ class GerarPlanilha:
         return recursos(
             "quadro_novo.svg",
             "Planilha do quadro",
-            "Cria a planilha de dados de um quadro: tensão, fases, disjuntor geral e DPS",
+            "Cria a planilha de dados de um quadro; com um símbolo de quadro selecionado, liga os dois",
         )
 
 
@@ -104,6 +112,42 @@ class MontarCircuitos:
         )
 
 
+class ComponentesQuadro:
+    """Monta a lista de componentes do quadro: disjuntores, DR, DPS e barramentos."""
+
+    def Activated(self):
+        doc = documento_ou_aviso()
+        if not doc:
+            return
+        quadro = _escolher_quadro(doc, "Componentes do quadro")
+        if quadro is None:
+            return
+        try:
+            itens = regras_quadro.componentes(planilhas.ler_quadro(quadro), planilhas.ler_circuitos(quadro))
+        except ValueError as erro:
+            QtWidgets.QMessageBox.warning(None, "Componentes do quadro", str(erro))
+            return
+        if not itens:
+            QtWidgets.QMessageBox.information(
+                None, "Componentes do quadro", "O quadro ainda não tem disjuntor geral nem circuitos."
+            )
+            return
+        planilha = planilhas.gravar_componentes(doc, quadro, itens)
+        linhas = [f"{item['quantidade']} {item['unidade']}  {item['item']}: {item['especificacao']}" for item in itens]
+        linhas += ["", f"Lista gravada na planilha '{planilha.Label}'. Confira com o fabricante antes de comprar."]
+        QtWidgets.QMessageBox.information(None, f"Componentes do quadro {quadro.Label}", "\n".join(linhas))
+
+    def IsActive(self):
+        return True
+
+    def GetResources(self):
+        return recursos(
+            "componentes_quadro.svg",
+            "Componentes",
+            "Lista os componentes do quadro: disjuntores, DR, DPS, barramentos e tamanho da caixa",
+        )
+
+
 class GerarUnifilar:
     def Activated(self):
         doc = documento_ou_aviso()
@@ -145,5 +189,6 @@ class AddCircuito:
 
 Gui.addCommand("AddCircuito", AddCircuito())
 Gui.addCommand("MontarCircuitos", MontarCircuitos())
+Gui.addCommand("ComponentesQuadro", ComponentesQuadro())
 Gui.addCommand("GerarUnifilar", GerarUnifilar())
 Gui.addCommand("GerarPlanilha", GerarPlanilha())

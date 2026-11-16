@@ -4,6 +4,7 @@ import FreeCADGui as Gui
 from collections import defaultdict
 
 from freecad.Circuits.core.simbolos import CATALOGO
+from freecad.Circuits.services import planilhas
 
 try:
     from reportlab.lib.pagesizes import A4
@@ -217,26 +218,14 @@ class PDFGenerator:
         """Lê planilhas de quadro de distribuição"""
         table_data = [["Identificação", "Tensão", "Fases", "Pot. Instalada", "Demanda"]]
         
-        for obj in self.doc.Objects:
-            if obj.TypeId == "Spreadsheet::Sheet":
-                try:
-                    # Assumindo o layout que o services/unifilar.py cria na planilha
-                    ident = obj.get("A2") if obj.get("A2") else obj.Label
-                    tensao = obj.get("F2") if obj.get("F2") else "-"
-                    fases = obj.get("G2") if obj.get("G2") else "-"
-                    
-                    # No gerar_unifilar a potencia instalada as vezes esta em N2 ou B2, 
-                    # dependendo de como a UI inseriu, vou tentar algumas celulas:
-                    # Como o layout varia, vou focar num log basico
-                    pot = str(obj.get("potencia_instalada") or obj.get("G2") or "-")
-                    dem = str(obj.get("potencia_demanda") or obj.get("A4") or "-")
-                    
-                    # Limpeza basica das strings da planilha que as vezes vem com ''
-                    ident = str(ident).replace("'", "")
-                    tensao = str(tensao).replace("'", "")
-                    
-                    table_data.append([ident, tensao, str(fases), pot, dem])
-                except Exception:
-                    pass
-                    
+        for obj in planilhas.listar_quadros(self.doc):
+            dados = planilhas.ler_quadro(obj)
+            table_data.append([
+                dados["indentificacao_painel"] or obj.Label,
+                dados["tensao"] or "-",
+                dados["numero_fases"] or "-",
+                dados["potencia_instalada"] or "-",
+                dados["potencia_demanda"] or "-",
+            ])
+
         return table_data

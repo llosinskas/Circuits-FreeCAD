@@ -84,7 +84,8 @@ SWITCH_TOOLS = ["InsertSwitch", "InsertSwitchParalelo", "InsertSwitchIntermediar
 BOARD_SYMBOL_TOOLS = ["Ponto_quadro_distribuicao", "Ponto_quadro_comando", "Ponto_quadro_medicao", "Ponto_medicao_agrupada"]
 CIRCUIT_TOOLS = ["DefinirCircuito", "LigarInterruptor", "IdentificarPontos"]
 INFRA_TOOLS = ["InsertConduit", "Add_Node", "Cabo"]
-BOARD_TOOLS = ["GerarPlanilha", "MontarCircuitos", "AddCircuito", "GerarUnifilar"]
+BOARD_DATA_TOOLS = ["GerarPlanilha", "AddCircuito"]
+BOARD_TOOLS = ["GerarPlanilha", "AddCircuito", "MontarCircuitos", "ComponentesQuadro", "GerarUnifilar"]
 CALC_TOOLS = ["CalcDemanda", "CalcPressurizacao", "CalcRecalque"]
 DOCUMENT_TOOLS = ["LegendaSimbolos", "GenerateReport"]
 MODEL_3D_TOOLS = ["Generate3DSwitches", "Generate3DConduits", "Gerar3D"]
@@ -112,6 +113,7 @@ GROUPS = {
     "Grupo_Iluminacao": ("Iluminação", "Luz de teto, arandela, luminária tubular, embutida e de emergência", LIGHTING_TOOLS),
     "Grupo_Interruptores": ("Interruptores", "Interruptor simples, paralelo e intermediário", SWITCH_TOOLS),
     "Grupo_Quadros": ("Quadros", "Quadro de distribuição, de comando, de medição e medição agrupada, na planta", BOARD_SYMBOL_TOOLS),
+    "Grupo_DadosQuadro": ("Dados do quadro", "Planilha de dados do quadro e circuito digitado à mão", BOARD_DATA_TOOLS),
     "Grupo_Circuitos": ("Circuitos", "Definir o circuito dos pontos, ligar interruptores e identificar na planta", CIRCUIT_TOOLS),
     "Grupo_Infra": ("Eletrodutos", "Caminho de eletroduto, divisão de trecho e fiação", INFRA_TOOLS),
     "Grupo_Calculos": ("Cálculos", "Demanda do quadro, pressurização de escada e bomba de recalque", CALC_TOOLS),
@@ -138,9 +140,9 @@ ELECTRIC_TOOLBARS = [
         _tr("Workbench", "Quadros e documentos"),
         [
             "Grupo_Quadros",
-            "GerarPlanilha",
+            "Grupo_DadosQuadro",
             "MontarCircuitos",
-            "AddCircuito",
+            "ComponentesQuadro",
             "GerarUnifilar",
             "Grupo_Calculos",
             "Grupo_Documentos",
