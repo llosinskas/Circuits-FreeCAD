@@ -1,16 +1,14 @@
 """Comando para iniciar o projeto de um quadro elétrico."""
-import FreeCAD as App
 import FreeCADGui as Gui
 
-from freecad.Circuits.commands._base import recursos
+from freecad.Circuits.commands._base import documento_ou_aviso, recursos
 from freecad.Circuits.services.documento import GRUPOS_QUADRO, criar_grupos
 
 
 class NewQuadro:
     def Activated(self):
-        doc = App.ActiveDocument
-        if doc is None:
-            App.Console.PrintError("No active document found.\n")
+        doc = documento_ou_aviso()
+        if not doc:
             return
         criar_grupos(doc, GRUPOS_QUADRO)
 

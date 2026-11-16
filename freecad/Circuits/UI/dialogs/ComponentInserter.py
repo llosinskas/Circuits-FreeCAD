@@ -11,6 +11,7 @@ from typing import Optional, Callable, Any
 import FreeCAD as App
 import FreeCADGui as Gui
 
+from freecad.Circuits.core import alinhamento
 from freecad.Circuits.qt import QtCore, QtGui, QtWidgets
 
 from .ComponentSelectorDialog import ComponentSelectorDialog
@@ -325,74 +326,128 @@ class ComponentInserter:
 
 
 class ComponentInsertionMode:
-    """Modo interativo para inserção de componentes com o cursor do mouse."""
-    
+    """Modo interativo para posicionar um objeto com o cursor do mouse.
+
+    Teclas durante a inserção:
+        clique   fixa o objeto
+        R        gira 90° em torno de Z
+        Espaço   alinha com o símbolo mais próximo: trava em um eixo, depois no
+                 outro, depois solta (a tecla A faz o mesmo)
+        L        liga ou desliga o alinhamento automático com os símbolos vizinhos
+        ESC      cancela e apaga o objeto
+    """
+
     _active_instance = None  # Mantém a referência viva contra o Garbage Collector do Python
-    
-    def __init__(self, obj, ao_fixar=None, plano_z0=False):
+    _trava_da_sequencia = None  # trava herdada pelo próximo objeto de uma inserção em sequência
+    TOLERANCIA_PIXELS = 10  # alcance do alinhamento automático, em pixels da tela
+
+    def __init__(self, obj, ao_fixar=None, plano_z0=False, referencias=None):
         """
         Args:
             obj: objeto que acompanha o cursor.
             ao_fixar: função chamada depois do clique que fixa o objeto
                 (usada para inserir vários pontos em sequência).
             plano_z0: mantém o objeto no plano Z=0, para desenho em planta.
+            referencias: lista de (x, y) dos símbolos já colocados, usada para
+                alinhar. None desliga o alinhamento.
         """
         self.obj = obj
         self.ao_fixar = ao_fixar
         self.plano_z0 = plano_z0
+        self.referencias = list(referencias) if referencias else []
+        self.automatico = True
+        self.trava = ComponentInsertionMode._trava_da_sequencia if ao_fixar else None
+        self._travas = []
+        self._ultimo_ponto = (0.0, 0.0)
         self.is_active = False
         self.view = Gui.ActiveDocument.ActiveView
         self.cb_mouse = None
         self.cb_move = None
         self.cb_key = None
-        
+
     def start(self):
         if not self.view:
             return
-        
+
+        # Outro comando de inserção ainda ativo: encerra o anterior antes de começar.
+        anterior = ComponentInsertionMode._active_instance
+        if anterior is not None and anterior is not self:
+            anterior.cancelar()
+
         # Previne que o Python destrua esta classe enquanto os callbacks rodam
         ComponentInsertionMode._active_instance = self
-        
         self.is_active = True
-        
-        # Callbacks para capturar eventos 3D
+        # Com algo selecionado, a tecla Espaço do FreeCAD alternaria a visibilidade.
+        Gui.Selection.clearSelection()
+
         self.cb_mouse = self.view.addEventCallback("SoMouseButtonEvent", self.on_mouse)
         self.cb_move = self.view.addEventCallback("SoLocation2Event", self.on_move)
         self.cb_key = self.view.addEventCallback("SoKeyboardEvent", self.on_key)
-        
-        # Feedback no console
-        App.Console.PrintMessage(
-            "Modo de Inserção Ativo: mova o cursor, CLIQUE para fixar, R para girar 90°, ESC para cancelar.\n"
+
+        self._avisar(
+            "Clique fixa | R gira | Espaço alinha com o símbolo vizinho | L alinhamento automático | ESC encerra"
         )
-        
+
     def stop(self):
         self.is_active = False
         if self.view:
-            if self.cb_mouse: self.view.removeEventCallback("SoMouseButtonEvent", self.cb_mouse)
-            if self.cb_move: self.view.removeEventCallback("SoLocation2Event", self.cb_move)
-            if self.cb_key: self.view.removeEventCallback("SoKeyboardEvent", self.cb_key)
-            
+            if self.cb_mouse:
+                self.view.removeEventCallback("SoMouseButtonEvent", self.cb_mouse)
+            if self.cb_move:
+                self.view.removeEventCallback("SoLocation2Event", self.cb_move)
+            if self.cb_key:
+                self.view.removeEventCallback("SoKeyboardEvent", self.cb_key)
+
         ComponentInsertionMode._active_instance = None
-            
+
+    @staticmethod
+    def _avisar(texto):
+        """Mostra a mensagem na barra de status e no painel de relatório."""
+        App.Console.PrintMessage(texto + "\n")
+        try:
+            Gui.getMainWindow().statusBar().showMessage(texto, 8000)
+        except Exception:
+            pass  # sem janela principal (testes): o painel de relatório basta
+
+    def _tolerancia(self, x, y):
+        """Comprimento, no desenho, de ``TOLERANCIA_PIXELS`` pixels da tela."""
+        try:
+            a = self.view.getPoint(x, y)
+            b = self.view.getPoint(x + self.TOLERANCIA_PIXELS, y)
+            return (b - a).Length
+        except Exception:
+            return 0.0
+
+    def _posicionar(self, x, y):
+        """Leva o objeto ao ponto da tela, aplicando plano, trava e alinhamento."""
+        pnt = self.view.getPoint(x, y)
+        if not pnt:
+            return
+        if self.plano_z0:
+            pnt.z = 0.0
+        self._ultimo_ponto = (pnt.x, pnt.y)
+        self._ultima_tela = (x, y)
+
+        if self.trava:
+            pnt.x, pnt.y = alinhamento.aplicar_trava((pnt.x, pnt.y), self.trava)
+        elif self.automatico and self.referencias:
+            pnt.x, pnt.y, _, _ = alinhamento.atrair((pnt.x, pnt.y), self.referencias, self._tolerancia(x, y))
+
+        # No FreeCAD, precisamos ler, alterar e reatribuir o Placement
+        pl = self.obj.Placement
+        pl.Base = pnt
+        self.obj.Placement = pl
+        # Força a atualização da interface visual sem recomputar todo o documento
+        self.obj.touch()
+        self.view.redraw()
+
     def on_move(self, info):
         """Atualiza a posição do objeto baseado no mouse."""
         if not self.is_active or not self.obj or not hasattr(self.obj, 'Placement'):
             return
-            
         x, y = info["Position"]
-        pnt = self.view.getPoint(x, y)
-        if pnt:
-            if self.plano_z0:
-                pnt.z = 0.0
-            # No FreeCAD, precisamos ler, alterar e reatribuir o Placement
-            pl = self.obj.Placement
-            pl.Base = pnt
-            self.obj.Placement = pl
-            
-            # Força a atualização da interface visual sem recomputar todo o documento
-            self.obj.touch()
-            self.view.redraw()
-            
+        self._posicionar(x, y)
+
     def on_mouse(self, info):
         """Fixa o objeto ao clicar com o botão esquerdo."""
         if info["State"] == "DOWN" and info["Button"] == "BUTTON1":
@@ -401,19 +456,57 @@ class ComponentInsertionMode:
             # Registra no undo/redo após a colocação final
             App.ActiveDocument.recompute()
             if self.ao_fixar:
+                ComponentInsertionMode._trava_da_sequencia = self.trava
                 self.ao_fixar()
-            
+
+    def _alternar_trava(self):
+        """Espaço: trava no eixo mais próximo do vizinho, depois no outro, depois solta."""
+        if not self.referencias:
+            self._avisar("Não há outro símbolo na planta para alinhar.")
+            return
+        if self.trava is None:
+            self._travas = alinhamento.travas_possiveis(self._ultimo_ponto, self.referencias)
+            self.trava = self._travas[0]
+        elif self._travas and self.trava == self._travas[0]:
+            self.trava = self._travas[1]
+        else:
+            self.trava = None
+        if self.trava is None:
+            self._avisar("Alinhamento solto.")
+        else:
+            direcao = "vertical" if self.trava[0] == "x" else "horizontal"
+            self._avisar(f"Alinhado na {direcao} com o símbolo vizinho. Espaço troca o eixo ou solta.")
+        if hasattr(self, "_ultima_tela"):
+            self._posicionar(*self._ultima_tela)
+
     def on_key(self, info):
-        """ESC cancela a inserção e apaga o objeto; R gira o objeto 90° em torno de Z."""
-        if info["State"] == "DOWN" and str(info["Key"]).upper() == "R" and self.obj:
+        """Teclas da inserção: R gira, Espaço/A alinha, L alterna o automático, ESC cancela."""
+        if info["State"] != "DOWN":
+            return
+        tecla = str(info["Key"]).upper()
+        if tecla == "R" and self.obj:
             pl = self.obj.Placement
             pl.Rotation = App.Rotation(App.Vector(0, 0, 1), 90).multiply(pl.Rotation)
             self.obj.Placement = pl
             self.view.redraw()
-            return
-        if info["State"] == "DOWN" and info["Key"] == "ESCAPE":
-            App.Console.PrintMessage("Inserção cancelada.\n")
-            self.stop()
-            if self.obj:
-                App.ActiveDocument.removeObject(self.obj.Name)
-                App.ActiveDocument.recompute()
+        elif tecla in ("SPACE", " ", "A"):
+            self._alternar_trava()
+        elif tecla == "L":
+            self.automatico = not self.automatico
+            self._avisar("Alinhamento automático " + ("ligado." if self.automatico else "desligado."))
+        elif tecla == "ESCAPE":
+            App.Console.PrintMessage("Inserção encerrada.\n")
+            self.cancelar()
+
+    def cancelar(self):
+        """Encerra a inserção e apaga o objeto que ainda não foi fixado."""
+        ComponentInsertionMode._trava_da_sequencia = None
+        self.stop()
+        try:
+            if self.obj and self.obj.Document:
+                documento = self.obj.Document
+                documento.removeObject(self.obj.Name)
+                documento.recompute()
+        except Exception:
+            pass  # o objeto já foi apagado pelo usuário
+        self.obj = None

@@ -41,5 +41,5 @@ def importar_modelo(doc, arquivo):
         if not _renomear_se_existir(doc, obj):
             pasta.addObject(doc.copyObject(obj))
 
-    App.closeDocument(nome)
+    App.closeDocument(origem.Name)
     doc.recompute()

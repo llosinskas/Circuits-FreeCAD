@@ -10,7 +10,7 @@ from freecad.Circuits.commands._base import documento_ou_aviso, recursos
 from freecad.Circuits.core.simbolos import CATALOGO
 from freecad.Circuits.objects.ponto import create_ponto
 from freecad.Circuits.qt import QtCore, QtWidgets
-from freecad.Circuits.services import legenda
+from freecad.Circuits.services import alinhamento, legenda
 from freecad.Circuits.UI.dialogs.ComponentInserter import ComponentInsertionMode
 
 PREFIXO = "Ponto_"
@@ -37,7 +37,12 @@ class InserirPonto:
             obj.Placement = posicao
         self._em_insercao = obj.Name
         # O próximo ponto só começa depois que o clique atual terminar de ser tratado.
-        ComponentInsertionMode(obj, ao_fixar=lambda: QtCore.QTimer.singleShot(0, self._repetir), plano_z0=True).start()
+        ComponentInsertionMode(
+            obj,
+            ao_fixar=lambda: QtCore.QTimer.singleShot(0, self._repetir),
+            plano_z0=True,
+            referencias=alinhamento.posicoes_dos_simbolos(App.activeDocument(), exceto=obj),
+        ).start()
 
     def _repetir(self):
         self._fixado = getattr(self, "_em_insercao", None)
@@ -53,7 +58,7 @@ class InserirPonto:
 
     def GetResources(self):
         dados = CATALOGO[self.simbolo]
-        dica = f"{dados['dica']}. Clique para posicionar; R gira; ESC encerra a sequência"
+        dica = f"{dados['dica']}. Clique fixa e repete; R gira; Espaço alinha com o vizinho; ESC encerra"
         return recursos(f"simbologia/{self.simbolo}.svg", dados["legenda"], dica)
 
 

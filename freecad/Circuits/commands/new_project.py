@@ -5,7 +5,7 @@ import FreeCAD as App
 import FreeCADGui as Gui
 
 from freecad.Circuits import ELECTRIC_LIBRARY_PATH
-from freecad.Circuits.commands._base import recursos
+from freecad.Circuits.commands._base import documento_ou_aviso, recursos
 from freecad.Circuits.qt import QtWidgets
 from freecad.Circuits.services import biblioteca, planilhas
 from freecad.Circuits.services.documento import GRUPOS_PROJETO, criar_grupos
@@ -14,17 +14,14 @@ from freecad.Circuits.UI.insert_circuit import InsertCircuit
 
 class newProjetctEletrical:
     def Activated(self):
-        doc = App.ActiveDocument
-        if doc is None:
-            App.Console.PrintError("No active document found.\n")
-            return
+        doc = App.activeDocument() or App.newDocument("Projeto_eletrico")
         criar_grupos(doc, GRUPOS_PROJETO)
 
     def GetResources(self):
         return recursos(
             "newProject.svg",
             "Novo projeto",
-            "Cria no documento os grupos do projeto elétrico: pontos, quadros, eletrodutos, cabos e diagramas",
+            "Cria os grupos do projeto elétrico (pontos, quadros, eletrodutos, diagramas), em um documento novo se preciso",
         )
 
 
@@ -34,8 +31,6 @@ class CreateModel:
         nome, ok = QtWidgets.QInputDialog.getText(None, "Salvar desenho", "Digite o nome do arquivo:")
         if ok and nome.strip():
             biblioteca.criar_modelo(nome.strip())
-        else:
-            QtWidgets.QMessageBox.warning(None, "Cancelado", "Operação cancelada")
 
     def GetResources(self):
         return recursos(
@@ -47,7 +42,9 @@ class CreateModel:
 
 class newSpreadsheet:
     def Activated(self):
-        planilhas.criar_planilha_circuitos(App.ActiveDocument)
+        doc = documento_ou_aviso()
+        if doc:
+            planilhas.criar_planilha_circuitos(doc)
 
     def GetResources(self):
         return recursos(
@@ -74,22 +71,18 @@ class addCircuit:
 
 class listElements:
     def Activated(self):
-        if not os.path.exists(ELECTRIC_LIBRARY_PATH):
-            os.makedirs(ELECTRIC_LIBRARY_PATH)
+        doc = documento_ou_aviso()
+        if not doc:
             return
+        os.makedirs(ELECTRIC_LIBRARY_PATH, exist_ok=True)
 
         arquivos = biblioteca.listar_modelos()
         if not arquivos:
-            QtWidgets.QMessageBox.information(None, "Nenhum arquivo", "Não há arquivos FCStd na pasta.")
+            QtWidgets.QMessageBox.information(None, "Importar modelo", "Não há modelos (.FCStd) na biblioteca.")
             return
 
-        item, ok = QtWidgets.QInputDialog.getItem(None, "Abrir desenho", "Escolha o arquivo:", arquivos, editable=False)
+        item, ok = QtWidgets.QInputDialog.getItem(None, "Importar modelo", "Escolha o modelo:", arquivos, 0, False)
         if not ok:
-            return
-
-        doc = App.ActiveDocument
-        if doc is None:
-            App.Console.PrintError("No active document found.\n")
             return
         biblioteca.importar_modelo(doc, item)
 

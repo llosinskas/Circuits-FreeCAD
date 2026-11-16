@@ -5,7 +5,7 @@ import sys
 import FreeCAD as App
 import FreeCADGui as Gui
 
-from freecad.Circuits.commands._base import recursos
+from freecad.Circuits.commands._base import documento_ou_aviso, recursos
 
 _PACOTE = "freecad.Circuits"
 _CHAVE_BANCADA = "CircuitsWorkbench"
@@ -13,9 +13,8 @@ _CHAVE_BANCADA = "CircuitsWorkbench"
 
 class GetSpaces:
     def Activated(self):
-        doc = App.ActiveDocument
-        if doc is None:
-            App.Console.PrintError("No active document found.\n")
+        doc = documento_ou_aviso()
+        if not doc:
             return
         for obj in doc.Objects:
             App.Console.PrintMessage(f"  → {obj.Label}\n")

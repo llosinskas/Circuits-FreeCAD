@@ -7,14 +7,21 @@ from freecad.Circuits.commands._base import documento_ou_aviso, recursos
 from freecad.Circuits.objects.lighting import create_lighting
 from freecad.Circuits.objects.outlet import create_outlet
 from freecad.Circuits.objects.switch import create_switch
-from freecad.Circuits.qt import QtWidgets
+from freecad.Circuits.qt import QtCore, QtWidgets
+from freecad.Circuits.services import alinhamento
 from freecad.Circuits.services.tomadas import criar_tug
 from freecad.Circuits.UI.dialogs.ComponentInserter import ComponentInserter, ComponentInsertionMode
 
 
-def _posicionar_com_mouse(obj, mensagem):
+def _posicionar_com_mouse(obj, mensagem, ao_fixar=None):
+    """Posiciona um símbolo 2D na planta, com alinhamento aos símbolos vizinhos."""
     App.Console.PrintMessage(f"{mensagem} Clique na planta para posicionar.\n")
-    ComponentInsertionMode(obj).start()
+    ComponentInsertionMode(
+        obj,
+        ao_fixar=ao_fixar,
+        plano_z0=True,
+        referencias=alinhamento.posicoes_dos_simbolos(App.activeDocument(), exceto=obj),
+    ).start()
 
 
 class _InserirDaBiblioteca:
@@ -37,7 +44,7 @@ class _InserirDaBiblioteca:
 
 
 class _CriarEPosicionar:
-    """Cria um objeto FeaturePython e o posiciona com o mouse."""
+    """Cria um objeto FeaturePython e o posiciona com o mouse, em sequência até ESC."""
 
     criar = None
     mensagem = ""
@@ -47,7 +54,8 @@ class _CriarEPosicionar:
             return
         obj = type(self).criar()
         if obj:
-            _posicionar_com_mouse(obj, self.mensagem)
+            # O próximo só começa depois que o clique atual terminar de ser tratado.
+            _posicionar_com_mouse(obj, self.mensagem, lambda: QtCore.QTimer.singleShot(0, self.Activated))
 
     def IsActive(self):
         return True

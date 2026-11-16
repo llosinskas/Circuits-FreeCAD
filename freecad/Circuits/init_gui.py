@@ -67,7 +67,10 @@ MODIFY_TOOLS = [
     "Draft_Trimex",
     "Draft_Scale",
     "Draft_Edit",
+    "AlinharPontos",
+    "DistribuirPontos",
 ]
+ALIGN_TOOLS = ["AlinharPontos", "DistribuirPontos"]
 MODIFY_EXTRA_TOOLS = ["Draft_Join", "Draft_OrthoArray", "Draft_PathArray", "Draft_Draft2Sketch"]
 BIM_TOOLS = ["Arch_Wall", "BIM_Door", "Arch_Space", "BIM_Library"]
 BIM_EXTRA_TOOLS = ["BIM_Project", "BIM_Column", "BIM_Beam", "BIM_Slab"]
@@ -139,6 +142,7 @@ MENUS = [
     ([MENU, "Pontos de energia"], POWER_TOOLS),
     ([MENU, "Iluminação"], LIGHTING_TOOLS),
     ([MENU, "Interruptores"], SWITCH_TOOLS),
+    ([MENU, "Alinhar símbolos"], ALIGN_TOOLS),
     ([MENU, "Eletrodutos e fiação"], INFRA_TOOLS),
     ([MENU, "Quadros e diagramas"], BOARD_TOOLS),
     ([MENU, "Cálculos prediais"], CALC_TOOLS),
@@ -194,6 +198,7 @@ class CircuitsWorkbench(gui.Workbench):
 
         # Cada módulo registra os próprios comandos ao ser importado.
         from .commands import (  # noqa: F401
+            alinhar,
             calculos,
             generate_3d,
             gerar_unifilar,

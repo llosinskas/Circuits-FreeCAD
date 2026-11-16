@@ -37,6 +37,7 @@ Circuits/                        pasta dentro de Mod/, raiz do repositório
     │   ├── functions/           cálculos (Cabo/, Barramento, Infraestrutura/, Predial/)
     │   ├── tables/              tabelas NBR 5410, NBR 14039 e eletrodutos
     │   ├── simbolos.py          catálogo e geometria dos pontos elétricos
+    │   ├── alinhamento.py       travas, alinhamento automático, alinhar e distribuir símbolos
     │   ├── circuitos.py         circuitos a partir dos pontos: soma, cabo, disjuntor, fases
     │   ├── planilha.py          layout das planilhas de quadro e circuitos
     │   ├── qet.py               leitura de condutores do QElectroTech
@@ -87,6 +88,7 @@ Regras gerais:
 | `InsertSwitch`, `InsertSwitchParalelo`, `InsertSwitchIntermediario`, `InsertLighting`, `InsertOutlet` | `insert_component` | `objects/switch`, `lighting`, `outlet` |
 | `Ponto_<símbolo>` (um por entrada de `core.simbolos.CATALOGO`) | `pontos` | `objects/ponto`; `core/simbolos` |
 | `LegendaSimbolos` | `pontos` | `services/legenda` |
+| `AlinharPontos`, `DistribuirPontos` | `alinhar` | `services/alinhamento`; `core/alinhamento` |
 | `InsertConduit` | `insert_component` | `Draft_Wire` nativo |
 | `InsertWire`, `InsertCableTray` | `insert_component` | ainda não implementados: só exibem um aviso |
 | `Generate3DConduits`, `Generate3DSwitches` | `generate_3d` | `services/eletrodutos`, `caixas_3d` |
@@ -106,7 +108,7 @@ As barras ficam em `init_gui.py`. As três barras próprias são enxutas: os com
 | Planta elétrica | Projeto ▾, Tomadas ▾, Energia ▾, Iluminação ▾, Interruptores ▾, Eletrodutos ▾ |
 | Quadros e documentos | `GerarPlanilha`, `MontarCircuitos`, `AddCircuito`, `GerarUnifilar` (nesta ordem de uso), Cálculos ▾, Documentos ▾ |
 | Modelo e biblioteca | Modelo 3D ▾, Biblioteca ▾ |
-| Desenho, Modificador, Snap, Arquitetura | só os comandos nativos de uso frequente em planta |
+| Desenho, Modificador, Snap, Arquitetura | só os comandos nativos de uso frequente em planta; *Modificador* termina com `AlinharPontos` e `DistribuirPontos` |
 
 | Grupo | Comandos |
 |---|---|
@@ -125,6 +127,22 @@ As barras ficam em `init_gui.py`. As três barras próprias são enxutas: os com
 - Só no menu **Elétrica > Outros**: `InsertOutlet` e `InsertLighting` (substituídos pelos pontos novos), `ComponentEletric`, `InsertWire`, `InsertCableTray`, `AddSpreadsheet`, `NewQuadro`, `GetSpaces`, `ReiniciarBancada`.
 - **Legenda:** o `MenuText` de cada comando aparece embaixo do ícone nas barras próprias. Mantenha-o curto (até 24 caracteres) e único; a explicação vai no `ToolTip`. A preferência booleana `LegendaBotoes` em `BaseApp/Preferences/Mod/Circuits` desliga as legendas.
 - `tests/unit/test_toolbars.py` falha se um comando ficar fora do menu, se uma barra ou grupo citar um comando que não existe, se uma barra própria passar de 6 botões, se faltar um ícone ou se a legenda for longa ou repetida.
+
+## Inserção de símbolos na planta
+
+Todo símbolo 2D (pontos, interruptores, tomada TUG) é posicionado por `ComponentInsertionMode`, em `UI/dialogs/ComponentInserter.py`:
+
+| Ação | Efeito |
+|---|---|
+| Clique | Fixa o símbolo. Pontos e interruptores repetem até ESC, mantendo circuito, rotação e trava. |
+| R | Gira 90°. |
+| Espaço (ou A) | Alinha com o símbolo mais próximo: trava no eixo em que já está mais perto, depois no outro eixo, depois solta. |
+| L | Liga ou desliga o alinhamento automático, que puxa o símbolo para o X ou o Y de um vizinho a menos de 10 pixels. |
+| ESC | Encerra e apaga o símbolo ainda não fixado. |
+
+- Começar outro comando de inserção encerra o anterior.
+- A lógica é pura (`core/alinhamento.py`) e as teclas são testadas com o FreeCAD simulado em `tests/unit/test_insercao.py`.
+- Para símbolos já colocados: selecione-os e use **Alinhar** (atalho `A, L`; o primeiro selecionado é a referência) ou **Distribuir** (`A, D`).
 
 ## Como os dados ficam no documento
 
@@ -207,7 +225,7 @@ Todos foram confirmados no código ou em execução e já existiam antes da reor
 - `core/circuitos.py`, `dimensionar`: o disjuntor de motores é escolhido só pela corrente nominal, sem considerar a partida.
 - `services/circuitos.py`, `_de_tomada_sketch`: lê potência e tensão das tomadas em Sketch pelo número bruto, porque elas são gravadas sem unidade. Falta confirmar no FreeCAD e migrar para grandezas com unidade.
 - `services/pdf_generator.py`, `_get_calculos_table`: lê a linha 2 (cabeçalhos) em vez da linha 3 e percorre todas as planilhas, não só os quadros.
-- Os botões de grupo (lista suspensa), os pontos novos, a legenda, `MontarCircuitos`, os cálculos prediais e as mudanças do unifilar têm teste unitário da lógica, mas ainda não foram executados no FreeCAD real: rode o `smoke_gui.py` e atualize este item.
+- Os botões de grupo (lista suspensa), as teclas da inserção (Espaço, R, L), os comandos Alinhar e Distribuir, os pontos novos, a legenda, `MontarCircuitos`, os cálculos prediais e as mudanças do unifilar têm teste unitário da lógica, mas ainda não foram executados no FreeCAD real: rode o `smoke_gui.py` e atualize este item.
 
 **Cálculos e tabelas, ainda sem uso na interface**
 - `core/functions/Barramento.py`: `Sec_tubular` gera `TypeError` (falta `*` em `math.pi(...)`) e não tem `return`. `Corrente_carga_maxima` usa `Qc*Qr-Qs`; conferir com a fonte, pois o balanço térmico sugere soma.

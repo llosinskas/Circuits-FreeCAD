@@ -81,7 +81,9 @@ class Add_Node:
     def Activated(self):
         selecao = Gui.Selection.getSelection()
         if not selecao:
-            print("Linha não selecionada!")
+            QtWidgets.QMessageBox.information(
+                None, "Dividir trecho", "Selecione antes a linha do eletroduto que quer dividir."
+            )
             return
         subdividir_linha(App.activeDocument(), selecao[0])
 

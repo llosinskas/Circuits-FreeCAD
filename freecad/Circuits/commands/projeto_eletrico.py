@@ -2,13 +2,22 @@
 import FreeCAD as App
 import FreeCADGui as Gui
 
-from freecad.Circuits.commands._base import recursos
+from freecad.Circuits.commands._base import documento_ou_aviso, recursos
+from freecad.Circuits.qt import QtWidgets
 from freecad.Circuits.services import cabos, tomadas
+
+
+def _sem_tomadas_tug(titulo):
+    QtWidgets.QMessageBox.information(
+        None, titulo, "Este comando usa as tomadas TUG (botão Tomadas > Tomada TUG), e não há nenhuma na planta."
+    )
 
 
 class ComponentEletric:
     def Activated(self):
-        doc = App.activeDocument()
+        doc = documento_ou_aviso()
+        if not doc:
+            return
         selecao = Gui.Selection.getSelectionEx()
         ponto = App.Vector(0, 0, 0)
         if selecao and selecao[0].HasSubObjects:
@@ -28,10 +37,14 @@ class ComponentEletric:
 
 class Gerar3D:
     def Activated(self):
-        doc = App.activeDocument()
+        doc = documento_ou_aviso()
+        if not doc:
+            return
         encontradas = tomadas.listar_tomadas(doc)
-        if encontradas:
-            tomadas.gerar_caixas_tomadas(doc, encontradas)
+        if not encontradas:
+            _sem_tomadas_tug("Tomadas 3D")
+            return
+        tomadas.gerar_caixas_tomadas(doc, encontradas)
         doc.recompute()
 
     def GetResources(self):
@@ -44,8 +57,14 @@ class Gerar3D:
 
 class Cabo:
     def Activated(self):
-        doc = App.activeDocument()
-        cabos.desenhar_cabos_planta(doc, tomadas.listar_tomadas(doc))
+        doc = documento_ou_aviso()
+        if not doc:
+            return
+        encontradas = tomadas.listar_tomadas(doc)
+        if not encontradas:
+            _sem_tomadas_tug("Fiação")
+            return
+        cabos.desenhar_cabos_planta(doc, encontradas)
         doc.recompute()
 
     def GetResources(self):

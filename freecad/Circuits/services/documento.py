@@ -44,6 +44,7 @@ def create_group(name, doc=None):
 
 
 def criar_grupos(doc, nomes):
+    """Cria os grupos que ainda não existem; repetir o comando não duplica nada."""
     for nome in nomes:
-        doc.addObject("App::DocumentObjectGroup", nome)
+        create_group(nome, doc)
     doc.recompute()

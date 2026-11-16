@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64">
+  <!-- Distribuir: símbolos com o mesmo espaço entre eles -->
+  <path d="M19 26A7 7 0 1 1 5 26A7 7 0 1 1 19 26 M39 26A7 7 0 1 1 25 26A7 7 0 1 1 39 26 M59 26A7 7 0 1 1 45 26A7 7 0 1 1 59 26 M19 46H25M39 46H45M19 42V50M25 42V50M39 42V50M45 42V50" fill="none" stroke-linecap="round" stroke-linejoin="round" stroke="#ffffff" stroke-width="7" stroke-opacity="0.85"/>
+  <path d="M19 26A7 7 0 1 1 5 26A7 7 0 1 1 19 26 M39 26A7 7 0 1 1 25 26A7 7 0 1 1 39 26 M59 26A7 7 0 1 1 45 26A7 7 0 1 1 59 26" fill="none" stroke-linecap="round" stroke-linejoin="round" stroke="#5f6368" stroke-width="3"/>
+  <path d="M19 46H25M39 46H45M19 42V50M25 42V50M39 42V50M45 42V50" fill="none" stroke-linecap="round" stroke-linejoin="round" stroke="#1a73e8" stroke-width="3"/>
+</svg>

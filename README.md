@@ -47,7 +47,7 @@ Depois use **Elétrica > Outros > Reiniciar Bancada** ou reabra o FreeCAD. Mante
 ## Passo a passo de um projeto
 
 1. **Novo projeto** (botão *Projeto*): cria os grupos do documento.
-2. **Insira os pontos** pelos botões *Tomadas*, *Energia*, *Iluminação* e *Interruptores*. Depois do clique, o próximo ponto do mesmo tipo já vem no cursor. A tecla **R** gira 90° e **ESC** encerra.
+2. **Insira os pontos** pelos botões *Tomadas*, *Energia*, *Iluminação* e *Interruptores*. Depois do clique, o próximo ponto do mesmo tipo já vem no cursor. Veja as teclas em [Inserir e alinhar símbolos](#inserir-e-alinhar-símbolos).
 3. **Defina o circuito** de cada ponto na propriedade `Circuito`. Pontos de uso específico, como o chuveiro, precisam de circuito exclusivo.
 4. **Novo quadro** (barra *Quadros e documentos*): informe tensão, fases, disjuntor geral e DPS.
 5. **Montar circuitos:** grava no quadro uma linha por circuito, com potência, corrente, cabo, disjuntor e fases. Use **Circuito** para acrescentar ou corrigir uma linha à mão.
@@ -58,6 +58,22 @@ Depois use **Elétrica > Outros > Reiniciar Bancada** ou reabra o FreeCAD. Mante
 **Pressurização** e **Bomba de recalque** abrem um formulário, mostram o cálculo e, com o botão *Inserir motor na planta*, criam o ponto de força do motor para entrar nos circuitos.
 
 Ao repetir **Montar circuitos**, as linhas com o mesmo número são atualizadas e as demais ficam como estão.
+
+## Inserir e alinhar símbolos
+
+Enquanto um símbolo acompanha o cursor:
+
+| Tecla | Efeito |
+|---|---|
+| Clique | Fixa o símbolo e já traz o próximo do mesmo tipo |
+| **Espaço** | Alinha com o símbolo mais próximo: primeiro em um eixo, de novo no outro, de novo solta |
+| **R** | Gira 90° |
+| **L** | Liga ou desliga o alinhamento automático |
+| **ESC** | Encerra |
+
+O alinhamento automático puxa o símbolo para a mesma vertical ou horizontal de um vizinho quando ele chega perto. A trava do Espaço vale para os próximos símbolos da sequência, o que facilita fazer uma fileira.
+
+Para símbolos já colocados, selecione-os com Ctrl + clique e use **Alinhar** (coloca em linha com o primeiro selecionado) ou **Distribuir** (iguala o espaço entre eles), no fim da barra *Modificador* ou em **Elétrica > Alinhar símbolos**.
 
 ## Barras de ferramentas
 
