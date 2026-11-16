@@ -39,6 +39,13 @@ class TestRegras(unittest.TestCase):
         self.assertEqual(identificacao.texto_ponto("1", "A"), "C1 · a")
         self.assertEqual(identificacao.texto_ponto(), "")
 
+    def test_texto_do_quadro(self):
+        self.assertEqual(identificacao.texto_quadro("QD1"), "QD1")
+        self.assertEqual(identificacao.texto_quadro("QM", 1), "QM")
+        self.assertEqual(identificacao.texto_quadro("CM", 12), "CM · 12 medidores")
+        self.assertEqual(identificacao.texto_quadro("QC", None, "8"), "QC · C8")
+        self.assertEqual(identificacao.texto_quadro(""), "")
+
 
 def objeto(nome, tipo, **propriedades):
     return types.SimpleNamespace(Name=nome, Label=nome, Proxy=types.SimpleNamespace(Type=tipo), **propriedades)
@@ -126,6 +133,13 @@ class TestServico(unittest.TestCase):
         self.assertEqual(self.servico.texto_do_objeto(luz("L1", "1", "a")), "C1 · a · 100 VA")
         self.assertEqual(self.servico.texto_do_objeto(tomada("T1", "2")), "C2 · 600 VA")
         self.assertEqual(self.servico.texto_do_objeto(interruptor("S1", "1", "a")), "C1 · a")
+
+    def test_texto_dos_quadros(self):
+        medicao = objeto("CM", "Ponto", Simbolo="medicao_agrupada", Descricao="CM", Medidores=12, Circuito="")
+        quadro = objeto("QD", "Ponto", Simbolo="quadro_distribuicao", Descricao="QD1", Circuito="")
+        self.assertEqual(self.servico.texto_do_objeto(medicao), "CM · 12 medidores")
+        self.assertEqual(self.servico.texto_do_objeto(quadro), "QD1")
+        self.assertFalse(self.servico.eh_ponto_de_luz(quadro))
 
 
 if __name__ == "__main__":

@@ -54,6 +54,19 @@ def proximo_circuito(circuitos):
     return str(max(numeros) + 1) if numeros else "1"
 
 
+def texto_quadro(sigla, medidores=None, circuito=""):
+    """Texto de identificação de um quadro ou medição na planta.
+
+    Exemplos: 'QD1', 'CM · 12 medidores', 'QC · C8' (quadro alimentado pelo circuito 8).
+    """
+    partes = [str(sigla).strip()] if str(sigla).strip() else []
+    if medidores and medidores > 1:
+        partes.append(f"{medidores} medidores")
+    if str(circuito).strip():
+        partes.append(f"C{str(circuito).strip()}")
+    return " · ".join(partes)
+
+
 def texto_ponto(circuito="", comando="", potencia_va=None):
     """Texto de identificação de um ponto na planta.
 

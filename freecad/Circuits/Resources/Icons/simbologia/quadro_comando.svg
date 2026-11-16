@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64">
+  <!-- Quadro de comando: gerado por tools/gerar_icones_simbolos.py -->
+  <path d="M7.00 42.42L57.00 42.42M57.00 42.42L57.00 21.58M57.00 21.58L7.00 21.58M7.00 21.58L7.00 42.42M23.67 42.42L23.67 21.58M40.33 42.42L40.33 21.58M23.67 42.42L40.33 21.58" fill="none" stroke-linecap="round" stroke-linejoin="round" stroke="#ffffff" stroke-width="7" stroke-opacity="0.85"/>
+  <path d="M7.00 42.42L57.00 42.42M57.00 42.42L57.00 21.58M57.00 21.58L7.00 21.58M7.00 21.58L7.00 42.42M23.67 42.42L23.67 21.58M40.33 42.42L40.33 21.58M23.67 42.42L40.33 21.58" fill="none" stroke-linecap="round" stroke-linejoin="round" stroke="#188038" stroke-width="3"/>
+</svg>

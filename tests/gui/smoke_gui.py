@@ -156,6 +156,7 @@ def scenario(doc):
         "Ponto_tomada_baixa", "Ponto_tomada_media", "Ponto_tomada_alta", "Ponto_tomada_piso",
         "Ponto_chuveiro", "Ponto_ar_condicionado", "Ponto_ventilador", "Ponto_ponto_forca",
         "Ponto_luz_teto", "Ponto_arandela", "Ponto_fluorescente", "Ponto_embutida", "Ponto_emergencia",
+        "Ponto_quadro_distribuicao", "Ponto_quadro_comando", "Ponto_quadro_medicao", "Ponto_medicao_agrupada",
     ]
     interruptores = ["InsertSwitch", "InsertSwitchParalelo", "InsertSwitchIntermediario"]
     for name in ["InsertTugs", "InsertLighting", "InsertOutlet"] + interruptores + pontos:

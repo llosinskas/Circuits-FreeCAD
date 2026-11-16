@@ -18,7 +18,10 @@ from freecad.Circuits.core import simbolos  # noqa: E402
 DESTINO = os.path.join(RAIZ, "freecad", "Circuits", "Resources", "Icons", "simbologia")
 LADO = 64
 MARGEM = 7
-COR = {simbolos.TOMADA: "#1a73e8", simbolos.ENERGIA: "#d93025", simbolos.ILUMINACAO: "#b06000"}
+COR = {
+    simbolos.TOMADA: "#1a73e8", simbolos.ENERGIA: "#d93025",
+    simbolos.ILUMINACAO: "#b06000", simbolos.QUADRO: "#188038",
+}
 
 
 def _caminho(primitivas, escala, dx, dy):

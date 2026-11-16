@@ -104,6 +104,17 @@ class TestSequenciaQuadro(unittest.TestCase):
         self.circuitos.montar_circuitos(doc, quadro)
         self.assertEqual([quadro.get(f"A{linha}") for linha in range(6, 18)], [str(n) for n in range(1, 13)])
 
+    def test_simbolo_de_quadro_nao_entra_como_carga(self):
+        quadro = PlanilhaFalsa()
+        doc = self.documento(
+            objeto_ponto("tomada_baixa", "1", 600),
+            objeto_ponto("quadro_distribuicao", "1", 0, "220V", "3F"),
+            objeto_ponto("medicao_agrupada", "", 0, "220V", "3F"),
+        )
+        gravados, avisos = self.circuitos.montar_circuitos(doc, quadro)
+        self.assertEqual([(c["numero"], c["pontos"], c["potencia_va"]) for c in gravados], [("1", 1, 600)])
+        self.assertEqual(avisos, [])
+
     def test_demanda_e_gravada_no_quadro(self):
         quadro = PlanilhaFalsa()
         quadro.aliases["potencia_demanda"] = "N3"

@@ -15,6 +15,7 @@ import math
 TOMADA = "Tomada"
 ENERGIA = "Energia"
 ILUMINACAO = "Iluminação"
+QUADRO = "Quadro"  # quadros e medição: aparecem na planta, mas não são carga de circuito
 
 # Tipo de circuito conforme a NBR 5410: iluminação, tomadas de uso geral (TUG)
 # e tomadas de uso específico (TUE), que têm circuito exclusivo.
@@ -25,6 +26,7 @@ LIGACOES = {"F+N": 1, "F+F": 2, "3F": 3}  # número de fases de cada ligação
 
 def _ponto(legenda, dica, categoria, tipo, potencia, fp, tensao, ligacao, altura, caixa=(60.0, 40.0, 100.0)):
     return {
+        "descricao": legenda,  # texto inicial da propriedade Descricao
         "legenda": legenda,
         "dica": dica,
         "categoria": categoria,
@@ -54,6 +56,30 @@ CATALOGO = {
     "embutida": _ponto("Luz embutida", "Luminária embutida ou spot no forro", ILUMINACAO, ILUM, 20, 1.0, 127, "F+N", 2800, (100.0, 100.0, 50.0)),
     "emergencia": _ponto("Luz de emergência", "Luminária de emergência autônoma", ILUMINACAO, ILUM, 30, 0.9, 127, "F+N", 2300),
 }
+
+
+
+def _quadro(legenda, dica, sigla, altura, caixa, medidores=None):
+    """Quadro ou medição: sem carga própria, identificado pela sigla (QD1, QM...)."""
+    dados = _ponto(legenda, dica, QUADRO, None, 0, 1.0, 220, "3F", altura, caixa)
+    dados["descricao"] = sigla
+    if medidores is not None:
+        dados["medidores"] = medidores  # quantidade inicial de medidores
+    return dados
+
+
+CATALOGO.update({
+    "quadro_distribuicao": _quadro(
+        "Quadro distribuição", "Quadro de distribuição e proteção dos circuitos (QD)", "QD", 1500, (400.0, 100.0, 500.0)),
+    "quadro_comando": _quadro(
+        "Quadro de comando", "Quadro de comando e proteção de motores: bombas, pressurização, portões (QC)",
+        "QC", 1500, (600.0, 200.0, 800.0)),
+    "quadro_medicao": _quadro(
+        "Quadro de medição", "Caixa de medição individual, com um medidor (QM)", "QM", 1600, (300.0, 200.0, 500.0), 1),
+    "medicao_agrupada": _quadro(
+        "Medição agrupada", "Centro de medição agrupada, com vários medidores (CM)",
+        "CM", 1200, (1500.0, 250.0, 1200.0), 6),
+})
 
 _BASE = 1 / 3  # posição X da base do triângulo de tomada
 _MEIA = 1 / 4  # meia altura da base do triângulo
@@ -103,6 +129,11 @@ def _pas_ventilador():
     return linhas
 
 
+def _medidor(x):
+    """Mostrador de um medidor: círculo com o ponteiro."""
+    return [("circulo", x, 0, 0.18), ("linha", x, 0, x + 0.1, 0.1)]
+
+
 def _unitario(simbolo):
     if simbolo == "tomada_baixa":
         return _triangulo()
@@ -145,6 +176,21 @@ def _unitario(simbolo):
             ("linha", -0.5, -0.28, 0.5, 0.28),
             ("linha", -0.5, 0.28, 0.5, -0.28),
         ]
+    if simbolo == "quadro_distribuicao":
+        # Retângulo com a diagonal e a metade de baixo hachurada.
+        hachura = [("linha", x, -0.25, x, -0.25 + (0.6 - x) * 0.5 / 1.2) for x in (-0.4, -0.2, 0.0, 0.2, 0.4)]
+        return _retangulo(-0.6, -0.25, 0.6, 0.25) + [("linha", -0.6, 0.25, 0.6, -0.25)] + hachura
+    if simbolo == "quadro_comando":
+        # Retângulo em três painéis, com a diagonal no painel do meio.
+        return _retangulo(-0.6, -0.25, 0.6, 0.25) + [
+            ("linha", -0.2, -0.25, -0.2, 0.25),
+            ("linha", 0.2, -0.25, 0.2, 0.25),
+            ("linha", -0.2, -0.25, 0.2, 0.25),
+        ]
+    if simbolo == "quadro_medicao":
+        return _retangulo(-0.45, -0.3, 0.45, 0.3) + _medidor(0.0)
+    if simbolo == "medicao_agrupada":
+        return _retangulo(-0.8, -0.3, 0.8, 0.3) + _medidor(-0.5) + _medidor(0.0) + _medidor(0.5)
     raise KeyError(f"Símbolo desconhecido: {simbolo}")
 
 

@@ -126,8 +126,14 @@ def _tamanho(obj):
     return TAMANHO_PADRAO
 
 
+def eh_quadro(obj):
+    return _tipo(obj) == "Ponto" and simbolos.CATALOGO[obj.Simbolo]["categoria"] == simbolos.QUADRO
+
+
 def texto_do_objeto(obj):
-    """Texto de identificação do símbolo: circuito, comando e potência."""
+    """Texto de identificação do símbolo: circuito, comando e potência; nos quadros, a sigla."""
+    if eh_quadro(obj):
+        return identificacao.texto_quadro(obj.Descricao, getattr(obj, "Medidores", None), getattr(obj, "Circuito", ""))
     comando = getattr(obj, "Comando", "") if (eh_interruptor(obj) or eh_ponto_de_luz(obj)) else ""
     circuito = getattr(obj, "Circuito", "")
     return identificacao.texto_ponto(circuito, comando, _potencia(obj))

@@ -70,7 +70,7 @@ class PontoEletrico:
             obj.Simbolo = list(simbolos.CATALOGO)
             obj.Simbolo = simbolo
         if nova("App::PropertyString", "Descricao", "Elétrica", "Descrição do ponto (vai para o quadro de cargas)"):
-            obj.Descricao = dados["legenda"]
+            obj.Descricao = dados["descricao"]
         if nova("App::PropertyFloat", "Potencia", "Elétrica", "Potência aparente do ponto, em VA"):
             obj.Potencia = float(dados["potencia_va"])
         if nova("App::PropertyFloat", "FatorPotencia", "Elétrica", "Fator de potência (0 a 1)"):
@@ -82,11 +82,14 @@ class PontoEletrico:
             obj.Ligacao = list(simbolos.LIGACOES)
             obj.Ligacao = dados["ligacao"]
         if nova("App::PropertyString", "Circuito", "Elétrica", "Número do circuito no quadro"):
-            obj.Circuito = "1"
+            obj.Circuito = "" if dados["categoria"] == simbolos.QUADRO else "1"
         if nova("App::PropertyString", "Quadro", "Elétrica", "Quadro que alimenta o ponto (vazio: qualquer quadro)"):
             obj.Quadro = ""
         if nova("App::PropertyString", "Comando", "Elétrica", "Letra do interruptor que comanda o ponto (iluminação)"):
             obj.Comando = ""  # preenchido pelo comando Ligar interruptor
+
+        if "medidores" in dados and nova("App::PropertyInteger", "Medidores", "Elétrica", "Quantidade de medidores"):
+            obj.Medidores = dados["medidores"]
 
         # --- Símbolo 2D ---
         if nova("App::PropertyDistance", "Tamanho", "Símbolo 2D", "Tamanho do símbolo na planta"):

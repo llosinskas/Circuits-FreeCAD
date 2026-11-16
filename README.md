@@ -7,6 +7,7 @@ O projeto está em desenvolvimento. A seção [Limitações](#limitações) diz 
 ## O que a bancada faz
 
 - **Planta 2D:** botões separados para tomadas, pontos de energia, iluminação e interruptores. Cada ponto tem símbolo próprio e dados elétricos (potência, tensão, circuito) editáveis.
+- **Quadros na planta:** símbolos de quadro de distribuição, quadro de comando, quadro de medição e medição agrupada.
 - **Circuitos:** soma os pontos da planta por circuito, escolhe cabo e disjuntor, equilibra as fases e grava no quadro.
 - **Diagrama unifilar:** gerado a partir da planilha de cada quadro, com disjuntor, fases, cabo, potência, DR e DPS.
 - **Cálculos prediais:** demanda do quadro, pré-dimensionamento do ventilador de pressurização de escada e da bomba de recalque, com o motor elétrico de cada um.
@@ -49,7 +50,7 @@ Depois use **Elétrica > Outros > Reiniciar Bancada** ou reabra o FreeCAD. Mante
 1. **Novo projeto** (botão *Projeto*): cria os grupos do documento.
 2. **Insira os pontos** pelos botões *Tomadas*, *Energia*, *Iluminação* e *Interruptores*. Depois do clique, o próximo ponto do mesmo tipo já vem no cursor. Veja as teclas em [Inserir e alinhar símbolos](#inserir-e-alinhar-símbolos).
 3. **Defina os circuitos** (botão *Circuitos*): selecione os pontos de um circuito e use **Definir circuito**. Pontos de uso específico, como o chuveiro, precisam de circuito exclusivo. Veja [Circuitos e interruptores](#circuitos-e-interruptores).
-4. **Novo quadro** (barra *Quadros e documentos*): informe tensão, fases, disjuntor geral e DPS.
+4. **Quadros** (barra *Quadros e documentos*): posicione na planta o quadro de distribuição, o de comando e a medição. Depois, em **Planilha do quadro**, informe tensão, fases, disjuntor geral e DPS.
 5. **Montar circuitos:** grava no quadro uma linha por circuito, com potência, corrente, cabo, disjuntor e fases. Use **Circuito** para acrescentar ou corrigir uma linha à mão.
 6. **Unifilar:** gera o diagrama de cada quadro.
 7. **Demanda** (botão *Cálculos*): calcula a demanda do quadro e grava na planilha; gere o unifilar de novo para mostrá-la.
@@ -75,6 +76,21 @@ O alinhamento automático puxa o símbolo para a mesma vertical ou horizontal de
 
 Para símbolos já colocados, selecione-os com Ctrl + clique e use **Alinhar** (coloca em linha com o primeiro selecionado) ou **Distribuir** (iguala o espaço entre eles), no fim da barra *Modificador* ou em **Elétrica > Alinhar símbolos**.
 
+## Quadros e medição na planta
+
+O botão **Quadros** insere quatro símbolos, do mesmo jeito que os outros pontos:
+
+| Símbolo | Sigla inicial | Uso |
+|---|---|---|
+| Quadro distribuição | QD | Distribuição e proteção dos circuitos |
+| Quadro de comando | QC | Comando e proteção de motores: bombas, pressurização, portões |
+| Quadro de medição | QM | Caixa de medição individual |
+| Medição agrupada | CM | Centro de medição com vários medidores |
+
+Edite a sigla na propriedade `Descricao` (por exemplo QD1, QD2) e, na medição, a quantidade em `Medidores`. **Identificar pontos** escreve a sigla ao lado do símbolo, e **Caixas 3D** gera o volume de cada quadro. Os quadros não entram na soma de carga dos circuitos.
+
+O símbolo na planta e a **Planilha do quadro** ainda são independentes: mudar um não altera o outro.
+
 ## Circuitos e interruptores
 
 O botão **Circuitos** da barra *Planta elétrica* reúne três comandos:
@@ -90,7 +106,7 @@ As barras da bancada têm poucos botões. Os que têm uma seta (▾) abrem uma l
 | Barra | Botões |
 |---|---|
 | Planta elétrica | Projeto ▾, Tomadas ▾, Energia ▾, Iluminação ▾, Interruptores ▾, Circuitos ▾, Eletrodutos ▾ |
-| Quadros e documentos | Novo quadro, Montar circuitos, Circuito, Unifilar, Cálculos ▾, Documentos ▾ |
+| Quadros e documentos | Quadros ▾, Planilha do quadro, Montar circuitos, Circuito, Unifilar, Cálculos ▾, Documentos ▾ |
 | Modelo e biblioteca | Modelo 3D ▾, Biblioteca ▾ |
 
 | Botão com lista | Itens |
@@ -100,6 +116,7 @@ As barras da bancada têm poucos botões. Os que têm uma seta (▾) abrem uma l
 | Energia | Chuveiro, Ar-condicionado, Ventilador, Ponto de força |
 | Iluminação | Luz de teto, Arandela, Luminária tubular, Luz embutida, Luz de emergência |
 | Interruptores | Simples, paralelo, intermediário |
+| Quadros | Quadro distribuição, Quadro de comando, Quadro de medição, Medição agrupada |
 | Circuitos | Definir circuito, Ligar interruptor, Identificar pontos |
 | Eletrodutos | Eletroduto, Dividir trecho, Fiação |
 | Cálculos | Demanda, Pressurização, Bomba de recalque |

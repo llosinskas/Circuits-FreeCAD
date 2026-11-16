@@ -57,8 +57,8 @@ class GerarPlanilha:
     def GetResources(self):
         return recursos(
             "quadro_novo.svg",
-            "Novo quadro",
-            "Cria a planilha de um quadro de distribuição: tensão, fases, disjuntor geral e DPS",
+            "Planilha do quadro",
+            "Cria a planilha de dados de um quadro: tensão, fases, disjuntor geral e DPS",
         )
 
 
