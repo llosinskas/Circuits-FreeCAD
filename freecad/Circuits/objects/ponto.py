@@ -13,6 +13,7 @@ import FreeCAD as App
 import Part
 
 from freecad.Circuits.core import simbolos
+from freecad.Circuits.core.simbologia import tamanho_efetivo
 
 try:
     import FreeCADGui as Gui  # noqa: F401
@@ -22,6 +23,18 @@ except ImportError:
 
 TAMANHO_PADRAO = 200.0  # mm: cerca de 4 mm impressos em 1:50
 TENSOES = ["127V", "220V", "380V"]
+PREFERENCIAS = "User parameter:BaseApp/Preferences/Mod/Circuits"
+
+
+def escala_padrao():
+    """Escala dos símbolos novos, gravada pelo comando Escala dos símbolos."""
+    return App.ParamGet(PREFERENCIAS).GetFloat("EscalaSimbolos", 1.0) or 1.0
+
+
+def tamanho_do_ponto(obj):
+    """Tamanho do símbolo na planta, em mm, já com a escala."""
+    tamanho = obj.Tamanho.Value if hasattr(obj.Tamanho, "Value") else float(obj.Tamanho)
+    return tamanho_efetivo(tamanho, getattr(obj, "Escala", 1.0))
 
 
 def icone_do_simbolo(simbolo):
@@ -98,6 +111,8 @@ class PontoEletrico:
         # --- Símbolo 2D ---
         if nova("App::PropertyDistance", "Tamanho", "Símbolo 2D", "Tamanho do símbolo na planta"):
             obj.Tamanho = TAMANHO_PADRAO
+        if nova("App::PropertyFloat", "Escala", "Símbolo 2D", "Multiplica o tamanho do símbolo (2 = dobro)"):
+            obj.Escala = 1.0
 
         # --- Geração 3D ---
         largura, profundidade, altura = dados["caixa_mm"]
@@ -112,7 +127,7 @@ class PontoEletrico:
 
     def execute(self, obj):
         """Gera o símbolo 2D no plano Z=0."""
-        tamanho = obj.Tamanho.Value if hasattr(obj.Tamanho, "Value") else float(obj.Tamanho)
+        tamanho = tamanho_do_ponto(obj)
         if tamanho <= 0:
             return
         obj.Shape = forma_do_simbolo(obj.Simbolo, tamanho)
@@ -174,6 +189,7 @@ def create_ponto(simbolo, placement=None):
     obj = doc.addObject("Part::FeaturePython", "Ponto")
     PontoEletrico(obj, simbolo)
     obj.Label = simbolos.CATALOGO[simbolo]["legenda"]
+    obj.Escala = escala_padrao()
     if GUI_AVAILABLE:
         ViewProviderPontoEletrico(obj.ViewObject)
     if placement:

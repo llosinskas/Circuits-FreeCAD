@@ -69,8 +69,9 @@ MODIFY_TOOLS = [
     "Draft_Edit",
     "AlinharPontos",
     "DistribuirPontos",
+    "EscalaSimbolos",
 ]
-ALIGN_TOOLS = ["AlinharPontos", "DistribuirPontos"]
+ALIGN_TOOLS = ["AlinharPontos", "DistribuirPontos", "EscalaSimbolos"]
 MODIFY_EXTRA_TOOLS = ["Draft_Join", "Draft_OrthoArray", "Draft_PathArray", "Draft_Draft2Sketch"]
 BIM_TOOLS = ["Arch_Wall", "BIM_Door", "Arch_Space", "BIM_Library"]
 BIM_EXTRA_TOOLS = ["BIM_Project", "BIM_Column", "BIM_Beam", "BIM_Slab"]
@@ -166,7 +167,7 @@ MENUS = [
     ([MENU, "Interruptores"], SWITCH_TOOLS),
     ([MENU, "Quadros e medição"], BOARD_SYMBOL_TOOLS),
     ([MENU, "Circuitos e comandos"], CIRCUIT_TOOLS),
-    ([MENU, "Alinhar símbolos"], ALIGN_TOOLS),
+    ([MENU, "Alinhar e escalar símbolos"], ALIGN_TOOLS),
     ([MENU, "Eletrodutos e fiação"], INFRA_TOOLS),
     ([MENU, "Quadros e diagramas"], BOARD_TOOLS),
     ([MENU, "Cálculos prediais"], CALC_TOOLS),

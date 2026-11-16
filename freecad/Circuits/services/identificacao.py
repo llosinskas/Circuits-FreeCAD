@@ -4,6 +4,7 @@ import FreeCAD as App
 
 from freecad.Circuits.core import circuitos as calculo
 from freecad.Circuits.core import identificacao, simbolos
+from freecad.Circuits.core.simbologia import tamanho_efetivo
 from freecad.Circuits.services.alinhamento import listar_simbolos
 
 NOME_GRUPO = "Identificacao_pontos"
@@ -118,12 +119,14 @@ def _potencia(obj):
 
 
 def _tamanho(obj):
+    """Tamanho do símbolo na planta, com a escala, para posicionar e dimensionar o texto."""
     for nome in ("Tamanho", "RaioSimbolo"):
         valor = getattr(obj, nome, None)
         if valor is not None:
             valor = valor.Value if hasattr(valor, "Value") else float(valor)
-            return valor * (1.0 if nome == "Tamanho" else 2.0)
-    return TAMANHO_PADRAO
+            diametro = valor * (1.0 if nome == "Tamanho" else 2.0)
+            return tamanho_efetivo(diametro, getattr(obj, "Escala", 1.0))
+    return tamanho_efetivo(TAMANHO_PADRAO, getattr(obj, "Escala", 1.0))
 
 
 def eh_quadro(obj):

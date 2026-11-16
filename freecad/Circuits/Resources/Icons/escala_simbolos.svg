@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64">
+  <!-- Escala dos símbolos: símbolo pequeno que cresce -->
+  <path d="M22 44A8 8 0 1 1 6 44A8 8 0 1 1 22 44M6 44H22M14 36V52 M58 26A18 18 0 1 1 22 26A18 18 0 1 1 58 26M22 26H58M40 8V44 M10 30L18 22M18 22H12M18 22V28" fill="none" stroke-linecap="round" stroke-linejoin="round" stroke="#ffffff" stroke-width="7" stroke-opacity="0.85"/>
+  <path d="M22 44A8 8 0 1 1 6 44A8 8 0 1 1 22 44M6 44H22M14 36V52" fill="none" stroke-linecap="round" stroke-linejoin="round" stroke="#5f6368" stroke-width="3"/>
+  <path d="M58 26A18 18 0 1 1 22 26A18 18 0 1 1 58 26M22 26H58M40 8V44" fill="none" stroke-linecap="round" stroke-linejoin="round" stroke="#b06000" stroke-width="3"/>
+  <path d="M10 30L18 22M18 22H12M18 22V28" fill="none" stroke-linecap="round" stroke-linejoin="round" stroke="#1a73e8" stroke-width="3"/>
+</svg>

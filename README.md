@@ -13,7 +13,9 @@ O projeto está em desenvolvimento. A seção [Limitações](#limitações) diz 
 - **Componentes do quadro:** lista de disjuntores, DR, DPS, barramentos e tamanho da caixa em módulos.
 - **Cálculos prediais:** demanda do quadro, pré-dimensionamento do ventilador de pressurização de escada e da bomba de recalque, com o motor elétrico de cada um.
 - **Legenda:** desenha ao lado da planta a legenda dos símbolos usados.
-- **Infraestrutura:** caminho de eletrodutos em planta e simbologia de fiação.
+- **Fiação:** um botão desenha os traços de fase, neutro e terra em todas as tomadas e pontos.
+- **Escala dos símbolos:** cada símbolo tem uma escala, e um comando muda a de todos de uma vez.
+- **Infraestrutura:** caminho de eletrodutos em planta.
 - **Modelo 3D:** caixas dos pontos e tubos dos eletrodutos gerados a partir da planta.
 - **Biblioteca:** componentes `.FCStd` inseridos como link, com busca e miniatura.
 - **Relatório PDF** e importação de condutores do **QElectroTech**.
@@ -115,6 +117,17 @@ O botão **Circuitos** da barra *Planta elétrica* reúne três comandos:
 - **Definir circuito:** selecione os pontos (Ctrl + clique) e escolha o número do circuito, existente ou novo, e opcionalmente o quadro. O comando já sugere o próximo número livre.
 - **Ligar interruptor:** selecione um interruptor e os pontos de luz (ou ventilador) que ele comanda. Todos recebem a mesma letra de comando (a, b, c...) e o interruptor recebe o circuito da luz. Para interruptores paralelos, selecione os dois junto com as luzes.
 - **Identificar pontos:** escreve ao lado de cada símbolo o circuito, a letra do comando e a potência, por exemplo `C1 · a · 100 VA`. Depois de criada, a identificação se atualiza quando você usa os dois comandos acima. Se mudar uma propriedade à mão, clique em *Identificar pontos* de novo.
+
+## Fiação e escala dos símbolos
+
+**Fiação** (botão *Eletrodutos > Fiação*) desenha, ao lado de cada tomada, ponto de energia e ponto de iluminação, os traços dos condutores: terra, neutro e uma, duas ou três fases, conforme a propriedade `Ligacao` do ponto. Clicar de novo apaga a fiação anterior e redesenha, então use depois de mudar os pontos. Quadros e interruptores não recebem fiação.
+
+**Escala:** cada símbolo tem a propriedade `Escala` (1 = tamanho normal, 2 = dobro). Para mudar vários de uma vez, use **Escala dos símbolos**, no fim da barra *Modificador* ou em **Elétrica > Alinhar e escalar símbolos**:
+
+- com símbolos selecionados, muda só eles;
+- sem nada selecionado, muda todos os símbolos da planta, e os próximos que você inserir já nascem na nova escala.
+
+A fiação e a identificação acompanham o tamanho do símbolo; gere-as de novo depois de mudar a escala.
 
 ## Barras de ferramentas
 

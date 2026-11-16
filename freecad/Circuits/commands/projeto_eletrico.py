@@ -60,18 +60,16 @@ class Cabo:
         doc = documento_ou_aviso()
         if not doc:
             return
-        encontradas = tomadas.listar_tomadas(doc)
-        if not encontradas:
-            _sem_tomadas_tug("Fiação")
-            return
-        cabos.desenhar_cabos_planta(doc, encontradas)
-        doc.recompute()
+        if not cabos.desenhar_cabos_planta(doc):
+            QtWidgets.QMessageBox.information(
+                None, "Fiação", "Nenhuma tomada, ponto de energia ou ponto de iluminação na planta."
+            )
 
     def GetResources(self):
         return recursos(
             "fio.svg",
             "Fiação",
-            "Desenha na planta os traços de fase, neutro e terra de cada tomada TUG",
+            "Desenha os traços de fase, neutro e terra em todas as tomadas e pontos da planta",
         )
 
 

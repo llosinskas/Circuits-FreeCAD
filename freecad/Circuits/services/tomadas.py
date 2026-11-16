@@ -10,15 +10,32 @@ from freecad.Circuits.services.documento import create_group
 ALTURA_SIMBOLO = 100
 
 
-def _criar_sketch(doc):
-    """Sketch com o símbolo da tomada: triângulo com linha de conexão."""
-    sketch = doc.addObject("Sketcher::SketchObject", "Tomada")
-    h = ALTURA_SIMBOLO
+def _desenhar_simbolo(sketch, h):
+    """Triângulo com linha de conexão, de altura ``h``."""
     sketch.addGeometry(Part.LineSegment(App.Vector(0, 0), App.Vector(h / 3, 0)), False)
     sketch.addGeometry(Part.LineSegment(App.Vector(h / 3, h / 4), App.Vector(h / 3, -h / 4)), False)
     sketch.addGeometry(Part.LineSegment(App.Vector(h / 3, h / 4), App.Vector(h, 0)), False)
     sketch.addGeometry(Part.LineSegment(App.Vector(h / 3, -h / 4), App.Vector(h, 0)), False)
+
+
+def _criar_sketch(doc):
+    """Sketch com o símbolo da tomada."""
+    sketch = doc.addObject("Sketcher::SketchObject", "Tomada")
+    _desenhar_simbolo(sketch, ALTURA_SIMBOLO)
     return sketch
+
+
+def escala_da_tomada(sketch):
+    return float(getattr(sketch, "Escala", 1.0)) or 1.0
+
+
+def aplicar_escala(sketch, escala):
+    """Redesenha o símbolo da tomada em Sketch com a escala e a guarda na propriedade ``Escala``."""
+    if not hasattr(sketch, "Escala"):
+        sketch.addProperty("App::PropertyFloat", "Escala", "Símbolo 2D", "Multiplica o tamanho do símbolo (2 = dobro)")
+    sketch.Escala = escala
+    sketch.deleteAllGeometry()
+    _desenhar_simbolo(sketch, ALTURA_SIMBOLO * escala)
 
 
 def _adicionar_propriedades(sketch):

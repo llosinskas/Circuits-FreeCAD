@@ -170,6 +170,12 @@ def scenario(doc):
     result["steps"]["inseridos"] = snapshot(doc)
 
     run("Cabo")
+    run("Cabo")  # segunda execução: precisa substituir a fiação, não duplicar
+    result["steps"]["fiacao"] = len([o for o in doc.Objects if hasattr(o, "fiacao_de")])
+    QtWidgets.QInputDialog.getDouble = staticmethod(lambda *a, **k: (1.5, True))
+    Gui.Selection.clearSelection()
+    run("EscalaSimbolos")
+    result["steps"]["escala"] = sorted({round(o.Escala, 2) for o in doc.Objects if hasattr(o, "Escala")})
     run("Gerar3D")
     run("Generate3DSwitches")
     result["steps"]["3d_caixas"] = snapshot(doc)

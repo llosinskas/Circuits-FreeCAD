@@ -91,7 +91,7 @@ Regras gerais:
 | `Ponto_<símbolo>` (um por entrada de `core.simbolos.CATALOGO`) | `pontos` | `objects/ponto`; `core/simbolos` |
 | `LegendaSimbolos` | `pontos` | `services/legenda` |
 | `DefinirCircuito`, `LigarInterruptor`, `IdentificarPontos` | `identificacao` | `services/identificacao`; `core/identificacao`; `UI/dialogs/circuito_dialog` |
-| `AlinharPontos`, `DistribuirPontos` | `alinhar` | `services/alinhamento`; `core/alinhamento` |
+| `AlinharPontos`, `DistribuirPontos`, `EscalaSimbolos` | `alinhar` | `services/alinhamento`, `escala`; `core/alinhamento` |
 | `InsertConduit` | `insert_component` | `Draft_Wire` nativo |
 | `InsertWire`, `InsertCableTray` | `insert_component` | ainda não implementados: só exibem um aviso |
 | `Generate3DConduits`, `Generate3DSwitches` | `generate_3d` | `services/eletrodutos`, `caixas_3d` |
@@ -111,7 +111,7 @@ As barras ficam em `init_gui.py`. As três barras próprias são enxutas: os com
 | Planta elétrica | Projeto ▾, Tomadas ▾, Energia ▾, Iluminação ▾, Interruptores ▾, Circuitos ▾, Eletrodutos ▾ |
 | Quadros e documentos | Quadros ▾, Dados do quadro ▾, `MontarCircuitos`, `ComponentesQuadro`, `GerarUnifilar` (nesta ordem de uso), Cálculos ▾, Documentos ▾ |
 | Modelo e biblioteca | Modelo 3D ▾, Biblioteca ▾ |
-| Desenho, Modificador, Snap, Arquitetura | só os comandos nativos de uso frequente em planta; *Modificador* termina com `AlinharPontos` e `DistribuirPontos` |
+| Desenho, Modificador, Snap, Arquitetura | só os comandos nativos de uso frequente em planta; *Modificador* termina com `AlinharPontos`, `DistribuirPontos` e `EscalaSimbolos` |
 
 | Grupo | Comandos |
 |---|---|
@@ -160,6 +160,8 @@ Os comandos se encontram pelos objetos do documento, não por estado em Python:
 - **Quadros na planta:** também são `Ponto`, com `Simbolo` de categoria `QUADRO` (`quadro_distribuicao`, `quadro_comando`, `quadro_medicao`, `medicao_agrupada`). Não são carga: `MontarCircuitos` e `CalcDemanda` os ignoram. `Descricao` guarda a sigla (QD1, QC, QM, CM), `Medidores` a quantidade de medidores (só nos de medição) e `Circuito`, vazio por padrão, o circuito que alimenta o quadro. `GerarPlanilha` com um símbolo de quadro selecionado cria a planilha para ele: copia a sigla para a identificação e grava o nome da planilha na propriedade `Planilha` do símbolo.
 - **Componentes do quadro:** `ComponentesQuadro` lê a planilha do quadro e recria a planilha `Componentes_<nome do quadro>` (propriedade `componentes_de`) com item, especificação, quantidade e unidade.
 - **Medição no unifilar:** o medidor é desenhado na entrada quando a `origem` do quadro é a sigla de um símbolo de medição da planta, ou começa com QM, CM ou "medi". O unifilar também identifica o barramento de fases e desenha as barras de neutro e de terra.
+- **Escala dos símbolos:** `Ponto` e `Switch` têm a propriedade `Escala` (1 = normal), que multiplica `Tamanho` ou `RaioSimbolo`. A tomada em Sketch ganha `Escala` quando o comando `EscalaSimbolos` a redesenha. Sem seleção, o comando escala todos os símbolos e grava o valor em `EscalaSimbolos` (`BaseApp/Preferences/Mod/Circuits`), que é a escala dos próximos pontos. `Outlet` e `Lighting` antigos não têm escala.
+- **Fiação:** `Cabo` desenha um Sketch de fiação por ponto (`Ponto`, `Outlet`, `Lighting` e tomada em Sketch; não em quadros nem interruptores), no grupo `Cabos`, com a propriedade `fiacao_de` = nome do ponto. Fases e neutro vêm de `Ligacao`; o tamanho acompanha o símbolo. Repetir o comando apaga a fiação anterior e redesenha.
 - **Circuito e comando:** `DefinirCircuito` grava `Circuito` (e `Quadro`) nos pontos selecionados. `LigarInterruptor` grava a mesma letra em `Comando` no interruptor e nos pontos de luz selecionados, e copia para o interruptor o circuito da primeira luz. A ligação é só essa letra em comum; não há link entre os objetos.
 - **Identificação:** grupo `Identificacao_pontos`, com um texto por símbolo (`C1 · a · 100 VA`). É recriado por `IdentificarPontos` e, se já existir, atualizado sozinho quando o circuito ou o comando mudam por esses comandos. Editar a propriedade à mão não atualiza o texto.
 - **Circuitos montados:** `MontarCircuitos` soma os pontos por `Circuito`, dimensiona e grava uma linha por circuito no quadro. Uma linha com o mesmo número é atualizada no lugar; as outras ficam como estão.
@@ -236,7 +238,7 @@ Todos foram confirmados no código ou em execução e já existiam antes da reor
 - `core/circuitos.py`, `dimensionar`: o disjuntor de motores é escolhido só pela corrente nominal, sem considerar a partida.
 - `services/circuitos.py`, `_de_tomada_sketch`: lê potência e tensão das tomadas em Sketch pelo número bruto, porque elas são gravadas sem unidade. Falta confirmar no FreeCAD e migrar para grandezas com unidade.
 - `core/quadro.py`: correntes comerciais de DR e de barramento, quantidade de DPS e módulos da caixa são regras gerais, não de um fabricante. O DR é sempre por circuito; não há DR geral nem agrupamento de circuitos em um DR.
-- Os símbolos de quadro e medição, a lista de componentes do quadro, o medidor e os barramentos no unifilar, os botões de grupo (lista suspensa), as teclas da inserção (Espaço, R, L), os comandos Alinhar, Distribuir, Definir circuito, Ligar interruptor e Identificar pontos, os pontos novos, a legenda, `MontarCircuitos`, os cálculos prediais e as mudanças do unifilar têm teste unitário da lógica, mas ainda não foram executados no FreeCAD real: rode o `smoke_gui.py` e atualize este item.
+- A fiação em todos os pontos, a escala dos símbolos, os símbolos de quadro e medição, a lista de componentes do quadro, o medidor e os barramentos no unifilar, os botões de grupo (lista suspensa), as teclas da inserção (Espaço, R, L), os comandos Alinhar, Distribuir, Definir circuito, Ligar interruptor e Identificar pontos, os pontos novos, a legenda, `MontarCircuitos`, os cálculos prediais e as mudanças do unifilar têm teste unitário da lógica, mas ainda não foram executados no FreeCAD real: rode o `smoke_gui.py` e atualize este item.
 
 **Cálculos e tabelas, ainda sem uso na interface**
 - `core/functions/Barramento.py`: `Sec_tubular` gera `TypeError` (falta `*` em `math.pi(...)`) e não tem `return`. `Corrente_carga_maxima` usa `Qc*Qr-Qs`; conferir com a fonte, pois o balanço térmico sugere soma.
