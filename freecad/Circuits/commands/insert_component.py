@@ -57,7 +57,7 @@ class InsertComponent(_InserirDaBiblioteca):
     def GetResources(self):
         return recursos(
             "Componentes.svg",
-            "Biblioteca",
+            "Componente",
             "Escolhe um componente da biblioteca e o posiciona na planta",
         )
 

@@ -42,18 +42,18 @@ cd "$APPDATA/FreeCAD/v1-1/Mod/Circuits"
 git pull origin master
 ```
 
-Depois clique em **Reiniciar Bancada** ou reabra o FreeCAD. Mantenha uma única cópia da bancada em `Mod`: duas cópias registram os mesmos comandos e uma substitui a outra.
+Depois use **Elétrica > Outros > Reiniciar Bancada** ou reabra o FreeCAD. Mantenha uma única cópia da bancada em `Mod`: duas cópias registram os mesmos comandos e uma substitui a outra.
 
 ## Passo a passo de um projeto
 
-1. **Novo projeto** (barra *Projeto elétrico*): cria os grupos do documento.
-2. **Insira os pontos** pelas barras *Tomadas*, *Pontos de energia* e *Iluminação e comando*. Depois do clique, o próximo ponto do mesmo tipo já vem no cursor. A tecla **R** gira 90° e **ESC** encerra.
+1. **Novo projeto** (botão *Projeto*): cria os grupos do documento.
+2. **Insira os pontos** pelos botões *Tomadas*, *Energia*, *Iluminação* e *Interruptores*. Depois do clique, o próximo ponto do mesmo tipo já vem no cursor. A tecla **R** gira 90° e **ESC** encerra.
 3. **Defina o circuito** de cada ponto na propriedade `Circuito`. Pontos de uso específico, como o chuveiro, precisam de circuito exclusivo.
-4. **Novo quadro** (barra *Quadros e diagramas*): informe tensão, fases, disjuntor geral e DPS.
+4. **Novo quadro** (barra *Quadros e documentos*): informe tensão, fases, disjuntor geral e DPS.
 5. **Montar circuitos:** grava no quadro uma linha por circuito, com potência, corrente, cabo, disjuntor e fases. Use **Circuito** para acrescentar ou corrigir uma linha à mão.
 6. **Unifilar:** gera o diagrama de cada quadro.
-7. **Demanda** (barra *Cálculos prediais*): calcula a demanda do quadro e grava na planilha; gere o unifilar de novo para mostrá-la.
-8. **Legenda** e **Relatório PDF** (barra *Documentação*).
+7. **Demanda** (botão *Cálculos*): calcula a demanda do quadro e grava na planilha; gere o unifilar de novo para mostrá-la.
+8. **Legenda** e **Relatório PDF** (botão *Documentos*).
 
 **Pressurização** e **Bomba de recalque** abrem um formulário, mostram o cálculo e, com o botão *Inserir motor na planta*, criam o ponto de força do motor para entrar nos circuitos.
 
@@ -61,20 +61,28 @@ Ao repetir **Montar circuitos**, as linhas com o mesmo número são atualizadas 
 
 ## Barras de ferramentas
 
+As barras da bancada têm poucos botões. Os que têm uma seta (▾) abrem uma lista: o botão mostra o último item usado, e a seta mostra os outros.
+
 | Barra | Botões |
 |---|---|
-| Projeto elétrico | Novo projeto, Planilha de circuitos, Importar QET |
-| Tomadas | Tomada baixa, média, alta, de piso, Tomada TUG |
-| Pontos de energia | Chuveiro, Ar-condicionado, Ventilador, Ponto de força, Equipamento, Biblioteca |
-| Iluminação e comando | Luz de teto, Arandela, Luminária tubular, Luz embutida, Luz de emergência, Interruptor simples, paralelo e intermediário |
-| Infraestrutura | Eletroduto, Dividir trecho, Fiação |
-| Quadros e diagramas | Novo quadro, Montar circuitos, Circuito, Unifilar |
-| Cálculos prediais | Demanda, Pressurização, Bomba de recalque |
-| Documentação | Texto, cota, chamada, corte e vistas 2D do FreeCAD, Legenda, Relatório PDF |
-| Modelo 3D | Caixas 3D, Eletrodutos 3D, Tomadas 3D |
-| Biblioteca e ferramentas | Criar modelo, Importar modelo, Reiniciar Bancada |
+| Planta elétrica | Projeto ▾, Tomadas ▾, Energia ▾, Iluminação ▾, Interruptores ▾, Eletrodutos ▾ |
+| Quadros e documentos | Novo quadro, Montar circuitos, Circuito, Unifilar, Cálculos ▾, Documentos ▾ |
+| Modelo e biblioteca | Modelo 3D ▾, Biblioteca ▾ |
 
-As barras *Desenho*, *Modificador*, *Snap* e *Arquitetura* trazem as ferramentas nativas do Draft e do BIM. Os comandos antigos ou ainda não implementados ficam no menu **Elétrica > Outros**.
+| Botão com lista | Itens |
+|---|---|
+| Projeto | Novo projeto, Planilha de circuitos, Importar QET |
+| Tomadas | Tomada baixa, média, alta, de piso, Tomada TUG |
+| Energia | Chuveiro, Ar-condicionado, Ventilador, Ponto de força |
+| Iluminação | Luz de teto, Arandela, Luminária tubular, Luz embutida, Luz de emergência |
+| Interruptores | Simples, paralelo, intermediário |
+| Eletrodutos | Eletroduto, Dividir trecho, Fiação |
+| Cálculos | Demanda, Pressurização, Bomba de recalque |
+| Documentos | Legenda, Relatório PDF |
+| Modelo 3D | Caixas 3D, Eletrodutos 3D, Tomadas 3D |
+| Biblioteca | Equipamento, Componente, Criar modelo, Importar modelo |
+
+As barras *Desenho*, *Modificador*, *Snap* e *Arquitetura* trazem só as ferramentas do FreeCAD mais usadas em planta. Tudo continua nos menus: **Elétrica** tem todos os comandos da bancada (os antigos e o *Reiniciar Bancada* em *Outros*), e **Desenho 2D** tem todas as ferramentas nativas.
 
 O texto embaixo de cada ícone pode ser desligado pela preferência `LegendaBotoes` em `BaseApp/Preferences/Mod/Circuits` (Ferramentas > Editar parâmetros).
 

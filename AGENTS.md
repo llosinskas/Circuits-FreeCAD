@@ -99,25 +99,32 @@ Regras gerais:
 
 ## Barras e legendas
 
-As barras ficam em `init_gui.py`, na ordem do fluxo de um projeto em planta, com o 2D primeiro:
+As barras ficam em `init_gui.py`. As três barras próprias são enxutas: os comandos parecidos ficam em **grupos**, botões com lista suspensa definidos em `GROUPS` e registrados por `commands/grupos.py`. O botão do grupo mostra o ícone do último comando usado; a seta abre os outros.
 
-| Barra | Comandos |
+| Barra | Botões (▾ = grupo) |
 |---|---|
-| Projeto elétrico | `newProjetctEletrical`, `newSpreadsheet`, `ImportQET` |
-| Tomadas | `Ponto_tomada_baixa`, `_media`, `_alta`, `_piso`; `InsertTugs` |
-| Pontos de energia | `Ponto_chuveiro`, `_ar_condicionado`, `_ventilador`, `_ponto_forca`; `InsertEquipaments`, `InsertComponent` |
-| Iluminação e comando | `Ponto_luz_teto`, `_arandela`, `_fluorescente`, `_embutida`, `_emergencia`; `InsertSwitch`, `InsertSwitchParalelo`, `InsertSwitchIntermediario` |
-| Infraestrutura | `InsertConduit`, `Add_Node`, `Cabo` |
-| Quadros e diagramas | `GerarPlanilha`, `MontarCircuitos`, `AddCircuito`, `GerarUnifilar` (nesta ordem de uso) |
-| Cálculos prediais | `CalcDemanda`, `CalcPressurizacao`, `CalcRecalque` |
-| Documentação | texto, cota, chamada, corte e vistas nativos; `LegendaSimbolos`, `GenerateReport` |
-| Desenho, Modificador, Snap, Arquitetura | comandos nativos do Draft e do BIM |
-| Modelo 3D | `Generate3DSwitches`, `Generate3DConduits`, `Gerar3D` |
-| Biblioteca e ferramentas | `CreateModel`, `ListElements`, `ReiniciarBancada` |
+| Planta elétrica | Projeto ▾, Tomadas ▾, Energia ▾, Iluminação ▾, Interruptores ▾, Eletrodutos ▾ |
+| Quadros e documentos | `GerarPlanilha`, `MontarCircuitos`, `AddCircuito`, `GerarUnifilar` (nesta ordem de uso), Cálculos ▾, Documentos ▾ |
+| Modelo e biblioteca | Modelo 3D ▾, Biblioteca ▾ |
+| Desenho, Modificador, Snap, Arquitetura | só os comandos nativos de uso frequente em planta |
 
-- Só no menu **Elétrica > Outros**: `InsertOutlet` e `InsertLighting` (substituídos pelos pontos novos), `ComponentEletric`, `InsertWire`, `InsertCableTray`, `AddSpreadsheet`, `NewQuadro`, `GetSpaces`.
+| Grupo | Comandos |
+|---|---|
+| `Grupo_Projeto` | `newProjetctEletrical`, `newSpreadsheet`, `ImportQET` |
+| `Grupo_Tomadas` | `Ponto_tomada_baixa`, `_media`, `_alta`, `_piso`; `InsertTugs` |
+| `Grupo_Energia` | `Ponto_chuveiro`, `_ar_condicionado`, `_ventilador`, `_ponto_forca` |
+| `Grupo_Iluminacao` | `Ponto_luz_teto`, `_arandela`, `_fluorescente`, `_embutida`, `_emergencia` |
+| `Grupo_Interruptores` | `InsertSwitch`, `InsertSwitchParalelo`, `InsertSwitchIntermediario` |
+| `Grupo_Infra` | `InsertConduit`, `Add_Node`, `Cabo` |
+| `Grupo_Calculos` | `CalcDemanda`, `CalcPressurizacao`, `CalcRecalque` |
+| `Grupo_Documentos` | `LegendaSimbolos`, `GenerateReport` |
+| `Grupo_3D` | `Generate3DSwitches`, `Generate3DConduits`, `Gerar3D` |
+| `Grupo_Biblioteca` | `InsertEquipaments`, `InsertComponent`, `CreateModel`, `ListElements` |
+
+- **Menus:** todo comando da bancada está no menu **Elétrica**, e todo comando nativo, inclusive os que saíram das barras, no menu **Desenho 2D**.
+- Só no menu **Elétrica > Outros**: `InsertOutlet` e `InsertLighting` (substituídos pelos pontos novos), `ComponentEletric`, `InsertWire`, `InsertCableTray`, `AddSpreadsheet`, `NewQuadro`, `GetSpaces`, `ReiniciarBancada`.
 - **Legenda:** o `MenuText` de cada comando aparece embaixo do ícone nas barras próprias. Mantenha-o curto (até 24 caracteres) e único; a explicação vai no `ToolTip`. A preferência booleana `LegendaBotoes` em `BaseApp/Preferences/Mod/Circuits` desliga as legendas.
-- `tests/unit/test_toolbars.py` falha se um comando ficar sem barra ou menu, se faltar um ícone ou se a legenda for longa ou repetida.
+- `tests/unit/test_toolbars.py` falha se um comando ficar fora do menu, se uma barra ou grupo citar um comando que não existe, se uma barra própria passar de 6 botões, se faltar um ícone ou se a legenda for longa ou repetida.
 
 ## Como os dados ficam no documento
 
@@ -141,7 +148,7 @@ Os comandos se encontram pelos objetos do documento, não por estado em Python:
 1. Coloque a lógica em `services/`, ou em `core/` se não precisar do FreeCAD.
 2. Crie a classe em `commands/` com `Activated` e `GetResources`, usando `recursos()` e `documento_ou_aviso()` de `commands/_base.py`.
 3. Registre no fim do módulo com `Gui.addCommand("MeuId", MinhaClasse())`.
-4. Acrescente o ID em uma lista de `init_gui.py` (veja "Barras e legendas"). Se o módulo for novo, importe-o em `Initialize`.
+4. Acrescente o ID em uma lista de `init_gui.py`, de preferência a de um grupo existente (veja "Barras e legendas"). Se o módulo for novo, importe-o em `Initialize`.
 
 **Novo cálculo ou tabela de norma:** função pura em `core/functions/` ou dados em `core/tables/`, com teste em `tests/unit/`. Documente unidades no docstring.
 
@@ -151,7 +158,7 @@ Os comandos se encontram pelos objetos do documento, não por estado em Python:
 
 **Novo diálogo:** arquivo em `UI/dialogs/`, devolvendo os dados por um método como `get_dados()`. Quem grava no documento é o `service`, chamado pelo comando.
 
-**Novo símbolo de ponto elétrico:** acrescente a entrada em `core.simbolos.CATALOGO` e o desenho em `_unitario`, rode `python tools/gerar_icones_simbolos.py` para gerar o ícone, e inclua `Ponto_<símbolo>` em uma barra de `init_gui.py`. O comando é criado sozinho.
+**Novo símbolo de ponto elétrico:** acrescente a entrada em `core.simbolos.CATALOGO` e o desenho em `_unitario`, rode `python tools/gerar_icones_simbolos.py` para gerar o ícone, e inclua `Ponto_<símbolo>` na lista de um grupo em `init_gui.py`. O comando é criado sozinho.
 
 **Novo componente de biblioteca:** arquivo `.FCStd` em `Componentes/Eletrica/`, ou o comando `CreateModel`.
 
@@ -176,7 +183,7 @@ QT_QPA_PLATFORM=offscreen CIRCUITS_SMOKE_OUT="C:/temp/depois.json" \
 - Use sempre `--user-cfg` e `--system-cfg` temporários, para não alterar as preferências do usuário.
 - `errors` no JSON precisa estar vazio, e `extras` precisa estar sem traceback.
 - A mensagem `resource deadlock would occur` no log já existia e não vem da bancada.
-- No FreeCAD aberto, o botão **Reiniciar Bancada** recarrega o código sem fechar o programa.
+- No FreeCAD aberto, **Elétrica > Outros > Reiniciar Bancada** recarrega o código sem fechar o programa.
 
 ## Ambiente nesta máquina
 
@@ -200,7 +207,7 @@ Todos foram confirmados no código ou em execução e já existiam antes da reor
 - `core/circuitos.py`, `dimensionar`: o disjuntor de motores é escolhido só pela corrente nominal, sem considerar a partida.
 - `services/circuitos.py`, `_de_tomada_sketch`: lê potência e tensão das tomadas em Sketch pelo número bruto, porque elas são gravadas sem unidade. Falta confirmar no FreeCAD e migrar para grandezas com unidade.
 - `services/pdf_generator.py`, `_get_calculos_table`: lê a linha 2 (cabeçalhos) em vez da linha 3 e percorre todas as planilhas, não só os quadros.
-- Os pontos novos, a legenda, `MontarCircuitos`, os cálculos prediais e as mudanças do unifilar têm teste unitário da lógica, mas ainda não foram executados no FreeCAD real: rode o `smoke_gui.py` e atualize este item.
+- Os botões de grupo (lista suspensa), os pontos novos, a legenda, `MontarCircuitos`, os cálculos prediais e as mudanças do unifilar têm teste unitário da lógica, mas ainda não foram executados no FreeCAD real: rode o `smoke_gui.py` e atualize este item.
 
 **Cálculos e tabelas, ainda sem uso na interface**
 - `core/functions/Barramento.py`: `Sec_tubular` gera `TypeError` (falta `*` em `math.pi(...)`) e não tem `return`. `Corrente_carga_maxima` usa `Qc*Qr-Qs`; conferir com a fonte, pois o balanço térmico sugere soma.

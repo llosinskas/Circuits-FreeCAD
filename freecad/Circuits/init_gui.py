@@ -15,98 +15,75 @@ from freecad.Circuits.qt import QtCore, QtWidgets
 gui.addLanguagePath(TRANSLATIONS_PATH)
 gui.updateLocale()
 
+# --- Comandos nativos do FreeCAD ---------------------------------------------
+# Nas barras ficam só os de uso frequente em planta; a lista completa está no menu.
 SNAP_TOOLS = [
     "Draft_ToggleGrid",
     "Draft_Snap_Lock",
-    "Draft_Snap_Midpoint",
-    "Draft_Snap_Perpendicular",
-    "Draft_Snap_Grid",
-    "Draft_Snap_Intersection",
-    "Draft_Snap_Parallel",
     "Draft_Snap_Endpoint",
+    "Draft_Snap_Midpoint",
+    "Draft_Snap_Intersection",
+    "Draft_Snap_Perpendicular",
+    "Draft_Snap_Near",
+    "Draft_Snap_Ortho",
+]
+SNAP_EXTRA_TOOLS = [
+    "Draft_Snap_Grid",
+    "Draft_Snap_Parallel",
     "Draft_Snap_Angle",
     "Draft_Snap_Center",
     "Draft_Snap_Extension",
-    "Draft_Snap_Near",
-    "Draft_Snap_Ortho",
     "Draft_Snap_Special",
     "Draft_Snap_Dimensions",
     "Draft_Snap_WorkingPlane",
 ]
 DRAWING_TOOLS = [
-    "BIM_Sketch",
     "Draft_Line",
-    "Draft_Circle",
     "Draft_Wire",
+    "Draft_Rectangle",
+    "Draft_Circle",
     "Draft_Arc",
+    "BIM_Text",
+    "Draft_Dimension",
+    "Draft_Label",
+]
+DRAWING_EXTRA_TOOLS = [
+    "BIM_Sketch",
     "Draft_Arc_3Points",
     "Draft_Ellipse",
     "Draft_Polygon",
-    "Draft_Rectangle",
     "Draft_BSpline",
     "Draft_BezCurve",
     "Draft_Point",
+    "Arch_SectionPlane",
+    "BIM_Shape2DView",
+    "BIM_TDView",
 ]
 MODIFY_TOOLS = [
     "Draft_Move",
     "Draft_Rotate",
+    "Draft_Mirror",
     "Draft_Offset",
     "Draft_Trimex",
-    "Draft_Join",
     "Draft_Scale",
     "Draft_Edit",
-    "Draft_Mirror",
-    "Draft_OrthoArray",
-    "Draft_PathArray",
-    "Draft_Draft2Sketch",
 ]
-BIM_TOOLS = [
-    "BIM_Project",
-    "Arch_Space",
-    "Arch_Wall",
-    "BIM_Column",
-    "BIM_Beam",
-    "BIM_Slab",
-    "BIM_Door",
-    "BIM_Library",
-]
+MODIFY_EXTRA_TOOLS = ["Draft_Join", "Draft_OrthoArray", "Draft_PathArray", "Draft_Draft2Sketch"]
+BIM_TOOLS = ["Arch_Wall", "BIM_Door", "Arch_Space", "BIM_Library"]
+BIM_EXTRA_TOOLS = ["BIM_Project", "BIM_Column", "BIM_Beam", "BIM_Slab"]
 
-# Barras da bancada, na ordem do fluxo de um projeto em planta (2D primeiro).
+# --- Comandos da bancada -------------------------------------------------------
 PROJECT_TOOLS = ["newProjetctEletrical", "newSpreadsheet", "ImportQET"]
 OUTLET_TOOLS = ["Ponto_tomada_baixa", "Ponto_tomada_media", "Ponto_tomada_alta", "Ponto_tomada_piso", "InsertTugs"]
-POWER_TOOLS = [
-    "Ponto_chuveiro",
-    "Ponto_ar_condicionado",
-    "Ponto_ventilador",
-    "Ponto_ponto_forca",
-    "InsertEquipaments",
-    "InsertComponent",
-]
-LIGHTING_TOOLS = [
-    "Ponto_luz_teto",
-    "Ponto_arandela",
-    "Ponto_fluorescente",
-    "Ponto_embutida",
-    "Ponto_emergencia",
-    "InsertSwitch",
-    "InsertSwitchParalelo",
-    "InsertSwitchIntermediario",
-]
+POWER_TOOLS = ["Ponto_chuveiro", "Ponto_ar_condicionado", "Ponto_ventilador", "Ponto_ponto_forca"]
+LIGHTING_TOOLS = ["Ponto_luz_teto", "Ponto_arandela", "Ponto_fluorescente", "Ponto_embutida", "Ponto_emergencia"]
+SWITCH_TOOLS = ["InsertSwitch", "InsertSwitchParalelo", "InsertSwitchIntermediario"]
 INFRA_TOOLS = ["InsertConduit", "Add_Node", "Cabo"]
 BOARD_TOOLS = ["GerarPlanilha", "MontarCircuitos", "AddCircuito", "GerarUnifilar"]
 CALC_TOOLS = ["CalcDemanda", "CalcPressurizacao", "CalcRecalque"]
-DOCUMENT_TOOLS = [
-    "BIM_Text",
-    "Draft_Dimension",
-    "Draft_Label",
-    "Arch_SectionPlane",
-    "BIM_Shape2DView",
-    "BIM_TDView",
-    "LegendaSimbolos",
-    "GenerateReport",
-]
+DOCUMENT_TOOLS = ["LegendaSimbolos", "GenerateReport"]
 MODEL_3D_TOOLS = ["Generate3DSwitches", "Generate3DConduits", "Gerar3D"]
-LIBRARY_TOOLS = ["CreateModel", "ListElements", "ReiniciarBancada"]
+LIBRARY_TOOLS = ["InsertEquipaments", "InsertComponent", "CreateModel", "ListElements"]
 
 # Só no menu: comandos antigos, incompletos ou de uso raro.
 EXTRA_TOOLS = [
@@ -118,46 +95,65 @@ EXTRA_TOOLS = [
     "AddSpreadsheet",
     "NewQuadro",
     "GetSpaces",
+    "ReiniciarBancada",
 ]
+
+# Botões com lista suspensa: ID do grupo -> (legenda, dica, comandos).
+# O botão mostra o ícone do último comando usado; a seta abre os demais.
+GROUPS = {
+    "Grupo_Projeto": ("Projeto", "Novo projeto, planilha de circuitos e importação do QElectroTech", PROJECT_TOOLS),
+    "Grupo_Tomadas": ("Tomadas", "Tomadas baixa, média, alta, de piso e TUG", OUTLET_TOOLS),
+    "Grupo_Energia": ("Energia", "Chuveiro, ar-condicionado, ventilador e ponto de força", POWER_TOOLS),
+    "Grupo_Iluminacao": ("Iluminação", "Luz de teto, arandela, luminária tubular, embutida e de emergência", LIGHTING_TOOLS),
+    "Grupo_Interruptores": ("Interruptores", "Interruptor simples, paralelo e intermediário", SWITCH_TOOLS),
+    "Grupo_Infra": ("Eletrodutos", "Caminho de eletroduto, divisão de trecho e fiação", INFRA_TOOLS),
+    "Grupo_Calculos": ("Cálculos", "Demanda do quadro, pressurização de escada e bomba de recalque", CALC_TOOLS),
+    "Grupo_Documentos": ("Documentos", "Legenda de símbolos e relatório em PDF", DOCUMENT_TOOLS),
+    "Grupo_3D": ("Modelo 3D", "Caixas, eletrodutos e tomadas em 3D, gerados a partir da planta", MODEL_3D_TOOLS),
+    "Grupo_Biblioteca": ("Biblioteca", "Equipamentos e componentes da biblioteca; criar e importar modelos", LIBRARY_TOOLS),
+}
 
 _tr = QtCore.QT_TRANSLATE_NOOP
 ELECTRIC_TOOLBARS = [
-    (_tr("Workbench", "Projeto elétrico"), PROJECT_TOOLS),
-    (_tr("Workbench", "Tomadas"), OUTLET_TOOLS),
-    (_tr("Workbench", "Pontos de energia"), POWER_TOOLS),
-    (_tr("Workbench", "Iluminação e comando"), LIGHTING_TOOLS),
-    (_tr("Workbench", "Infraestrutura"), INFRA_TOOLS),
-    (_tr("Workbench", "Quadros e diagramas"), BOARD_TOOLS),
-    (_tr("Workbench", "Cálculos prediais"), CALC_TOOLS),
-    (_tr("Workbench", "Documentação"), DOCUMENT_TOOLS),
-]
-SUPPORT_TOOLBARS = [
-    (_tr("Workbench", "Modelo 3D"), MODEL_3D_TOOLS),
-    (_tr("Workbench", "Biblioteca e ferramentas"), LIBRARY_TOOLS),
+    (
+        _tr("Workbench", "Planta elétrica"),
+        ["Grupo_Projeto", "Grupo_Tomadas", "Grupo_Energia", "Grupo_Iluminacao", "Grupo_Interruptores", "Grupo_Infra"],
+    ),
+    (
+        _tr("Workbench", "Quadros e documentos"),
+        ["GerarPlanilha", "MontarCircuitos", "AddCircuito", "GerarUnifilar", "Grupo_Calculos", "Grupo_Documentos"],
+    ),
+    (_tr("Workbench", "Modelo e biblioteca"), ["Grupo_3D", "Grupo_Biblioteca"]),
 ]
 TOOLBARS = ELECTRIC_TOOLBARS + [
     (_tr("Workbench", "Desenho"), DRAWING_TOOLS),
     (_tr("Workbench", "Modificador"), MODIFY_TOOLS),
     (_tr("Workbench", "Snap"), SNAP_TOOLS),
     (_tr("Workbench", "Arquitetura"), BIM_TOOLS),
-] + SUPPORT_TOOLBARS
+]
 MENU = "&Elétrica"
+MENU_DESENHO = "&Desenho 2D"
 MENUS = [
     ([MENU, "Projeto"], PROJECT_TOOLS),
     ([MENU, "Tomadas"], OUTLET_TOOLS),
     ([MENU, "Pontos de energia"], POWER_TOOLS),
-    ([MENU, "Iluminação e comando"], LIGHTING_TOOLS),
-    ([MENU, "Infraestrutura"], INFRA_TOOLS),
+    ([MENU, "Iluminação"], LIGHTING_TOOLS),
+    ([MENU, "Interruptores"], SWITCH_TOOLS),
+    ([MENU, "Eletrodutos e fiação"], INFRA_TOOLS),
     ([MENU, "Quadros e diagramas"], BOARD_TOOLS),
     ([MENU, "Cálculos prediais"], CALC_TOOLS),
-    ([MENU, "Documentação"], ["LegendaSimbolos", "GenerateReport"]),
+    ([MENU, "Documentos"], DOCUMENT_TOOLS),
     ([MENU, "Modelo 3D"], MODEL_3D_TOOLS),
-    ([MENU, "Biblioteca e ferramentas"], LIBRARY_TOOLS),
+    ([MENU, "Biblioteca"], LIBRARY_TOOLS),
     ([MENU, "Outros"], EXTRA_TOOLS),
+    ([MENU_DESENHO, "Desenhar e anotar"], DRAWING_TOOLS + DRAWING_EXTRA_TOOLS),
+    ([MENU_DESENHO, "Modificar"], MODIFY_TOOLS + MODIFY_EXTRA_TOOLS),
+    ([MENU_DESENHO, "Snap"], SNAP_TOOLS + SNAP_EXTRA_TOOLS),
+    ([MENU_DESENHO, "Arquitetura"], BIM_TOOLS + BIM_EXTRA_TOOLS),
 ]
 
 # Barras que mostram a legenda (texto) embaixo de cada ícone.
-BARRAS_COM_LEGENDA = [label for label, _ in ELECTRIC_TOOLBARS + SUPPORT_TOOLBARS]
+BARRAS_COM_LEGENDA = [label for label, _ in ELECTRIC_TOOLBARS]
 PREFERENCIAS = "User parameter:BaseApp/Preferences/Mod/Circuits"
 
 
@@ -210,6 +206,11 @@ class CircuitsWorkbench(gui.Workbench):
             reports,
             tools,
         )
+
+        # Os grupos só podem ser registrados depois dos comandos que eles reúnem.
+        from .commands import grupos
+
+        grupos.registrar(GROUPS)
 
         for label, commands in TOOLBARS:
             self.appendToolbar(label, commands)

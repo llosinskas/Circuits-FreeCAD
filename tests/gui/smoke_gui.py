@@ -278,7 +278,7 @@ def scenario_extras(doc):
         "ativa": type(Gui.activeWorkbench()).__name__,
         "modulo": type(Gui.activeWorkbench()).__module__,
         "comando": bool(Gui.Command.get("GerarUnifilar")),
-        "barras": "Quadros e diagramas" in Gui.activeWorkbench().listToolbars(),
+        "barras": "Quadros e documentos" in Gui.activeWorkbench().listToolbars(),
     }
     before = len(doc.Objects)
     run("newSpreadsheet")
@@ -292,8 +292,8 @@ try:
     Gui.activateWorkbench(WORKBENCH)
     Gui.updateGui()
     workbench = Gui.activeWorkbench()
-    own_toolbars = ["Projeto elétrico", "Tomadas", "Pontos de energia", "Iluminação e comando", "Infraestrutura",
-                    "Quadros e diagramas", "Cálculos prediais", "Documentação", "Desenho", "Modificador", "Snap", "Arquitetura", "Modelo 3D", "Biblioteca e ferramentas"]
+    own_toolbars = ["Planta elétrica", "Quadros e documentos", "Modelo e biblioteca",
+                    "Desenho", "Modificador", "Snap", "Arquitetura"]
     items = workbench.getToolbarItems()
     result["toolbars"] = {t: items.get(t) for t in own_toolbars}
     commands = {}
