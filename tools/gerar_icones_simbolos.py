@@ -21,6 +21,7 @@ MARGEM = 7
 COR = {
     simbolos.TOMADA: "#1a73e8", simbolos.ENERGIA: "#d93025",
     simbolos.ILUMINACAO: "#b06000", simbolos.QUADRO: "#188038",
+    simbolos.COMANDO: "#5f6368", simbolos.PASSAGEM: "#5f6368", simbolos.ATERRAMENTO: "#188038",
 }
 
 

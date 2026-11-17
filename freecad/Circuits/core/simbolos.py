@@ -16,6 +16,12 @@ TOMADA = "Tomada"
 ENERGIA = "Energia"
 ILUMINACAO = "Iluminação"
 QUADRO = "Quadro"  # quadros e medição: aparecem na planta, mas não são carga de circuito
+COMANDO = "Comando"  # botão de campainha e fotocélula: comandam outros pontos, como um interruptor
+PASSAGEM = "Passagem"  # caixa de passagem: só um nó da rede de eletrodutos
+ATERRAMENTO = "Aterramento"  # haste, caixa de inspeção e BEP
+
+# Categorias sem carga própria: não entram nos circuitos nem na demanda.
+SEM_CARGA = (QUADRO, COMANDO, PASSAGEM, ATERRAMENTO)
 
 # Tipo de circuito conforme a NBR 5410: iluminação, tomadas de uso geral (TUG)
 # e tomadas de uso específico (TUE), que têm circuito exclusivo.
@@ -81,6 +87,26 @@ CATALOGO.update({
         "CM", 1200, (1500.0, 250.0, 1200.0), 6),
 })
 
+CATALOGO.update({
+    # Campainha e comando automático de iluminação
+    "campainha": _ponto("Campainha", "Campainha ou cigarra, comandada por botão", ENERGIA, ILUM, 20, 1.0, 127, "F+N",
+                        2200),
+    "botao_campainha": _ponto("Botão de campainha", "Botão (pulsador) que comanda a campainha", COMANDO, ILUM, 0,
+                              1.0, 127, "F+N", 1300),
+    "fotocelula": _ponto("Fotocélula", "Relé fotoelétrico que liga a iluminação ao anoitecer", COMANDO, ILUM, 0,
+                         1.0, 127, "F+N", 2500),
+    # Infraestrutura
+    "caixa_passagem": _ponto("Caixa de passagem", "Caixa de passagem da rede de eletrodutos", PASSAGEM, None, 0,
+                             1.0, 127, "F+N", 2800, (100.0, 100.0, 50.0)),
+    # Aterramento: as alturas ficam abaixo do piso (negativas)
+    "haste_aterramento": _ponto("Haste de aterramento", "Haste de aterramento cravada no solo", ATERRAMENTO, None,
+                                0, 1.0, 127, "F+N", -1200, (16.0, 16.0, 2400.0)),
+    "caixa_inspecao": _ponto("Caixa de inspeção", "Caixa de inspeção do aterramento, sobre a haste", ATERRAMENTO,
+                             None, 0, 1.0, 127, "F+N", -150, (300.0, 300.0, 300.0)),
+    "bep": _ponto("BEP", "Barramento de equipotencialização principal", ATERRAMENTO, None, 0, 1.0, 127, "F+N", 300,
+                  (300.0, 60.0, 100.0)),
+})
+
 _BASE = 1 / 3  # posição X da base do triângulo de tomada
 _MEIA = 1 / 4  # meia altura da base do triângulo
 
@@ -127,6 +153,17 @@ def _pas_ventilador():
             raiz = _polar(0.1, graus + lado)
             linhas.append(("linha", raiz[0], raiz[1], ponta[0], ponta[1]))
     return linhas
+
+
+def _terra(x, topo, escala=1.0):
+    """Símbolo de terra: haste vertical e três traços que diminuem para baixo."""
+    base = topo - 0.45 * escala
+    return [
+        ("linha", x, topo, x, base),
+        ("linha", x - 0.35 * escala, base, x + 0.35 * escala, base),
+        ("linha", x - 0.22 * escala, base - 0.12 * escala, x + 0.22 * escala, base - 0.12 * escala),
+        ("linha", x - 0.09 * escala, base - 0.24 * escala, x + 0.09 * escala, base - 0.24 * escala),
+    ]
 
 
 def _medidor(x):
@@ -191,6 +228,28 @@ def _unitario(simbolo):
         return _retangulo(-0.45, -0.3, 0.45, 0.3) + _medidor(0.0)
     if simbolo == "medicao_agrupada":
         return _retangulo(-0.8, -0.3, 0.8, 0.3) + _medidor(-0.5) + _medidor(0.0) + _medidor(0.5)
+    if simbolo == "campainha":
+        # Sino: cúpula com a base e o badalo embaixo.
+        return [("arco", 0, 0, 0.45, 0, 180), ("linha", -0.5, 0, 0.5, 0), ("circulo", 0, -0.14, 0.1)]
+    if simbolo == "botao_campainha":
+        # Quadrado com o botão no meio.
+        return _retangulo(-0.35, -0.35, 0.35, 0.35) + [("circulo", 0, 0, 0.14)]
+    if simbolo == "fotocelula":
+        # Célula com duas setas de luz chegando.
+        raios = []
+        for dy in (0.0, 0.3):
+            raios += [("linha", -0.8, 0.5 + dy, -0.35, 0.05 + dy),
+                      ("linha", -0.35, 0.05 + dy, -0.35, 0.2 + dy), ("linha", -0.35, 0.05 + dy, -0.5, 0.05 + dy)]
+        return [("circulo", 0, 0, 0.3), ("linha", -0.3, 0, 0.3, 0)] + raios
+    if simbolo == "caixa_passagem":
+        return _retangulo(-0.4, -0.4, 0.4, 0.4) + [("linha", -0.4, 0, 0.4, 0), ("linha", 0, -0.4, 0, 0.4)]
+    if simbolo == "haste_aterramento":
+        return _terra(0.0, 0.45)
+    if simbolo == "caixa_inspecao":
+        return [("circulo", 0, 0, 0.5)] + _terra(0.0, 0.3, escala=0.6)
+    if simbolo == "bep":
+        terminais = [("linha", x, 0.15, x, 0.35) for x in (-0.4, -0.2, 0.0, 0.2, 0.4)]
+        return _retangulo(-0.55, 0.0, 0.55, 0.15) + terminais + _terra(0.0, 0.0, escala=0.6)
     raise KeyError(f"Símbolo desconhecido: {simbolo}")
 
 

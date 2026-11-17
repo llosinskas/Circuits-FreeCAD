@@ -18,6 +18,15 @@ def pintar_sketch(sketch):
     return True
 
 
+def pintar_linha(obj, cor):
+    """Pinta a linha de um objeto (Draft Wire, por exemplo). Devolve False sem vista."""
+    vista = getattr(obj, "ViewObject", None)
+    if vista is None or not hasattr(vista, "LineColor"):
+        return False
+    vista.LineColor = cor
+    return True
+
+
 def pintar_todos(doc):
     """Pinta de preto todos os Sketches do documento. Devolve quantos foram pintados."""
     return sum(1 for obj in doc.Objects if getattr(obj, "TypeId", "") == TIPO_SKETCH and pintar_sketch(obj))

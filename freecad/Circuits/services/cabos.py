@@ -2,7 +2,7 @@
 import FreeCAD as App
 import Part
 
-from freecad.Circuits.core.simbolos import CATALOGO, QUADRO
+from freecad.Circuits.core.simbolos import CATALOGO, SEM_CARGA
 from freecad.Circuits.core.simbologia import condutores, posicoes_fase
 from freecad.Circuits.objects.ponto import tamanho_do_ponto
 from freecad.Circuits.services.documento import create_group
@@ -59,7 +59,7 @@ def condutores_do_ponto(obj):
     """
     tipo = getattr(getattr(obj, "Proxy", None), "Type", "")
     if tipo == "Ponto":
-        if CATALOGO[obj.Simbolo]["categoria"] == QUADRO:
+        if CATALOGO[obj.Simbolo]["categoria"] in SEM_CARGA:  # quadros, comandos, passagem e aterramento
             return None
         fases, neutro = condutores(obj.Ligacao)
         return fases, neutro, True, tamanho_do_ponto(obj) / 2

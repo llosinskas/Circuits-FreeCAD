@@ -68,7 +68,13 @@ def texto_quadro(sigla, medidores=None, circuito=""):
 
 
 _FASES = {"F+N": 1, "F+F": 2, "3F": 3}
-_CONDUTORES_INTERRUPTOR = {"Simples": "F+R", "Paralelo": "F+2R", "Intermediário": "4R"}
+_CONDUTORES_INTERRUPTOR = {
+    "Simples": "F+R",
+    "Paralelo": "F+2R",
+    "Intermediário": "4R",
+    "Botão de campainha": "F+R",
+    "Fotocélula": "F+N+R",  # o relé precisa de neutro para funcionar
+}
 
 
 def condutores_no_ponto(tipo, ligacao="F+N", comando="", tipo_interruptor="Simples"):
@@ -77,13 +83,14 @@ def condutores_no_ponto(tipo, ligacao="F+N", comando="", tipo_interruptor="Simpl
     F = fase, N = neutro, T = terra, R = retorno. Exemplos: tomada 'F+N+T';
     chuveiro em duas fases '2F+T'; luminária comandada por interruptor 'R+N+T';
     interruptor simples 'F+R', paralelo 'F+2R' (fase ou retorno e os dois
-    condutores entre os paralelos), intermediário '4R'.
+    condutores entre os paralelos), intermediário '4R'; botão de campainha
+    'F+R'; fotocélula 'F+N+R'.
 
     Args:
         tipo: 'ponto' ou 'interruptor'.
         ligacao: 'F+N', 'F+F' ou '3F' (pontos).
         comando: letra do interruptor que comanda o ponto; vazia se não houver.
-        tipo_interruptor: Simples, Paralelo ou Intermediário (interruptores).
+        tipo_interruptor: Simples, Paralelo, Intermediário, Botão de campainha ou Fotocélula.
     """
     if tipo == "interruptor":
         return _CONDUTORES_INTERRUPTOR.get(tipo_interruptor, "F+R")

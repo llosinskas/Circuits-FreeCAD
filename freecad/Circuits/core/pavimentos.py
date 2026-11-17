@@ -19,6 +19,7 @@ PASTAS = {
     "interruptores": "Interruptores",
     "quadros": "Quadros e medição",
     "eletrodutos": "Eletrodutos",
+    "aterramento": "Aterramento",
 }
 
 _PASTA_DA_CATEGORIA = {
@@ -26,6 +27,9 @@ _PASTA_DA_CATEGORIA = {
     simbolos.ENERGIA: "energia",
     simbolos.ILUMINACAO: "iluminacao",
     simbolos.QUADRO: "quadros",
+    simbolos.COMANDO: "interruptores",
+    simbolos.PASSAGEM: "eletrodutos",
+    simbolos.ATERRAMENTO: "aterramento",
 }
 _PASTA_DO_TIPO = {
     "Switch": "interruptores",
@@ -34,6 +38,7 @@ _PASTA_DO_TIPO = {
     "tomada": "tomadas",
     "ConduitPath": "eletrodutos",
     "eletroduto": "eletrodutos",
+    "condutor_aterramento": "aterramento",
 }
 
 

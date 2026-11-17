@@ -240,6 +240,16 @@ class TestServico(unittest.TestCase):
         arquivar.assert_called_once_with(doc, linha)
         doc.commitTransaction.assert_called_once()
 
+    def test_campainha_passagem_e_aterramento_na_rede(self):
+        botao = self.ponto("B1", "botao_campainha", 0, 0, 1300, circuito="3", Comando="a")
+        passagem = self.ponto("CP", "caixa_passagem", 0, 0, 2800, circuito="")
+        haste = self.ponto("H1", "haste_aterramento", 0, 0, -1200, circuito="")
+        with mock.patch.object(self.servico, "listar_simbolos", return_value=[botao, passagem, haste]), \
+                mock.patch.object(self.servico.pavimentos, "pavimento_do_objeto", return_value=None):
+            caixas = self.servico.listar_caixas(self.documento(botao, passagem, haste))
+        self.assertEqual([(c["id"], c["tipo"]) for c in caixas], [("B1", "interruptor"), ("CP", "passagem")])
+        self.assertEqual((caixas[0]["comando"], caixas[0]["circuito"]), ("a", "3"))
+
     def test_info_do_circuito_pela_planilha_e_pelos_pontos(self):
         planilha = object()
         linha = {"N_circuito": "3", "Cabo": "6", "Fase_R": "True", "Fase_S": "True", "Fase_T": "False", "Neutro": "False"}

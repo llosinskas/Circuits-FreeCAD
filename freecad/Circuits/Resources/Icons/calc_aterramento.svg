@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64">
+  <!-- Resistência de aterramento: símbolo de terra com o ômega -->
+  <path d="M20 26V40M8 40H32M12 46H28M16 52H24 M40 30A8 8 0 1 1 52 30L52 34H56M40 30L40 34H36" fill="none" stroke-linecap="round" stroke-linejoin="round" stroke="#ffffff" stroke-width="7" stroke-opacity="0.85"/>
+  <path d="M20 26V40M8 40H32M12 46H28M16 52H24" fill="none" stroke-linecap="round" stroke-linejoin="round" stroke="#5f6368" stroke-width="3"/>
+  <path d="M40 30A8 8 0 1 1 52 30L52 34H56M40 30L40 34H36" fill="none" stroke-linecap="round" stroke-linejoin="round" stroke="#188038" stroke-width="3"/>
+</svg>

@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64">
+  <!-- Haste de aterramento: gerado por tools/gerar_icones_simbolos.py -->
+  <path d="M32.00 7.36L32.00 39.50M7.00 39.50L57.00 39.50M16.29 48.07L47.71 48.07M25.57 56.64L38.43 56.64" fill="none" stroke-linecap="round" stroke-linejoin="round" stroke="#ffffff" stroke-width="7" stroke-opacity="0.85"/>
+  <path d="M32.00 7.36L32.00 39.50M7.00 39.50L57.00 39.50M16.29 48.07L47.71 48.07M25.57 56.64L38.43 56.64" fill="none" stroke-linecap="round" stroke-linejoin="round" stroke="#188038" stroke-width="3"/>
+</svg>

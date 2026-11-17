@@ -40,9 +40,28 @@ class TestMontar(unittest.TestCase):
         self.assertEqual(quantitativos.caixa_do_simbolo("tomada_piso"), "piso")
         self.assertIsNone(quantitativos.caixa_do_simbolo("quadro_distribuicao"))
         self.assertIsNone(quantitativos.caixa_do_simbolo("nao_existe"))
+        self.assertEqual(quantitativos.caixa_do_simbolo("caixa_passagem"), "passagem")
+        self.assertEqual(quantitativos.caixa_do_simbolo("botao_campainha"), "4x2")
+        self.assertIsNone(quantitativos.caixa_do_simbolo("fotocelula"))
+        self.assertIsNone(quantitativos.caixa_do_simbolo("haste_aterramento"))
         for chave, dados in CATALOGO.items():
-            if dados["categoria"] != QUADRO:
+            if dados["categoria"] not in (QUADRO, "Aterramento") and chave != "fotocelula":
                 self.assertIn(quantitativos.caixa_do_simbolo(chave), quantitativos.CAIXAS)
+
+    def test_caixa_de_passagem_e_aterramento(self):
+        linhas = quantitativos.montar(
+            pontos=[{"grupo": "Caixas", "item": "", "especificacao": "", "caixa": "passagem"},
+                    {"grupo": "Aterramento", "item": "Haste de aterramento", "especificacao": "5/8", "caixa": None}],
+            componentes_quadros=[{"item": "Conector haste-cabo", "especificacao": "", "quantidade": 1, "unidade": "un",
+                                  "grupo": "Aterramento"}],
+            aterramento=[("50", 6000.0), (50.0, 4000.0)],
+        )
+        self.assertEqual([(l["grupo"], l["item"], l["especificacao"], l["quantidade"]) for l in linhas], [
+            ("Caixas", "Caixa de passagem 4x4\"", "", 1),
+            ("Aterramento", "Cabo de cobre nu", "50 mm² (inclui 10% de perdas)", 11.0),
+            ("Aterramento", "Conector haste-cabo", "", 1),
+            ("Aterramento", "Haste de aterramento", "5/8", 1),
+        ])
 
     def test_soma_pontos_caixas_e_eletrodutos_em_ordem(self):
         linhas = quantitativos.montar(

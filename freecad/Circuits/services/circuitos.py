@@ -72,7 +72,7 @@ def coletar_pontos(doc):
         tipo = getattr(getattr(obj, "Proxy", None), "Type", "")
         try:
             if tipo == "Ponto":
-                if simbolos.CATALOGO[obj.Simbolo]["categoria"] != simbolos.QUADRO:  # quadro não é carga
+                if simbolos.CATALOGO[obj.Simbolo]["categoria"] not in simbolos.SEM_CARGA:  # quadros, comandos etc.
                     pontos.append(_de_ponto(obj))
             elif tipo in _LEGADOS:
                 pontos.append(_de_legado(obj, tipo))

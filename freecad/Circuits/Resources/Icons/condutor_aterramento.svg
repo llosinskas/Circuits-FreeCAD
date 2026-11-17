@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64">
+  <!-- Condutor de aterramento: cabo nu ligando duas hastes -->
+  <path d="M14 30V44M6 44H22M9 49H19M12 54H16 M50 30V44M42 44H58M45 49H55M48 54H52 M14 30Q32 14 50 30" fill="none" stroke-linecap="round" stroke-linejoin="round" stroke="#ffffff" stroke-width="7" stroke-opacity="0.85"/>
+  <path d="M14 30V44M6 44H22M9 49H19M12 54H16 M50 30V44M42 44H58M45 49H55M48 54H52" fill="none" stroke-linecap="round" stroke-linejoin="round" stroke="#5f6368" stroke-width="3"/>
+  <path d="M14 30Q32 14 50 30" fill="none" stroke-linecap="round" stroke-linejoin="round" stroke="#188038" stroke-width="3"/>
+</svg>

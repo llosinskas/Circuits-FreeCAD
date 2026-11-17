@@ -5,7 +5,7 @@ import os
 from freecad.Circuits.core import exportar as gravacao
 from freecad.Circuits.core import quantitativos as regras
 from freecad.Circuits.core import quadro as regras_quadro
-from freecad.Circuits.core.simbolos import CATALOGO, QUADRO
+from freecad.Circuits.core.simbolos import ATERRAMENTO, CATALOGO, COMANDO, PASSAGEM, QUADRO
 from freecad.Circuits.services import planilhas, rede
 from freecad.Circuits.services.tomadas import listar_tomadas
 
@@ -22,8 +22,17 @@ def _mm(valor):
 
 def _ponto(obj):
     dados = CATALOGO[obj.Simbolo]
-    if dados["categoria"] == QUADRO:
+    categoria = dados["categoria"]
+    if categoria == QUADRO:
         return {"grupo": "Quadros", "item": dados["legenda"], "especificacao": str(obj.Descricao), "caixa": None}
+    if categoria == PASSAGEM:
+        return {"grupo": "Caixas", "item": "", "especificacao": "", "caixa": "passagem"}
+    if categoria == ATERRAMENTO:
+        especificacao = {"haste_aterramento": "cobreada 5/8\" x 2,40 m"}.get(obj.Simbolo, "")
+        return {"grupo": "Aterramento", "item": dados["legenda"], "especificacao": especificacao, "caixa": None}
+    if categoria == COMANDO:
+        return {"grupo": "Interruptores", "item": dados["legenda"], "especificacao": str(obj.Tensao),
+                "caixa": regras.caixa_do_simbolo(obj.Simbolo)}
     return {
         "grupo": "Pontos",
         "item": dados["legenda"],
@@ -66,6 +75,20 @@ def coletar_eletrodutos(doc):
     return eletrodutos
 
 
+def coletar_aterramento(doc):
+    """(seção [mm²], comprimento [mm]) de cada condutor de aterramento e um conector por haste."""
+    condutores, conectores = [], 0
+    for obj in doc.Objects:
+        if hasattr(obj, "SecaoAterramento") and hasattr(obj, "Shape"):
+            try:
+                condutores.append((float(str(obj.SecaoAterramento).replace(",", ".")), float(obj.Shape.Length)))
+            except Exception:
+                continue
+        elif _tipo(obj) == "Ponto" and getattr(obj, "Simbolo", "") == "haste_aterramento":
+            conectores += 1
+    return condutores, conectores
+
+
 def coletar_componentes_quadros(doc):
     """Componentes de todos os quadros, lidos das planilhas de dados e de circuitos."""
     componentes = []
@@ -85,9 +108,14 @@ def levantar(doc):
         com fios, circuitos, verticais e avisos).
     """
     fiacao = rede.analisar(doc)
+    condutores, conectores = coletar_aterramento(doc)
+    componentes = coletar_componentes_quadros(doc)
+    if conectores:
+        componentes = componentes + [{"item": "Conector haste-cabo", "especificacao": "", "quantidade": conectores,
+                                      "unidade": "un", "grupo": "Aterramento"}]
     linhas = regras.montar(
-        coletar_pontos(doc), coletar_eletrodutos(doc), coletar_componentes_quadros(doc),
-        fios=fiacao["fios"], verticais=fiacao["verticais"],
+        coletar_pontos(doc), coletar_eletrodutos(doc), componentes,
+        fios=fiacao["fios"], verticais=fiacao["verticais"], aterramento=condutores,
     )
     return linhas, fiacao
 

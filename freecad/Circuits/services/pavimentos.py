@@ -237,6 +237,8 @@ def chave_do_objeto(obj):
         return regras.pasta_do_objeto(tipo, obj.Simbolo)
     if getattr(obj, "tipo", "") == "tomada":
         return regras.pasta_do_objeto("tomada")
+    if not tipo and hasattr(obj, "Points") and hasattr(obj, "SecaoAterramento"):
+        return regras.pasta_do_objeto("condutor_aterramento")  # linha marcada como condutor de aterramento
     if not tipo and all(hasattr(obj, nome) for nome in ("Points", "Diametro", "Altura3D")):
         return regras.pasta_do_objeto("eletroduto")  # Draft Wire marcado como eletroduto
     return regras.pasta_do_objeto(tipo)
@@ -293,7 +295,10 @@ def ajustar_cota(doc, obj, pavimento=None):
 
 def ajustar_cotas(doc):
     """Ajusta o Z de todos os símbolos do documento (veja ``ajustar_cota``). Devolve quantos."""
-    simbolos = [obj for obj in doc.Objects if chave_do_objeto(obj) not in (None, "eletrodutos")]
+    simbolos = [
+        obj for obj in doc.Objects
+        if chave_do_objeto(obj) not in (None, "eletrodutos") and not hasattr(obj, "SecaoAterramento")
+    ]
     doc.openTransaction("Ajustar cotas dos símbolos")
     try:
         for obj in simbolos:
@@ -332,7 +337,7 @@ def arquivar(doc, obj, pavimento=None):
             atual.removeObject(obj)
         destino.addObject(obj)
     _marcar(obj, pavimento.Label)
-    if chave != "eletrodutos":  # o eletroduto tem a cota do próprio traçado
+    if chave != "eletrodutos" and not hasattr(obj, "SecaoAterramento"):  # linhas têm a cota do próprio traçado
         ajustar_cota(doc, obj, pavimento)
     return destino
 
@@ -364,7 +369,7 @@ def mover(doc, objetos, pavimento):
                 continue
             antes = elevacao_do_objeto(doc, obj)
             if arquivar(doc, obj, pavimento) is not None:  # símbolos: arquivar já ajusta a cota
-                if chave_do_objeto(obj) == "eletrodutos":
+                if chave_do_objeto(obj) == "eletrodutos" or hasattr(obj, "SecaoAterramento"):
                     _subir(obj, elevacao(pavimento) - antes)
                 movidos += 1
         doc.commitTransaction()

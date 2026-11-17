@@ -72,7 +72,7 @@ class TestBarras(unittest.TestCase):
 
     def test_barras_proprias_sao_enxutas(self):
         for barra, comandos in CONFIG["ELECTRIC_TOOLBARS"]:
-            self.assertLessEqual(len(comandos), 7, barra)
+            self.assertLessEqual(len(comandos), 8, barra)
 
     def test_icones_existem(self):
         icones = {icone for fonte in _fontes() for icone, _, _ in RECURSOS.findall(fonte)}

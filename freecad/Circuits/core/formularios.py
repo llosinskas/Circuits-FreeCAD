@@ -15,7 +15,7 @@ dicionário com:
 A ideia é o usuário responder poucas perguntas, com opções prontas, e só abrir
 as opções avançadas quando tiver os dados do catálogo ou do projeto.
 """
-from freecad.Circuits.core.functions.Predial import luminotecnico, pressurizacao, recalque
+from freecad.Circuits.core.functions.Predial import aterramento, luminotecnico, pressurizacao, recalque
 from freecad.Circuits.core.simbolos import CATALOGO, ILUMINACAO
 
 # Rótulo da alimentação -> (tensão [V], fases)
@@ -165,6 +165,44 @@ RECALQUE = [
         "chave": "rendimento", "rotulo": "Rendimento da bomba", "avancado": True,
         "valor": recalque.RENDIMENTO_BOMBA, "minimo": 0.1, "maximo": 1.0,
         "dica": "Do catálogo da bomba. Bombas pequenas ficam perto de 0,5.",
+    },
+]
+
+
+ATERRAMENTO = [
+    {
+        "chave": "solo", "rotulo": "Tipo de solo", "valor": list(aterramento.SOLOS),
+        "preenche": {nome: {"resistividade": valor} for nome, valor in aterramento.SOLOS.items()},
+        "dica": "Preenche a resistividade com um valor típico. Se o solo foi medido, informe nas opções avançadas.",
+    },
+    {
+        "chave": "resistencia_alvo", "rotulo": "Resistência desejada", "valor": aterramento.ALVO_PADRAO,
+        "minimo": 0.5, "maximo": 500.0, "decimais": 1, "sufixo": "Ω",
+        "dica": "Valor máximo de resistência do aterramento. 10 Ω é a referência usual para SPDA.",
+    },
+    {
+        "chave": "hastes", "rotulo": "Número de hastes (0 = calcular)", "valor": 0, "minimo": 0, "maximo": 30,
+        "dica": "Deixe 0 para o programa achar o menor número de hastes que atinge a resistência desejada.",
+    },
+    {
+        "chave": "espacamento", "rotulo": "Espaçamento entre hastes", "valor": aterramento.ESPACAMENTO_PADRAO,
+        "minimo": 0.5, "maximo": 30.0, "decimais": 1, "sufixo": "m",
+        "dica": "Distância entre hastes vizinhas, em linha. Use ao menos o comprimento da haste.",
+    },
+    {
+        "chave": "resistividade", "rotulo": "Resistividade do solo", "avancado": True, "valor": 100.0,
+        "minimo": 1.0, "maximo": 100000.0, "decimais": 0, "sufixo": "Ω·m",
+        "dica": "Medida no terreno pelo método de Wenner, ou o valor típico do tipo de solo.",
+    },
+    {
+        "chave": "comprimento_haste", "rotulo": "Comprimento da haste", "avancado": True,
+        "valor": aterramento.HASTE_COMPRIMENTO, "minimo": 0.5, "maximo": 12.0, "sufixo": "m",
+        "dica": "2,40 m é o comprimento comercial mais comum.",
+    },
+    {
+        "chave": "diametro_haste", "rotulo": "Diâmetro da haste", "avancado": True,
+        "valor": aterramento.HASTE_DIAMETRO_MM, "minimo": 5.0, "maximo": 50.0, "decimais": 1, "sufixo": "mm",
+        "dica": "5/8\" = 15,9 mm; 3/4\" = 19,1 mm.",
     },
 ]
 

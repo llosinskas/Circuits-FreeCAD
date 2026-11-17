@@ -2,7 +2,7 @@
 import FreeCAD as App
 import Part
 
-from freecad.Circuits.core.simbolos import CATALOGO, ENERGIA, QUADRO, TOMADA
+from freecad.Circuits.core.simbolos import ATERRAMENTO, CATALOGO, ENERGIA, PASSAGEM, QUADRO, TOMADA
 from freecad.Circuits.services import pavimentos
 from freecad.Circuits.services.tomadas import listar_tomadas
 
@@ -11,6 +11,8 @@ COR_TOMADA = (0.7, 0.85, 0.95)
 COR_ILUMINACAO = (1.0, 0.95, 0.6)
 COR_ENERGIA = (0.95, 0.75, 0.7)
 COR_QUADRO = (0.75, 0.9, 0.75)
+COR_PASSAGEM = (0.8, 0.8, 0.8)
+COR_ATERRAMENTO = (0.45, 0.65, 0.35)
 TIPOS_COM_CAIXA = ("Switch", "Lighting", "Outlet", "Ponto")
 
 
@@ -57,7 +59,10 @@ def _rotulo_e_cor(obj):
         return f"Caixa Tomada ({obj.Label})", COR_TOMADA
     if tipo == "Ponto":
         categoria = CATALOGO[obj.Simbolo]["categoria"]
-        cor = {TOMADA: COR_TOMADA, ENERGIA: COR_ENERGIA, QUADRO: COR_QUADRO}.get(categoria, COR_ILUMINACAO)
+        cor = {
+            TOMADA: COR_TOMADA, ENERGIA: COR_ENERGIA, QUADRO: COR_QUADRO,
+            PASSAGEM: COR_PASSAGEM, ATERRAMENTO: COR_ATERRAMENTO,
+        }.get(categoria, COR_ILUMINACAO)
         return f"Caixa {categoria} ({obj.Label})", cor
     return f"Caixa Iluminação ({obj.Label})", COR_ILUMINACAO
 

@@ -19,7 +19,11 @@ class TestCatalogo(unittest.TestCase):
     def test_dados_eletricos_sao_validos(self):
         for chave, dados in simbolos.CATALOGO.items():
             with self.subTest(chave):
-                if dados["categoria"] == simbolos.QUADRO:  # quadro não é carga de circuito
+                self.assertIn(dados["ligacao"], simbolos.LIGACOES)
+                if dados["categoria"] == simbolos.COMANDO:  # comanda um ponto de iluminação, sem carga própria
+                    self.assertEqual((dados["potencia_va"], dados["tipo_circuito"]), (0, simbolos.ILUM))
+                    continue
+                if dados["categoria"] in simbolos.SEM_CARGA:  # quadro, passagem e aterramento não são circuito
                     self.assertEqual((dados["potencia_va"], dados["tipo_circuito"]), (0, None))
                     continue
                 self.assertGreater(dados["potencia_va"], 0)
@@ -28,6 +32,19 @@ class TestCatalogo(unittest.TestCase):
                 self.assertIn(dados["ligacao"], simbolos.LIGACOES)
                 self.assertIn(dados["tipo_circuito"], (simbolos.ILUM, simbolos.TUG, simbolos.TUE))
                 self.assertIn(dados["categoria"], (simbolos.TOMADA, simbolos.ENERGIA, simbolos.ILUMINACAO))
+
+    def test_campainha_comando_passagem_e_aterramento(self):
+        categorias = {chave: simbolos.CATALOGO[chave]["categoria"] for chave in (
+            "campainha", "botao_campainha", "fotocelula", "caixa_passagem", "haste_aterramento", "caixa_inspecao", "bep")}
+        self.assertEqual(categorias, {
+            "campainha": simbolos.ENERGIA, "botao_campainha": simbolos.COMANDO, "fotocelula": simbolos.COMANDO,
+            "caixa_passagem": simbolos.PASSAGEM, "haste_aterramento": simbolos.ATERRAMENTO,
+            "caixa_inspecao": simbolos.ATERRAMENTO, "bep": simbolos.ATERRAMENTO,
+        })
+        self.assertEqual(simbolos.CATALOGO["campainha"]["tipo_circuito"], simbolos.ILUM)  # comandada pelo botão
+        self.assertLess(simbolos.CATALOGO["haste_aterramento"]["altura_mm"], 0)  # abaixo do piso
+        self.assertEqual(set(simbolos.SEM_CARGA),
+                         {simbolos.QUADRO, simbolos.COMANDO, simbolos.PASSAGEM, simbolos.ATERRAMENTO})
 
     def test_quadros_tem_sigla_e_medidores(self):
         siglas = {chave: dados["descricao"] for chave, dados in simbolos.CATALOGO.items()

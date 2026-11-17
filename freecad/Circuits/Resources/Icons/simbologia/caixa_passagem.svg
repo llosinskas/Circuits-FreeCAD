@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64">
+  <!-- Caixa de passagem: gerado por tools/gerar_icones_simbolos.py -->
+  <path d="M7.00 57.00L57.00 57.00M57.00 57.00L57.00 7.00M57.00 7.00L7.00 7.00M7.00 7.00L7.00 57.00M7.00 32.00L57.00 32.00M32.00 57.00L32.00 7.00" fill="none" stroke-linecap="round" stroke-linejoin="round" stroke="#ffffff" stroke-width="7" stroke-opacity="0.85"/>
+  <path d="M7.00 57.00L57.00 57.00M57.00 57.00L57.00 7.00M57.00 7.00L7.00 7.00M7.00 7.00L7.00 57.00M7.00 32.00L57.00 32.00M32.00 57.00L32.00 7.00" fill="none" stroke-linecap="round" stroke-linejoin="round" stroke="#5f6368" stroke-width="3"/>
+</svg>

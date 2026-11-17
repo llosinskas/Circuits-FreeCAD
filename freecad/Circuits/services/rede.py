@@ -5,7 +5,7 @@ from freecad.Circuits.core import quantitativos as tabelas
 from freecad.Circuits.core import rede as regras
 from freecad.Circuits.core import quadro as regras_quadro
 from freecad.Circuits.core.circuitos import SECAO_MINIMA
-from freecad.Circuits.core.simbolos import CATALOGO, ILUM, LIGACOES, QUADRO
+from freecad.Circuits.core.simbolos import ATERRAMENTO, CATALOGO, COMANDO, ILUM, LIGACOES, PASSAGEM, QUADRO
 from freecad.Circuits.services import pavimentos, planilhas
 from freecad.Circuits.services.alinhamento import listar_simbolos
 from freecad.Circuits.services.eletrodutos import _preparar_caminho
@@ -71,6 +71,15 @@ def _caixa(doc, obj):
             if planilha is not None:
                 refs |= {planilha.Name, planilha.Label}
             base.update(tipo="quadro", refs=refs - {""}, planilha=planilha)
+            return base
+        if dados["categoria"] == ATERRAMENTO:
+            return None  # o aterramento tem condutor próprio, fora da rede de eletrodutos
+        if dados["categoria"] == PASSAGEM:
+            base.update(tipo="passagem")  # nó da rede: recebe eletrodutos, mas não é ponta de circuito
+            return base
+        if dados["categoria"] == COMANDO:  # botão de campainha e fotocélula se comportam como interruptor
+            base.update(tipo="interruptor", circuito=str(obj.Circuito).strip(),
+                        comando=str(getattr(obj, "Comando", "")).strip())
             return base
         base.update(
             tipo="ponto", circuito=str(obj.Circuito).strip(), comando=str(getattr(obj, "Comando", "")).strip(),

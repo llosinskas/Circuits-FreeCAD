@@ -48,6 +48,8 @@ class TestRegras(unittest.TestCase):
         self.assertEqual(identificacao.condutores_no_ponto("interruptor", tipo_interruptor="Simples"), "F+R")
         self.assertEqual(identificacao.condutores_no_ponto("interruptor", tipo_interruptor="Paralelo"), "F+2R")
         self.assertEqual(identificacao.condutores_no_ponto("interruptor", tipo_interruptor="Intermediário"), "4R")
+        self.assertEqual(identificacao.condutores_no_ponto("interruptor", tipo_interruptor="Botão de campainha"), "F+R")
+        self.assertEqual(identificacao.condutores_no_ponto("interruptor", tipo_interruptor="Fotocélula"), "F+N+R")
 
     def test_texto_dos_cabos(self):
         self.assertEqual(identificacao.texto_cabos(2.5, "F+N+T"), "#2,5 F+N+T")
@@ -163,6 +165,20 @@ class TestServico(unittest.TestCase):
         self.assertEqual(self.servico.texto_dos_cabos(chave, secoes), "#1,5 F+2R")
         self.assertEqual(self.servico.texto_dos_cabos(tomada("T3", ""), secoes), "")  # sem circuito
         self.assertEqual(luz.Name, "L1")
+
+    def test_botao_de_campainha_liga_a_campainha(self):
+        botao = objeto("B1", "Ponto", Simbolo="botao_campainha", Circuito="", Comando="", Quadro="")
+        campainha = objeto("C1", "Ponto", Simbolo="campainha", Circuito="3", Comando="", Quadro="", Potencia=20.0)
+        fotocelula = objeto("F1", "Ponto", Simbolo="fotocelula", Circuito="", Comando="", Quadro="")
+        self.assertTrue(self.servico.eh_interruptor(botao) and self.servico.eh_interruptor(fotocelula))
+        self.assertFalse(self.servico.eh_ponto_de_luz(botao))
+        self.assertTrue(self.servico.eh_ponto_de_luz(campainha))
+        doc = self.documento(botao, campainha)
+        self.assertEqual(self.servico.ligar_interruptor(doc, [botao, campainha]), "a")
+        self.assertEqual((botao.Comando, botao.Circuito, campainha.Comando), ("a", "3", "a"))
+        self.assertEqual(self.servico.texto_dos_cabos(botao, {}), "#1,5 F+R")
+        fotocelula.Circuito = "1"
+        self.assertEqual(self.servico.texto_dos_cabos(fotocelula, {}), "#1,5 F+N+R")
 
     def test_mapa_de_secoes(self):
         quadros = [types.SimpleNamespace(Label="QD1"), types.SimpleNamespace(Label="QD2")]

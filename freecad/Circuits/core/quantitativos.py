@@ -17,7 +17,7 @@ Unidades: comprimentos de entrada em mm, de saída em m.
 """
 from freecad.Circuits.core import simbolos
 
-GRUPOS = ["Pontos", "Interruptores", "Caixas", "Eletrodutos", "Fios e cabos", "Quadros"]
+GRUPOS = ["Pontos", "Interruptores", "Caixas", "Eletrodutos", "Fios e cabos", "Quadros", "Aterramento"]
 COLUNAS = ["Grupo", "Item", "Especificação", "Unidade", "Quantidade"]
 PERDA_ELETRODUTO = 0.10
 
@@ -25,7 +25,10 @@ CAIXAS = {
     "4x2": "Caixa 4x2\" de embutir",
     "octogonal": "Caixa octogonal 4x4\" de laje",
     "piso": "Caixa de piso 4x4\"",
+    "passagem": "Caixa de passagem 4x4\"",
 }
+CABO_ATERRAMENTO = "Cabo de cobre nu"
+PERDA_CABO_ATERRAMENTO = 0.10
 CABO = "Cabo flexível 750 V"
 FUNCOES_FIO = {
     "fase": "fase",
@@ -39,13 +42,15 @@ _CAIXA_DO_SIMBOLO = {
     "fluorescente": "octogonal",
     "embutida": "octogonal",
     "tomada_piso": "piso",
+    "caixa_passagem": "passagem",
+    "fotocelula": None,  # fica na própria base, na fachada ou no poste
 }
 
 
 def caixa_do_simbolo(simbolo):
-    """Chave de ``CAIXAS`` para o símbolo do catálogo, ou None (quadros não levam caixa)."""
+    """Chave de ``CAIXAS`` para o símbolo do catálogo, ou None (quadros, aterramento e fotocélula não levam)."""
     dados = simbolos.CATALOGO.get(simbolo)
-    if dados is None or dados["categoria"] == simbolos.QUADRO:
+    if dados is None or dados["categoria"] in (simbolos.QUADRO, simbolos.ATERRAMENTO):
         return None
     return _CAIXA_DO_SIMBOLO.get(simbolo, "4x2")
 
@@ -59,7 +64,7 @@ def _secao(valor):
     return f"{float(valor):g}".replace(".", ",")
 
 
-def montar(pontos=(), eletrodutos=(), componentes_quadros=(), fios=None, verticais=()):
+def montar(pontos=(), eletrodutos=(), componentes_quadros=(), fios=None, verticais=(), aterramento=()):
     """Linhas do quantitativo.
 
     Args:
@@ -69,6 +74,7 @@ def montar(pontos=(), eletrodutos=(), componentes_quadros=(), fios=None, vertica
         componentes_quadros: itens de ``core.quadro.componentes`` de todos os quadros.
         fios: {(seção [mm²], função): metros}, de ``core.rede.analisar``.
         verticais: verticais de ``core.rede.analisar`` (usa ``diametro`` e ``comprimento`` em m).
+        aterramento: pares (seção [mm²], comprimento [mm]) dos condutores de aterramento.
     Returns:
         Lista de dicionários com ``grupo``, ``item``, ``especificacao``, ``unidade``
         e ``quantidade`` (inteiro para 'un', metros com duas casas para 'm').
@@ -80,7 +86,8 @@ def montar(pontos=(), eletrodutos=(), componentes_quadros=(), fios=None, vertica
         somas[chave] = somas.get(chave, 0) + quantidade
 
     for ponto in pontos:
-        somar(ponto["grupo"], ponto["item"], ponto.get("especificacao", ""), "un", 1)
+        if ponto.get("item"):  # a caixa de passagem só conta como caixa
+            somar(ponto["grupo"], ponto["item"], ponto.get("especificacao", ""), "un", 1)
         if ponto.get("caixa"):
             somar("Caixas", CAIXAS[ponto["caixa"]], "", "un", 1)
     for diametro, comprimento_mm in eletrodutos:
@@ -92,8 +99,13 @@ def montar(pontos=(), eletrodutos=(), componentes_quadros=(), fios=None, vertica
               "m", vertical["comprimento"] * (1 + PERDA_ELETRODUTO))
     for (secao, funcao), metros in (fios or {}).items():
         somar("Fios e cabos", CABO, f"{_secao(secao)} mm² - {FUNCOES_FIO.get(funcao, funcao)}", "m", metros)
+    for secao, comprimento_mm in aterramento:
+        if comprimento_mm > 0:
+            somar("Aterramento", CABO_ATERRAMENTO, f"{_secao(secao)} mm² (inclui {PERDA_CABO_ATERRAMENTO:.0%} de perdas)",
+                  "m", comprimento_mm / 1000.0 * (1 + PERDA_CABO_ATERRAMENTO))
     for componente in componentes_quadros:
-        somar("Quadros", componente["item"], componente["especificacao"], componente["unidade"], componente["quantidade"])
+        somar(componente.get("grupo", "Quadros"), componente["item"], componente["especificacao"], componente["unidade"],
+              componente["quantidade"])
 
     def ordem(chave):
         grupo, item, especificacao, _ = chave

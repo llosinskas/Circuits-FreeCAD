@@ -62,11 +62,17 @@ O relatório e o quantitativo em PDF usam a biblioteca `reportlab`, que já vem 
 
 | Botão | Símbolos |
 |---|---|
-| Tomadas | Tomada baixa, média, alta, de piso, tomada TUG |
-| Energia | Chuveiro, ar-condicionado, ventilador, ponto de força |
+| Tomadas | Tomada baixa, média, alta, de piso |
+| Energia | Chuveiro, ar-condicionado, ventilador, ponto de força, campainha |
 | Iluminação | Luz de teto, arandela, luminária tubular, luz embutida, luz de emergência |
-| Interruptores | Simples, paralelo, intermediário |
+| Comandos | Interruptor simples, paralelo, intermediário, botão de campainha, fotocélula |
+| Eletrodutos | Caixa de passagem (além das ferramentas de eletroduto) |
+| Aterramento | Haste de aterramento, caixa de inspeção, BEP |
 | Quadros | Quadro de distribuição (QD), de comando (QC), de medição (QM), medição agrupada (CM) |
+
+- **Campainha:** o botão de campainha funciona como um interruptor: selecione o botão e a campainha e use **Ligar interruptor**. A **fotocélula** também: ligue-a às luminárias que ela acende ao anoitecer.
+- **Caixa de passagem:** é um nó da rede de eletrodutos, encaixado por **Conectar às caixas**; não tem carga nem circuito.
+- A **tomada TUG antiga** saiu da barra; use as tomadas baixa, média, alta e de piso. Ela continua em **Elétrica > Outros**, e as já desenhadas continuam funcionando.
 
 Cada ponto já nasce com potência, tensão, ligação (F+N, F+F ou 3F), altura de montagem e circuito, editáveis no painel de propriedades. Os quadros guardam a sigla em `Descricao` e, na medição, a quantidade de medidores em `Medidores`; eles não entram na soma de carga.
 
@@ -165,11 +171,12 @@ O botão **Fiação** desenha na planta os traços de fase, neutro e terra ao la
 | Grupo | Como é contado |
 |---|---|
 | Pontos | Por tipo, tensão e potência |
-| Interruptores | Simples, paralelo, intermediário |
-| Caixas | Uma por ponto: 4x2" na parede, octogonal 4x4" no teto, de piso |
+| Interruptores | Simples, paralelo, intermediário, botão de campainha, fotocélula |
+| Caixas | Uma por ponto: 4x2" na parede, octogonal 4x4" no teto, de piso; e as caixas de passagem |
 | Eletrodutos | Trechos horizontais e verticais por diâmetro, com 10 % de perdas |
 | Fios e cabos | Metros por seção e função: fase, neutro, terra, retorno |
 | Quadros | Símbolos de quadro e componentes de cada quadro |
+| Aterramento | Hastes, caixas de inspeção, BEP, conectores haste-cabo e cabo de cobre nu por seção, com 10 % de perdas |
 
 ### Legenda, notas e relatório
 
@@ -177,6 +184,14 @@ O botão **Fiação** desenha na planta os traços de fase, neutro e terra ao la
 - **Planilha de notas** e **Notas:** escreva as notas numa planilha, uma por linha; o botão as desenha numeradas embaixo da legenda.
 - **Sketches em preto:** os Sketches da bancada já nascem pretos; o botão repinta os de projetos antigos.
 - **Relatório PDF:** quadros, demandas, materiais e imagens dos diagramas.
+
+## Aterramento
+
+O botão **Aterramento** da barra *Planta elétrica* reúne:
+
+- **Haste de aterramento**, **Caixa de inspeção** e **BEP** (barramento de equipotencialização principal): símbolos na planta, guardados na pasta *Aterramento* do pavimento. A haste fica abaixo do piso no modelo 3D.
+- **Condutor de aterramento:** desenhe o caminho do cabo com uma linha, selecione-a e escolha a seção (16 a 70 mm²). A linha fica verde, vai para a pasta *Aterramento* e o comprimento entra nos quantitativos como cabo de cobre nu.
+- **Resistência de terra:** calcula a resistência de uma haste e de várias hastes em linha (fórmulas da IEEE 142) e o menor número de hastes que atinge a resistência desejada. Escolha o tipo de solo ou informe a resistividade medida.
 
 ## Cálculos prediais
 
@@ -186,6 +201,7 @@ O botão **Fiação** desenha na planta os traços de fase, neutro e terra ao la
 | Luminotécnico | Método dos lúmens: quantidade, malha e iluminância; distribui as luminárias no retângulo selecionado |
 | Pressurização | Vazão de ar da escada (portas fechadas e abertas), ventilador e motor |
 | Bomba de recalque | Vazão, tubo, altura manométrica e motor |
+| Resistência de terra | Resistência das hastes em linha e número de hastes (no botão Aterramento) |
 
 Os formulários mostram poucas perguntas, com listas de opções prontas; o resto fica em **Opções avançadas**. O resultado é recalculado a cada mudança, e os valores usados voltam na próxima vez. Pressurização e bomba podem inserir o ponto de força do motor na planta, para entrar nos circuitos.
 
@@ -195,7 +211,7 @@ Os botões com seta (▾) abrem uma lista; o botão mostra o último item usado.
 
 | Barra | Botões |
 |---|---|
-| Planta elétrica | Projeto ▾, Tomadas ▾, Energia ▾, Iluminação ▾, Interruptores ▾, Circuitos ▾, Eletrodutos ▾ |
+| Planta elétrica | Projeto ▾, Tomadas ▾, Energia ▾, Iluminação ▾, Comandos ▾, Circuitos ▾, Eletrodutos ▾, Aterramento ▾ |
 | Quadros e documentos | Quadros ▾, Dados do quadro ▾, Montar circuitos, Componentes, Unifilar, Cálculos ▾, Documentos ▾ |
 | Modelo e biblioteca | Modelo 3D ▾, Biblioteca ▾ |
 
@@ -206,6 +222,7 @@ As barras *Desenho*, *Modificador*, *Snap* e *Arquitetura* trazem as ferramentas
 - **Dimensionamento simplificado:** cabo e disjuntor só pela capacidade de condução (cobre, PVC, eletroduto embutido) e pela coordenação com o disjuntor. Queda de tensão, agrupamento, temperatura e curto-circuito não são verificados.
 - **Fios e verticais:** dependem de a rede de eletrodutos estar conectada às caixas. Prumadas entre pavimentos ainda não entram.
 - **Demanda:** fatores de guias residenciais, não conferidos com a fonte; cada concessionária tem a sua tabela, e a demanda do edifício inteiro não é calculada.
+- **Aterramento:** resistividades de solo típicas e fórmulas para hastes em linha; meça o solo e confira o valor máximo com a NBR 5410 e a NBR 5419.
 - **Pressurização, recalque e luminotécnico:** pré-dimensionamentos com parâmetros genéricos, a conferir com as normas, o Corpo de Bombeiros, o projeto hidráulico e os catálogos.
 - **Padrões:** pontos em 127 V (220 V para chuveiro, ar-condicionado e ponto de força); DR marcado em todos os circuitos de tomadas e de uso específico.
 - **Símbolos:** convenção da bancada, não cópia de uma norma.

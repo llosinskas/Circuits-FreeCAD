@@ -17,17 +17,29 @@ def _tipo(obj):
     return getattr(getattr(obj, "Proxy", None), "Type", "")
 
 
+def _categoria(obj):
+    return simbolos.CATALOGO[obj.Simbolo]["categoria"] if _tipo(obj) == "Ponto" else ""
+
+
 def eh_interruptor(obj):
-    return _tipo(obj) == "Switch"
+    """Interruptor, botão de campainha ou fotocélula: o que comanda outros pontos por uma letra."""
+    return _tipo(obj) == "Switch" or _categoria(obj) == simbolos.COMANDO
 
 
 def eh_ponto_de_luz(obj):
-    """Ponto comandado por interruptor: iluminação e ventilador."""
+    """Ponto comandado por interruptor ou botão: iluminação, ventilador e campainha."""
     if _tipo(obj) == "Lighting":
         return True
-    if _tipo(obj) == "Ponto":
+    if _tipo(obj) == "Ponto" and _categoria(obj) != simbolos.COMANDO:
         return simbolos.CATALOGO[obj.Simbolo]["tipo_circuito"] == simbolos.ILUM
     return False
+
+
+def tipo_de_comando(obj):
+    """Tipo do comando para a identificação dos cabos: Tipo do interruptor, ou a legenda do botão/fotocélula."""
+    if _tipo(obj) == "Switch":
+        return str(getattr(obj, "Tipo", ""))
+    return simbolos.CATALOGO[obj.Simbolo]["legenda"] if _tipo(obj) == "Ponto" else ""
 
 
 def tem_circuito(obj):
@@ -89,7 +101,10 @@ def ligar_interruptor(doc, objetos):
     interruptores = [obj for obj in objetos if eh_interruptor(obj)]
     luzes = [obj for obj in objetos if eh_ponto_de_luz(obj)]
     if not interruptores or not luzes:
-        raise ValueError("Selecione pelo menos um interruptor e um ponto de luz (ou ventilador).")
+        raise ValueError(
+            "Selecione pelo menos um interruptor (ou botão de campainha, ou fotocélula) e um ponto de luz, "
+            "ventilador ou campainha."
+        )
 
     nomes = {obj.Name for obj in interruptores + luzes}
     fora = [
@@ -208,7 +223,7 @@ def texto_dos_cabos(obj, secoes):
     quadro = str(getattr(obj, "Quadro", "")).strip()
     secao = secoes.get((quadro, circuito)) or secoes.get(("", circuito)) or _secao_minima(obj)
     if eh_interruptor(obj):
-        condutores = identificacao.condutores_no_ponto("interruptor", tipo_interruptor=str(getattr(obj, "Tipo", "")))
+        condutores = identificacao.condutores_no_ponto("interruptor", tipo_interruptor=tipo_de_comando(obj))
     else:
         tensao = str(getattr(obj, "Tensao", ""))
         ligacao = getattr(obj, "Ligacao", "F+F" if tensao == "Bifásica" else "F+N")

@@ -107,6 +107,7 @@ Regras gerais:
 | `GerarPlanilha`, `CircuitosQuadro`, `MontarCircuitos`, `AddCircuito`, `ComponentesQuadro`, `GerarUnifilar` | `gerar_unifilar` | `services/planilhas`, `circuitos`, `unifilar`, `identificacao`; `core/circuitos`, `quadro`; `UI/dialogs/quadro_dialogs` |
 | `ImportQET`, `Add_Node` | `import_QEletrotech` | `services/qet_import`, `eletrodutos`; `core/qet` |
 | `CalcDemanda` | `calculos` | `services/circuitos`; `core/functions/Predial/demanda` |
+| `CondutorAterramento`, `CalcAterramento` | `aterramento` | `services/aterramento`; `core/functions/Predial/aterramento`; `UI/dialogs/calculo_dialog` |
 | `CalcPressurizacao`, `CalcRecalque` | `calculos` | `core/functions/Predial/pressurizacao`, `recalque`, `motores`; `UI/dialogs/calculo_dialog` |
 | `DistribuirLuminarias` | `calculos` | `services/luminotecnico`; `core/functions/Predial/luminotecnico`; `UI/dialogs/calculo_dialog` |
 | `GenerateReport` | `reports` | `services/pdf_generator`; `UI/dialogs/report_dialog` |
@@ -119,7 +120,7 @@ As barras ficam em `init_gui.py`. As três barras próprias são enxutas: os com
 
 | Barra | Botões (▾ = grupo) |
 |---|---|
-| Planta elétrica | Projeto ▾, Tomadas ▾, Energia ▾, Iluminação ▾, Interruptores ▾, Circuitos ▾, Eletrodutos ▾ |
+| Planta elétrica | Projeto ▾, Tomadas ▾, Energia ▾, Iluminação ▾, Comandos ▾, Circuitos ▾, Eletrodutos ▾, Aterramento ▾ |
 | Quadros e documentos | Quadros ▾, Dados do quadro ▾, `MontarCircuitos`, `ComponentesQuadro`, `GerarUnifilar` (nesta ordem de uso), Cálculos ▾, Documentos ▾ |
 | Modelo e biblioteca | Modelo 3D ▾, Biblioteca ▾ |
 | Desenho, Modificador, Snap, Arquitetura | só os comandos nativos de uso frequente em planta; *Modificador* termina com `AlinharPontos`, `DistribuirPontos` e `EscalaSimbolos` |
@@ -127,23 +128,24 @@ As barras ficam em `init_gui.py`. As três barras próprias são enxutas: os com
 | Grupo | Comandos |
 |---|---|
 | `Grupo_Projeto` | `newProjetctEletrical`, `DefinirPavimento`, `AdicionarNivelBIM`, `MoverParaPavimento`, `AjustarCotas`, `newSpreadsheet`, `ImportQET` |
-| `Grupo_Tomadas` | `Ponto_tomada_baixa`, `_media`, `_alta`, `_piso`; `InsertTugs` |
-| `Grupo_Energia` | `Ponto_chuveiro`, `_ar_condicionado`, `_ventilador`, `_ponto_forca` |
+| `Grupo_Tomadas` | `Ponto_tomada_baixa`, `_media`, `_alta`, `_piso` |
+| `Grupo_Energia` | `Ponto_chuveiro`, `_ar_condicionado`, `_ventilador`, `_ponto_forca`, `_campainha` |
 | `Grupo_Iluminacao` | `Ponto_luz_teto`, `_arandela`, `_fluorescente`, `_embutida`, `_emergencia`; `DistribuirLuminarias` |
-| `Grupo_Interruptores` | `InsertSwitch`, `InsertSwitchParalelo`, `InsertSwitchIntermediario` |
+| `Grupo_Interruptores` (legenda "Comandos") | `InsertSwitch`, `InsertSwitchParalelo`, `InsertSwitchIntermediario`, `Ponto_botao_campainha`, `Ponto_fotocelula` |
+| `Grupo_Aterramento` | `Ponto_haste_aterramento`, `_caixa_inspecao`, `_bep`; `CondutorAterramento`, `CalcAterramento` |
 | `Grupo_Quadros` | `Ponto_quadro_distribuicao`, `_quadro_comando`, `_quadro_medicao`, `_medicao_agrupada` |
 | `Grupo_DadosQuadro` | `GerarPlanilha`, `CircuitosQuadro`, `AddCircuito` |
 | `Grupo_Circuitos` | `DefinirCircuito`, `LigarInterruptor`, `IdentificarPontos` |
-| `Grupo_Infra` | `InsertConduit`, `ConectarEletrodutos`, `Add_Node`, `ListaVerticais`, `Cabo` |
+| `Grupo_Infra` | `InsertConduit`, `Ponto_caixa_passagem`, `ConectarEletrodutos`, `Add_Node`, `ListaVerticais`, `Cabo` |
 | `Grupo_Calculos` | `CalcDemanda`, `CalcPressurizacao`, `CalcRecalque` |
 | `Grupo_Documentos` | `GerarQuantitativos`, `LegendaSimbolos`, `PlanilhaNotas`, `GerarNotas`, `PintarSketches`, `GenerateReport` |
 | `Grupo_3D` | `Generate3DSwitches`, `Generate3DConduits`, `Gerar3D` |
 | `Grupo_Biblioteca` | `InsertEquipaments`, `InsertComponent`, `CreateModel`, `ListElements` |
 
 - **Menus:** todo comando da bancada está no menu **Elétrica**, e todo comando nativo, inclusive os que saíram das barras, no menu **Desenho 2D**.
-- Só no menu **Elétrica > Outros**: `InsertOutlet` e `InsertLighting` (substituídos pelos pontos novos), `ComponentEletric`, `InsertWire`, `InsertCableTray`, `AddSpreadsheet`, `NewQuadro`, `GetSpaces`, `ReiniciarBancada`.
+- Só no menu **Elétrica > Outros**: `InsertTugs` (a tomada TUG em Sketch, substituída pelas tomadas novas), `InsertOutlet` e `InsertLighting` (substituídos pelos pontos novos), `ComponentEletric`, `InsertWire`, `InsertCableTray`, `AddSpreadsheet`, `NewQuadro`, `GetSpaces`, `ReiniciarBancada`.
 - **Legenda:** o `MenuText` de cada comando aparece embaixo do ícone nas barras próprias. Mantenha-o curto (até 24 caracteres) e único; a explicação vai no `ToolTip`. A preferência booleana `LegendaBotoes` em `BaseApp/Preferences/Mod/Circuits` desliga as legendas.
-- `tests/unit/test_toolbars.py` falha se um comando ficar fora do menu, se uma barra ou grupo citar um comando que não existe, se uma barra própria passar de 7 botões, se faltar um ícone ou se a legenda for longa ou repetida.
+- `tests/unit/test_toolbars.py` falha se um comando ficar fora do menu, se uma barra ou grupo citar um comando que não existe, se uma barra própria passar de 8 botões, se faltar um ícone ou se a legenda for longa ou repetida.
 
 ## Inserção de símbolos na planta
 
@@ -170,6 +172,8 @@ Os comandos se encontram pelos objetos do documento, não por estado em Python:
 - **Tomada em Sketch:** propriedade `tipo == "tomada"`, além de `Fase`, `neutro`, `terra` e `altura_piso`.
 - **Objetos FeaturePython:** `obj.Proxy.Type` vale `Ponto`, `Switch`, `Lighting`, `Outlet` ou `ConduitPath`.
 - **Ponto elétrico (`Ponto`):** a propriedade `Simbolo` é a chave de `core.simbolos.CATALOGO`. `Potencia` em VA, `FatorPotencia`, `Tensao`, `Ligacao` (`F+N`, `F+F`, `3F`), `Circuito` e `Quadro` (vazio vale para qualquer quadro). `MontarCircuitos` também lê `Outlet`, `Lighting` e as tomadas em Sketch.
+- **Categorias sem carga** (`core.simbolos.SEM_CARGA`): `QUADRO`, `COMANDO` (botão de campainha e fotocélula), `PASSAGEM` (caixa de passagem) e `ATERRAMENTO` (haste, caixa de inspeção, BEP) não entram em `MontarCircuitos`, na demanda nem na fiação desenhada. `COMANDO` se comporta como interruptor: `LigarInterruptor` aceita o botão e a fotocélula, a rede os trata como `tipo="interruptor"` e a identificação mostra `F+R` (botão) e `F+N+R` (fotocélula). A campainha é `ENERGIA` com `tipo_circuito` ILUM, então é comandada como uma luminária. A caixa de passagem entra na rede como `tipo="passagem"` (nó sem circuito) e vai para a pasta `eletrodutos`; o aterramento fica fora da rede e vai para a pasta `aterramento`, com alturas negativas (abaixo do piso).
+- **Condutor de aterramento:** linha (Draft Wire) com a propriedade `SecaoAterramento` (enum 16 a 70 mm²), marcada por `CondutorAterramento`, pintada de verde e guardada na pasta `aterramento`. Os quantitativos somam o comprimento por seção com `PERDA_CABO_ATERRAMENTO` e um conector haste-cabo por haste, no grupo "Aterramento".
 - **Quadros na planta:** também são `Ponto`, com `Simbolo` de categoria `QUADRO` (`quadro_distribuicao`, `quadro_comando`, `quadro_medicao`, `medicao_agrupada`). Não são carga: `MontarCircuitos` e `CalcDemanda` os ignoram. `Descricao` guarda a sigla (QD1, QC, QM, CM), `Medidores` a quantidade de medidores (só nos de medição) e `Circuito`, vazio por padrão, o circuito que alimenta o quadro. `GerarPlanilha` com um símbolo de quadro selecionado cria a planilha para ele: copia a sigla para a identificação e grava o nome da planilha na propriedade `Planilha` do símbolo.
 - **Componentes do quadro:** `ComponentesQuadro` lê a planilha do quadro e recria a planilha `Componentes_<nome do quadro>` (propriedade `componentes_de`) com item, especificação, quantidade e unidade.
 - **Medição no unifilar:** o medidor é desenhado na entrada quando a `origem` do quadro é a sigla de um símbolo de medição da planta, ou começa com QM, CM ou "medi". O unifilar também identifica o barramento de fases e desenha as barras de neutro e de terra.
@@ -261,10 +265,11 @@ Todos foram confirmados no código ou em execução e já existiam antes da reor
 - `core/functions/Predial/recalque.py`: singularidades estimadas em 30 % do comprimento e rendimento da bomba de 50 % são suposições, editáveis só no código ou no formulário (rendimento).
 - `core/formularios.py`, `LAMPADAS`: fluxo e potência das lâmpadas da lista são valores aproximados de mercado, não de um fabricante.
 - `core/functions/Predial/luminotecnico.py`: o fator de utilização vem de uma curva genérica por índice do local, e as iluminâncias por ambiente são valores usuais, ambos não conferidos com a NBR ISO/CIE 8995-1 nem com catálogo. O ambiente é sempre tratado como retângulo reto.
+- `core/functions/Predial/aterramento.py`: resistividades de solo típicas e λ = 2·(H_n − 1) como aproximação da tabela da IEEE 142 para hastes em linha; não calcula malha nem hastes em triângulo ou quadrado.
 - `core/circuitos.py`, `dimensionar`: o disjuntor de motores é escolhido só pela corrente nominal, sem considerar a partida.
 - `services/circuitos.py`, `_de_tomada_sketch`: lê potência e tensão das tomadas em Sketch pelo número bruto, porque elas são gravadas sem unidade. Falta confirmar no FreeCAD e migrar para grandezas com unidade.
 - `core/quadro.py`: correntes comerciais de DR e de barramento, quantidade de DPS e módulos da caixa são regras gerais, não de um fabricante. O DR é sempre por circuito; não há DR geral nem agrupamento de circuitos em um DR.
-- A cota no desenho (piso do pavimento + altura de montagem, `CotaPiso` e o `onChanged` dos objetos), a inserção no nível ativo do BIM, a identificação dos cabos, os interruptores na legenda, a rede de eletrodutos (Conectar às caixas, fios, verticais e o vértice de snap nos símbolos), o botão Quantitativos (leitura dos objetos reais e arquivos abertos no Excel/LibreOffice), a planilha de circuitos do quadro (criação, migração do formato antigo, leitura pelo unifilar), a criação de níveis do BIM (`Arch.makeBuildingPart` nunca foi chamado de verdade), os níveis do BIM como pavimentos (nunca testados com um BuildingPart real), a cor preta dos Sketches, os pavimentos e as pastas dos símbolos, o formulário de cálculo novo (opções avançadas, valores guardados, cálculo automático), o luminotécnico, as notas do projeto, a fiação em todos os pontos, a escala dos símbolos, os símbolos de quadro e medição, a lista de componentes do quadro, o medidor e os barramentos no unifilar, os botões de grupo (lista suspensa), as teclas da inserção (Espaço, R, L), os comandos Alinhar, Distribuir, Definir circuito, Ligar interruptor e Identificar pontos, os pontos novos, a legenda, `MontarCircuitos`, os cálculos prediais e as mudanças do unifilar têm teste unitário da lógica, mas ainda não foram executados no FreeCAD real: rode o `smoke_gui.py` e atualize este item.
+- Campainha, fotocélula, caixa de passagem e o módulo de aterramento (símbolos, condutor de cobre nu, resistência de terra), a cota no desenho (piso do pavimento + altura de montagem, `CotaPiso` e o `onChanged` dos objetos), a inserção no nível ativo do BIM, a identificação dos cabos, os interruptores na legenda, a rede de eletrodutos (Conectar às caixas, fios, verticais e o vértice de snap nos símbolos), o botão Quantitativos (leitura dos objetos reais e arquivos abertos no Excel/LibreOffice), a planilha de circuitos do quadro (criação, migração do formato antigo, leitura pelo unifilar), a criação de níveis do BIM (`Arch.makeBuildingPart` nunca foi chamado de verdade), os níveis do BIM como pavimentos (nunca testados com um BuildingPart real), a cor preta dos Sketches, os pavimentos e as pastas dos símbolos, o formulário de cálculo novo (opções avançadas, valores guardados, cálculo automático), o luminotécnico, as notas do projeto, a fiação em todos os pontos, a escala dos símbolos, os símbolos de quadro e medição, a lista de componentes do quadro, o medidor e os barramentos no unifilar, os botões de grupo (lista suspensa), as teclas da inserção (Espaço, R, L), os comandos Alinhar, Distribuir, Definir circuito, Ligar interruptor e Identificar pontos, os pontos novos, a legenda, `MontarCircuitos`, os cálculos prediais e as mudanças do unifilar têm teste unitário da lógica, mas ainda não foram executados no FreeCAD real: rode o `smoke_gui.py` e atualize este item.
 
 **Cálculos e tabelas, ainda sem uso na interface**
 - `core/functions/Barramento.py`: `Sec_tubular` gera `TypeError` (falta `*` em `math.pi(...)`) e não tem `return`. `Corrente_carga_maxima` usa `Qc*Qr-Qs`; conferir com a fonte, pois o balanço térmico sugere soma.

@@ -10,6 +10,7 @@ FORMULARIOS = {
     "luminotecnico": formularios.LUMINOTECNICO,
     "pressurizacao": formularios.PRESSURIZACAO,
     "recalque": formularios.RECALQUE,
+    "aterramento": formularios.ATERRAMENTO,
 }
 BASICOS_MAXIMOS = 4
 
@@ -63,6 +64,9 @@ class TestCampos(unittest.TestCase):
         self.assertEqual({c["chave"] for c in formularios.PRESSURIZACAO} - {"alimentacao"} - aceitos, set())
         aceitos = set(inspect.signature(recalque.dimensionar).parameters)
         self.assertEqual({c["chave"] for c in formularios.RECALQUE} - {"alimentacao"} - aceitos, set())
+        from freecad.Circuits.core.functions.Predial import aterramento
+        aceitos = set(inspect.signature(aterramento.dimensionar).parameters)
+        self.assertEqual({c["chave"] for c in formularios.ATERRAMENTO} - {"solo"} - aceitos, set())
 
 
 class TestValores(unittest.TestCase):

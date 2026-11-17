@@ -86,8 +86,8 @@ PROJECT_TOOLS = [
     "newSpreadsheet",
     "ImportQET",
 ]
-OUTLET_TOOLS = ["Ponto_tomada_baixa", "Ponto_tomada_media", "Ponto_tomada_alta", "Ponto_tomada_piso", "InsertTugs"]
-POWER_TOOLS = ["Ponto_chuveiro", "Ponto_ar_condicionado", "Ponto_ventilador", "Ponto_ponto_forca"]
+OUTLET_TOOLS = ["Ponto_tomada_baixa", "Ponto_tomada_media", "Ponto_tomada_alta", "Ponto_tomada_piso"]
+POWER_TOOLS = ["Ponto_chuveiro", "Ponto_ar_condicionado", "Ponto_ventilador", "Ponto_ponto_forca", "Ponto_campainha"]
 LIGHTING_TOOLS = [
     "Ponto_luz_teto",
     "Ponto_arandela",
@@ -96,10 +96,23 @@ LIGHTING_TOOLS = [
     "Ponto_emergencia",
     "DistribuirLuminarias",
 ]
-SWITCH_TOOLS = ["InsertSwitch", "InsertSwitchParalelo", "InsertSwitchIntermediario"]
+SWITCH_TOOLS = [
+    "InsertSwitch",
+    "InsertSwitchParalelo",
+    "InsertSwitchIntermediario",
+    "Ponto_botao_campainha",
+    "Ponto_fotocelula",
+]
+GROUNDING_TOOLS = [
+    "Ponto_haste_aterramento",
+    "Ponto_caixa_inspecao",
+    "Ponto_bep",
+    "CondutorAterramento",
+    "CalcAterramento",
+]
 BOARD_SYMBOL_TOOLS = ["Ponto_quadro_distribuicao", "Ponto_quadro_comando", "Ponto_quadro_medicao", "Ponto_medicao_agrupada"]
 CIRCUIT_TOOLS = ["DefinirCircuito", "LigarInterruptor", "IdentificarPontos"]
-INFRA_TOOLS = ["InsertConduit", "ConectarEletrodutos", "Add_Node", "ListaVerticais", "Cabo"]
+INFRA_TOOLS = ["InsertConduit", "Ponto_caixa_passagem", "ConectarEletrodutos", "Add_Node", "ListaVerticais", "Cabo"]
 BOARD_DATA_TOOLS = ["GerarPlanilha", "CircuitosQuadro", "AddCircuito"]
 BOARD_TOOLS = ["GerarPlanilha", "CircuitosQuadro", "AddCircuito", "MontarCircuitos", "ComponentesQuadro", "GerarUnifilar"]
 CALC_TOOLS = ["CalcDemanda", "CalcPressurizacao", "CalcRecalque"]
@@ -116,6 +129,7 @@ LIBRARY_TOOLS = ["InsertEquipaments", "InsertComponent", "CreateModel", "ListEle
 
 # Só no menu: comandos antigos, incompletos ou de uso raro.
 EXTRA_TOOLS = [
+    "InsertTugs",
     "InsertOutlet",
     "InsertLighting",
     "ComponentEletric",
@@ -131,14 +145,23 @@ EXTRA_TOOLS = [
 # O botão mostra o ícone do último comando usado; a seta abre os demais.
 GROUPS = {
     "Grupo_Projeto": ("Projeto", "Novo projeto, pavimentos, planilha de circuitos e importação do QElectroTech", PROJECT_TOOLS),
-    "Grupo_Tomadas": ("Tomadas", "Tomadas baixa, média, alta, de piso e TUG", OUTLET_TOOLS),
-    "Grupo_Energia": ("Energia", "Chuveiro, ar-condicionado, ventilador e ponto de força", POWER_TOOLS),
+    "Grupo_Tomadas": ("Tomadas", "Tomadas baixa, média, alta e de piso", OUTLET_TOOLS),
+    "Grupo_Energia": ("Energia", "Chuveiro, ar-condicionado, ventilador, ponto de força e campainha", POWER_TOOLS),
     "Grupo_Iluminacao": ("Iluminação", "Luz de teto, arandela, tubular, embutida, de emergência e o luminotécnico", LIGHTING_TOOLS),
-    "Grupo_Interruptores": ("Interruptores", "Interruptor simples, paralelo e intermediário", SWITCH_TOOLS),
+    "Grupo_Interruptores": (
+        "Comandos", "Interruptor simples, paralelo e intermediário, botão de campainha e fotocélula", SWITCH_TOOLS
+    ),
+    "Grupo_Aterramento": (
+        "Aterramento", "Haste, caixa de inspeção, BEP, condutor de cobre nu e resistência de aterramento",
+        GROUNDING_TOOLS,
+    ),
     "Grupo_Quadros": ("Quadros", "Quadro de distribuição, de comando, de medição e medição agrupada, na planta", BOARD_SYMBOL_TOOLS),
     "Grupo_DadosQuadro": ("Dados do quadro", "Planilha de dados do quadro, planilha de circuitos e circuito digitado em formulário", BOARD_DATA_TOOLS),
     "Grupo_Circuitos": ("Circuitos", "Definir o circuito dos pontos, ligar interruptores e identificar na planta", CIRCUIT_TOOLS),
-    "Grupo_Infra": ("Eletrodutos", "Eletroduto, conexão às caixas, divisão de trecho, lista de verticais e fiação", INFRA_TOOLS),
+    "Grupo_Infra": (
+        "Eletrodutos", "Eletroduto, caixa de passagem, conexão às caixas, divisão de trecho, verticais e fiação",
+        INFRA_TOOLS,
+    ),
     "Grupo_Calculos": ("Cálculos", "Demanda do quadro, pressurização de escada e bomba de recalque", CALC_TOOLS),
     "Grupo_Documentos": ("Documentos", "Quantitativos, legenda de símbolos, notas, Sketches em preto e relatório em PDF", DOCUMENT_TOOLS),
     "Grupo_3D": ("Modelo 3D", "Caixas, eletrodutos e tomadas em 3D, gerados a partir da planta", MODEL_3D_TOOLS),
@@ -157,6 +180,7 @@ ELECTRIC_TOOLBARS = [
             "Grupo_Interruptores",
             "Grupo_Circuitos",
             "Grupo_Infra",
+            "Grupo_Aterramento",
         ],
     ),
     (
@@ -186,7 +210,8 @@ MENUS = [
     ([MENU, "Tomadas"], OUTLET_TOOLS),
     ([MENU, "Pontos de energia"], POWER_TOOLS),
     ([MENU, "Iluminação"], LIGHTING_TOOLS),
-    ([MENU, "Interruptores"], SWITCH_TOOLS),
+    ([MENU, "Comandos e campainha"], SWITCH_TOOLS),
+    ([MENU, "Aterramento"], GROUNDING_TOOLS),
     ([MENU, "Quadros e medição"], BOARD_SYMBOL_TOOLS),
     ([MENU, "Circuitos e comandos"], CIRCUIT_TOOLS),
     ([MENU, "Alinhar e escalar símbolos"], ALIGN_TOOLS),
@@ -246,6 +271,7 @@ class CircuitsWorkbench(gui.Workbench):
         # Cada módulo registra os próprios comandos ao ser importado.
         from .commands import (  # noqa: F401
             alinhar,
+            aterramento,
             identificacao,
             pavimentos,
             rede,
