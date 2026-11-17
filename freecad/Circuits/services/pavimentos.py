@@ -237,12 +237,14 @@ def chave_do_objeto(obj):
         return regras.pasta_do_objeto(tipo, obj.Simbolo)
     if getattr(obj, "tipo", "") == "tomada":
         return regras.pasta_do_objeto("tomada")
-    if not tipo and hasattr(obj, "Points") and hasattr(obj, "TipoBandeja"):
-        return regras.pasta_do_objeto("bandeja")  # linha marcada como eletrocalha ou leito
-    if not tipo and hasattr(obj, "Points") and hasattr(obj, "SecaoAterramento"):
-        return regras.pasta_do_objeto("condutor_aterramento")  # linha marcada como condutor de aterramento
-    if not tipo and all(hasattr(obj, nome) for nome in ("Points", "Diametro", "Altura3D")):
-        return regras.pasta_do_objeto("eletroduto")  # Draft Wire marcado como eletroduto
+    # Linhas do Draft (Proxy.Type == "Wire") marcadas pela bancada: a marca decide, não o tipo.
+    if hasattr(obj, "Points") and tipo != "ConduitPath":
+        if hasattr(obj, "TipoBandeja"):
+            return regras.pasta_do_objeto("bandeja")  # eletrocalha ou leito
+        if hasattr(obj, "SecaoAterramento"):
+            return regras.pasta_do_objeto("condutor_aterramento")
+        if hasattr(obj, "Diametro") and hasattr(obj, "Altura3D"):
+            return regras.pasta_do_objeto("eletroduto")
     return regras.pasta_do_objeto(tipo)
 
 

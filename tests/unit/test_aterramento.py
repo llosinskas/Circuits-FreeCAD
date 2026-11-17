@@ -91,12 +91,14 @@ class TestCondutor(unittest.TestCase):
 
         linha, texto = Linha(), types.SimpleNamespace(Name="Texto")
         doc = mock.MagicMock()
+        nivel = object()  # o pavimento onde os símbolos entram (nível ativo do BIM, selecionado ou ativo)
         with mock.patch.object(self.servico.pavimentos, "pavimento_do_objeto", return_value=None), \
+                mock.patch.object(self.servico.pavimentos, "pavimento_para_insercao", return_value=nivel), \
                 mock.patch.object(self.servico.pavimentos, "arquivar") as arquivar:
             self.assertEqual(self.servico.marcar_condutores(doc, [linha, texto], "35"), 1)
         self.assertEqual(linha.SecaoAterramento, "35")
         self.assertEqual(linha.ViewObject.LineColor, self.servico.COR_ATERRAMENTO)
-        arquivar.assert_called_once_with(doc, linha)
+        arquivar.assert_called_once_with(doc, linha, nivel)
         self.assertTrue(self.servico.eh_condutor(linha))
 
 

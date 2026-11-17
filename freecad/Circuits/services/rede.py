@@ -138,12 +138,15 @@ def conectar(doc, objetos=(), tolerancia=regras.TOLERANCIA_ENCAIXE_MM):
     caminhos = [obj for obj in objetos if hasattr(obj, "Points")] or listar_eletrodutos(doc)
     caixas = listar_caixas(doc)
     ligadas = set()
+    destino = None
     doc.openTransaction("Conectar eletrodutos às caixas")
     try:
         for obj in caminhos:
             _preparar_caminho(obj)
             if pavimentos.pavimento_do_objeto(doc, obj) is None:
-                pavimentos.arquivar(doc, obj)  # vai para a pasta Eletrodutos do pavimento ativo
+                # pasta Eletrodutos do pavimento em que os símbolos entram (nível ativo do BIM, selecionado ou ativo)
+                destino = destino or pavimentos.pavimento_para_insercao(doc)
+                pavimentos.arquivar(doc, obj, destino)
             pav = _pavimento(doc, obj)
             proximas = [c for c in caixas if _mesmo_pavimento(c["pavimento"], pav)]
             novos, encaixadas = regras.encaixar(_pontos(obj), [(c["x"], c["y"]) for c in proximas], tolerancia)

@@ -25,6 +25,7 @@ def marcar_condutores(doc, objetos, secao=SECAO_PADRAO):
         Quantidade de linhas marcadas; objetos que não são linhas são ignorados.
     """
     linhas = [obj for obj in objetos if hasattr(obj, "Points")]
+    destino = pavimentos.pavimento_para_insercao(doc) if linhas else None
     doc.openTransaction("Condutor de aterramento")
     try:
         for obj in linhas:
@@ -34,7 +35,7 @@ def marcar_condutores(doc, objetos, secao=SECAO_PADRAO):
                 obj.SecaoAterramento = SECOES
             obj.SecaoAterramento = str(secao)
             if pavimentos.pavimento_do_objeto(doc, obj) is None:
-                pavimentos.arquivar(doc, obj)
+                pavimentos.arquivar(doc, obj, destino)  # mesmo pavimento em que os símbolos entram
             pintar_linha(obj, COR_ATERRAMENTO)
         doc.commitTransaction()
     except Exception:

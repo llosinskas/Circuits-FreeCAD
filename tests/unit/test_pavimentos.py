@@ -331,6 +331,26 @@ class TestServico(unittest.TestCase):
         self.assertEqual(self.servico.cota_no_desenho(self.doc, tomada), 3000.0)
         self.assertEqual(self.servico.cota_3d(self.doc, tomada), 5000.0)
 
+    def linha_do_draft(self, nome, **marcas):
+        """Draft Wire de verdade tem Proxy.Type == 'Wire'."""
+        obj = Objeto(nome, Points=[], Proxy=types.SimpleNamespace(Type="Wire"), **marcas)
+        return self.adicionar(obj)
+
+    def test_linhas_do_draft_marcadas_vao_para_a_pasta_certa(self):
+        self.assertEqual(self.servico.chave_do_objeto(self.linha_do_draft("B", TipoBandeja="leito")), "bandejas")
+        self.assertEqual(self.servico.chave_do_objeto(self.linha_do_draft("E", Diametro="3/4", Altura3D=2800.0)),
+                         "eletrodutos")
+        self.assertEqual(self.servico.chave_do_objeto(self.linha_do_draft("A", SecaoAterramento="50")), "aterramento")
+        self.assertIsNone(self.servico.chave_do_objeto(self.linha_do_draft("L")))  # linha comum não é arquivada
+
+    def test_arquivar_linha_do_draft_no_pavimento(self):
+        terreo = self.servico.definir(self.doc, "Térreo", 0, 3000)
+        bandeja = self.linha_do_draft("B", TipoBandeja="leito")
+        eletroduto = self.linha_do_draft("E", Diametro="3/4", Altura3D=2800.0)
+        self.assertEqual(self.servico.arquivar(self.doc, bandeja, terreo).pasta, "bandejas")
+        self.assertEqual(self.servico.arquivar(self.doc, eletroduto, terreo).pasta, "eletrodutos")
+        self.assertIs(self.servico.pavimento_do_objeto(self.doc, bandeja), terreo)
+
     def test_pasta_de_circuitos_e_fiacao_no_pavimento_do_simbolo(self):
         terreo = self.servico.definir(self.doc, "Térreo", 0, 3000)
         tomada = self.adicionar(self._com_posicao(ponto("T1", "tomada_baixa"), Altura3D=300.0))

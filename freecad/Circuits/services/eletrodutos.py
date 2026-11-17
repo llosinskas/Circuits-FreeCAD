@@ -137,9 +137,18 @@ def _gerar_tubo(doc, obj, tomadas):
 
 
 def gerar_tubos(doc, caminhos):
-    """Gera o tubo 3D de cada caminho. Devolve quantos foram criados."""
+    """Gera o tubo 3D de cada caminho. Devolve quantos foram criados.
+
+    As linhas que ainda não estão num pavimento entram antes na pasta
+    Eletrodutos do pavimento de inserção (nível ativo do BIM, selecionado ou
+    ativo), para o tubo 3D ir para a subpasta 3D dela.
+    """
+    destino = None
     for obj in caminhos:
         _preparar_caminho(obj)
+        if pavimentos.pavimento_do_objeto(doc, obj) is None:
+            destino = destino or pavimentos.pavimento_para_insercao(doc)
+            pavimentos.arquivar(doc, obj, destino)
     doc.recompute()  # as curvas dos Wires precisam estar atualizadas antes da varredura
 
     tomadas = listar_tomadas(doc)

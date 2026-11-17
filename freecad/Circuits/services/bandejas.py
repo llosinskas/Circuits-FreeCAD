@@ -44,6 +44,7 @@ def marcar(doc, objetos, tipo=regras.TIPO_PADRAO, largura=regras.LARGURA_PADRAO_
         Linhas marcadas.
     """
     linhas = [obj for obj in objetos if hasattr(obj, "Points")]
+    destino = pavimentos.pavimento_para_insercao(doc) if linhas else None
     for obj in linhas:
         if not hasattr(obj, "TipoBandeja"):
             obj.addProperty("App::PropertyEnumeration", "TipoBandeja", "Bandeja", "Eletrocalha ou leito para cabos")
@@ -54,7 +55,7 @@ def marcar(doc, objetos, tipo=regras.TIPO_PADRAO, largura=regras.LARGURA_PADRAO_
         _propriedade(obj, "App::PropertyDistance", "AlturaBandeja", "Do piso à base da bandeja", float(altura))
         _propriedade(obj, "App::PropertyBool", "Tampa", "Bandeja com tampa", bool(tampa))
         if pavimentos.pavimento_do_objeto(doc, obj) is None:
-            pavimentos.arquivar(doc, obj)
+            pavimentos.arquivar(doc, obj, destino)  # mesmo pavimento em que os símbolos entram
         try:
             obj.ViewObject.LineColor = COR_BANDEJA
             obj.ViewObject.LineWidth = 3.0

@@ -245,14 +245,16 @@ class TestServico(unittest.TestCase):
             obj.Diametro, obj.Altura3D = "3/4", 2800.0
 
         doc = self.documento(tomada, linha)
+        nivel = object()  # o pavimento onde os símbolos entram (nível ativo do BIM, selecionado ou ativo)
         with mock.patch.object(self.servico, "_preparar_caminho", side_effect=preparar), \
                 mock.patch.object(self.servico, "listar_simbolos", return_value=[tomada]), \
                 mock.patch.object(self.servico.pavimentos, "pavimento_do_objeto", return_value=None), \
+                mock.patch.object(self.servico.pavimentos, "pavimento_para_insercao", return_value=nivel), \
                 mock.patch.object(self.servico.pavimentos, "arquivar") as arquivar:
             tratados, ligadas, soltas = self.servico.conectar(doc, [linha])
         self.assertEqual((tratados, ligadas, soltas), (1, 1, []))
         self.assertEqual([(p.x, p.y) for p in linha.Points], [(0, 0), (3000, 150)])
-        arquivar.assert_called_once_with(doc, linha)
+        arquivar.assert_called_once_with(doc, linha, nivel)
         doc.commitTransaction.assert_called_once()
 
     def test_campainha_passagem_e_aterramento_na_rede(self):

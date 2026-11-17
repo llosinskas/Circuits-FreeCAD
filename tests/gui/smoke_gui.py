@@ -331,6 +331,10 @@ def scenario(doc):
     run("GerarSuportes")  # segunda execução: precisa substituir, não duplicar
     result["steps"]["bandejas"] = {
         "marcadas": [o.Name for o in doc.Objects if hasattr(o, "TipoBandeja")],
+        # linhas reais do Draft (Proxy.Type == "Wire") precisam cair na pasta do pavimento
+        "pastas": sorted({getattr(o.getParentGroup(), "Label", "") for o in doc.Objects if hasattr(o, "TipoBandeja")}),
+        "pastas_eletrodutos": sorted({getattr(o.getParentGroup(), "Label", "") for o in doc.Objects
+                                      if hasattr(o, "Diametro") and hasattr(o, "Altura3D") and hasattr(o, "Points")}),
         "conexoes": sorted(o.conexao_bandeja for o in doc.Objects if hasattr(o, "conexao_bandeja")),
         "suportes": [(o.Label, o.Quantidade) for o in doc.Objects if hasattr(o, "suportes_de")],
         "modelos_3d": [o.Name for o in doc.Objects if o.Name.endswith("_3D") and o.Name.startswith("Wire")],

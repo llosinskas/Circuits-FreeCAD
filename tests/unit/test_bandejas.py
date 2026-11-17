@@ -395,13 +395,15 @@ class TestServico(unittest.TestCase):
     def test_marcar_e_analisar_por_pavimento(self):
         a, b = self.linha("A", [(0, 0), (3000, 0), (3000, 3000)]), self.linha("B", [(0, 0), (0, 3000)])
         doc = types.SimpleNamespace(Objects=[a, b, Objeto("texto")])
+        nivel = object()  # o pavimento onde os símbolos entram (nível ativo do BIM, selecionado ou ativo)
         with mock.patch.object(self.servico.pavimentos, "pavimento_do_objeto", return_value=None), \
+                mock.patch.object(self.servico.pavimentos, "pavimento_para_insercao", return_value=nivel), \
                 mock.patch.object(self.servico.pavimentos, "arquivar") as arquivar:
             marcadas = self.servico.marcar(doc, [a, Objeto("sem pontos")], tipo="leito", largura=300, aba=100,
                                            altura=2500, tampa=True)
             self.servico.marcar(doc, [b])
         self.assertEqual(marcadas, [a])
-        self.assertEqual(arquivar.call_count, 2)
+        self.assertEqual([c.args for c in arquivar.call_args_list], [(doc, a, nivel), (doc, b, nivel)])
         self.assertEqual((a.TipoBandeja, a.Largura, a.Aba, a.AlturaBandeja, a.Tampa), ("leito", 300.0, 100.0, 2500.0, True))
         self.assertEqual(a.ViewObject.LineColor, self.servico.COR_BANDEJA)
         self.assertEqual(self.servico.listar(doc), [a, b])
