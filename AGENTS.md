@@ -22,6 +22,7 @@ Não edite nem apague `.FCStd` sem pedido explícito: são binários do usuário
 Circuits/                        pasta dentro de Mod/, raiz do repositório
 ├── package.xml                  metadados do Addon Manager
 ├── tests/unit/                  testes sem FreeCAD
+├── tests/plano/                 testes de especificação das próximas etapas (falham até a etapa existir)
 ├── tests/gui/smoke_gui.py       regressão com o FreeCAD real
 ├── docs/                        guias antigos (podem estar desatualizados)
 ├── Planejamento.md              roadmap antigo; o atual é docs/Plano_proximas_etapas.md
@@ -234,6 +235,12 @@ Execute sempre a partir da raiz do repositório. O Python do FreeCAD já tem `pa
 
 ```bash
 "/c/Program Files/FreeCAD 1.1/bin/python.exe" -B -m unittest discover -s tests/unit -t .
+```
+
+**Especificações do plano** (`docs/Plano_proximas_etapas.md`): `tests/plano/` descreve as etapas ainda não implementadas e falha de propósito, com a mensagem "Etapa N: o módulo ... ainda não existe". Não entra no comando acima. Ao implementar uma etapa, faça os testes dela passarem e mova o arquivo para `tests/unit/`.
+
+```bash
+"/c/Program Files/FreeCAD 1.1/bin/python.exe" -B -m unittest discover -s tests/plano -t .
 ```
 
 **Regressão no FreeCAD real.** Sem janela e sem gravar na biblioteca, executa os comandos e grava um retrato JSON do documento. Para mudanças em `commands`, `services`, `objects` ou `UI`, gere um retrato antes e outro depois, e compare. Qualquer diferença precisa ser intencional.

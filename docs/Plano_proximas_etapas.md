@@ -24,6 +24,50 @@ O que falta para virar um projeto completo, nesta ordem:
 Cada etapa tem entradas, o que sai, onde fica no código e como é testada. Uma etapa só
 começa quando a anterior passa no `smoke_gui.py`.
 
+## Testes de especificação
+
+As etapas 1 a 4 e 6 já têm testes escritos antes do código, em `tests/plano/`:
+
+```bash
+python -B -m unittest discover -s tests/plano -t .
+```
+
+| Arquivo | Módulo esperado | Testes |
+|---|---|---|
+| `test_pre_requisitos.py` | o que já existe e o plano reaproveita | 4, passam |
+| `test_etapa1_quadro_de_cargas.py` | `core/quadro_cargas.py` | 14 |
+| `test_etapa2_parametros.py` | `core/parametros.py` | 7 |
+| `test_etapa3_nbr5410.py` | `core/nbr5410.py` e `comprimento` em `core/rede.py` | 25 |
+| `test_etapa4_ocupacao.py` | `core/ocupacao.py` | 8 |
+| `test_etapa6_comando.py` | `core/comando.py` | 8 |
+
+Enquanto o módulo não existe, cada teste falha (não dá erro) com "Etapa N: o módulo ...
+ainda não existe". Ao implementar uma etapa, os testes dela passam a `tests/unit/`.
+As etapas 0, 5 e 7 ficam sem teste de especificação: a 0 e a 7 dependem do FreeCAD
+real, e a 5 da concessionária, que ainda não foi escolhida.
+
+## O que a análise do plano mudou
+
+- **Comprimento do circuito:** o `trajeto` de `core.rede` é só o trecho horizontal. A
+  queda de tensão precisa somar as descidas até o quadro e até a caixa; a rede ganha a
+  chave `comprimento` (Etapa 3).
+- **Balanço e reservas já existem:** `core.circuitos.distribuir_fases` e
+  `core.quadro.reserva_de_circuitos`. A Etapa 1 só os usa, sem gravar na planilha
+  sem a confirmação do usuário.
+- **Método de instalação em bandeja aberta:** é F com cabos unipolares e E com
+  multipolar; a eletrocalha lisa (fechada) conta como B1.
+- **Condutor isolado em bandeja aberta:** a norma não permite; nesse trajeto o cabo
+  precisa ser 0,6/1 kV. A Etapa 3 avisa (`exige_cabo`), e os quantitativos vão precisar
+  separar "Cabo flexível 750 V" de cabo 0,6/1 kV.
+- **Tabela de temperatura com erro:** `core/tables/NBR5410/fator_correcao_temperatura_ar_livre.py`
+  pula 30 °C e tem 0,96 em 40 °C para EPR (o certo é 0,91). A Etapa 3 usa tabelas novas, em
+  dicionário, e as antigas em pandas saem.
+- **Curto-circuito:** já existe uma fórmula com temperaturas em
+  `core/functions/Cabo/limite_curto_circuito.py`; a Etapa 3 usa o k da tabela 30
+  (S ≥ I·√t / k) e a antiga é removida para não haver duas respostas.
+- **Ocupação da bandeja:** a NBR 5410 não dá uma taxa como a do eletroduto. Fica fora
+  da Etapa 4 até decidirmos a regra (camada única pela largura ou catálogo do fabricante).
+
 ---
 
 ## Etapa 0: validar no FreeCAD real
@@ -89,8 +133,8 @@ Usar o que a rede já calcula para fechar os 6 critérios de cada circuito:
 | Critério | De onde vem o dado |
 |---|---|
 | Seção mínima (tabela 47) | Tipo do circuito (iluminação, força) |
-| Capacidade de condução com FCT e FCA (tabelas 36 a 45) | Método de instalação pelo trajeto: eletroduto embutido → B1, eletrocalha perfurada → E, leito → F; agrupamento = maior número de circuitos num trecho do trajeto; temperatura dos parâmetros |
-| Queda de tensão | Comprimento do trajeto na rede (`circuitos` de `core.rede.analisar`) |
+| Capacidade de condução com FCT e FCA (tabelas 36 a 45) | Método de instalação pelo trajeto: eletroduto ou eletrocalha lisa → B1; eletrocalha perfurada e leito → F (cabos unipolares) ou E (multipolar); agrupamento = maior número de circuitos num trecho do trajeto; temperatura dos parâmetros |
+| Queda de tensão | Comprimento do circuito na rede, com as descidas (`comprimento`, a criar em `core.rede`) |
 | Sobrecarga (Ib ≤ In ≤ Iz) | Já existe |
 | Curto-circuito (S ≥ I·√t / k) e capacidade de interrupção | Icc dos parâmetros, reduzida pela impedância do alimentador |
 | Contatos indiretos (Zs·Ia ≤ U0 no TN; DR no TT) | Esquema de aterramento e comprimento |
@@ -108,7 +152,7 @@ Usar o que a rede já calcula para fechar os 6 critérios de cada circuito:
 | Item | Regra | Saída |
 |---|---|---|
 | Diâmetro do eletroduto por trecho | Taxa de ocupação: 53 % com 1 cabo, 31 % com 2, 40 % com 3 ou mais | Propriedade `Diametro` sugerida em cada trecho, com aviso quando o desenhado é menor |
-| Largura da bandeja | Soma das seções externas dos cabos e taxa de ocupação | `Largura` sugerida e aviso |
+| Largura da bandeja | Regra a definir (a NBR 5410 não dá uma taxa como a do eletroduto) | `Largura` sugerida e aviso |
 | Fios por trecho | Já calculado pela rede | Identificação na planta (`#2,5 F+N+T` no trecho) |
 
 - **Código:** `core/rede.py`, `core/bandejas.py`, `core/tables/eletrodutos.py` (diâmetro externo dos cabos).
