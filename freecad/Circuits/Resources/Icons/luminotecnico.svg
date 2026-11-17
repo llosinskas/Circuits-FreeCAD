@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64">
+  <!-- Luminotécnico: retângulo do ambiente com as luminárias em malha -->
+  <path d="M6 10H58V54H6Z M25 22A5 5 0 1 1 15 22A5 5 0 1 1 25 22M49 22A5 5 0 1 1 39 22A5 5 0 1 1 49 22M25 42A5 5 0 1 1 15 42A5 5 0 1 1 25 42M49 42A5 5 0 1 1 39 42A5 5 0 1 1 49 42" fill="none" stroke-linecap="round" stroke-linejoin="round" stroke="#ffffff" stroke-width="7" stroke-opacity="0.85"/>
+  <path d="M6 10H58V54H6Z" fill="none" stroke-linecap="round" stroke-linejoin="round" stroke="#5f6368" stroke-width="3" stroke-dasharray="6 5"/>
+  <path d="M25 22A5 5 0 1 1 15 22A5 5 0 1 1 25 22M49 22A5 5 0 1 1 39 22A5 5 0 1 1 49 22M25 42A5 5 0 1 1 15 42A5 5 0 1 1 25 42M49 42A5 5 0 1 1 39 42A5 5 0 1 1 49 42" fill="none" stroke-linecap="round" stroke-linejoin="round" stroke="#b06000" stroke-width="3"/>
+</svg>

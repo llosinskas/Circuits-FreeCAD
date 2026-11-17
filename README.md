@@ -12,6 +12,7 @@ O projeto está em desenvolvimento. A seção [Limitações](#limitações) diz 
 - **Diagrama unifilar:** gerado a partir da planilha de cada quadro, com medidor, disjuntor geral, DPS, barramentos de fases, neutro e terra, e disjuntor, DR, fases, cabo e potência de cada circuito.
 - **Componentes do quadro:** lista de disjuntores, DR, DPS, barramentos e tamanho da caixa em módulos.
 - **Cálculos prediais:** demanda do quadro, pré-dimensionamento do ventilador de pressurização de escada e da bomba de recalque, com o motor elétrico de cada um.
+- **Luminotécnico:** calcula e distribui as luminárias dentro de um retângulo desenhado no ambiente.
 - **Legenda:** desenha ao lado da planta a legenda dos símbolos usados.
 - **Notas:** você escreve as notas do projeto numa planilha e um botão as desenha na planta.
 - **Fiação:** um botão desenha os traços de fase, neutro e terra em todas as tomadas e pontos.
@@ -130,6 +131,14 @@ O botão **Circuitos** da barra *Planta elétrica* reúne três comandos:
 
 A fiação e a identificação acompanham o tamanho do símbolo; gere-as de novo depois de mudar a escala.
 
+## Luminotécnico
+
+1. Desenhe um retângulo no contorno do ambiente, com a ferramenta de retângulo da barra *Desenho*, e selecione-o.
+2. Abra **Iluminação > Luminotécnico**. Escolha o ambiente (que define a iluminância), a luminária, o fluxo luminoso e a potência de cada uma, o pé-direito e o circuito.
+3. **Calcular** mostra o número de luminárias, a malha e a iluminância resultante. **Distribuir luminárias** as coloca dentro do retângulo, com o mesmo espaçamento entre elas e metade até as paredes.
+
+Repetir o comando no mesmo retângulo troca as luminárias anteriores pelas novas. Se tiver o fator de utilização do catálogo da luminária, informe-o; sem ele, o cálculo usa uma estimativa.
+
 ## Notas do projeto
 
 1. **Documentos > Planilha de notas** abre a planilha `Notas`, criada na primeira vez com três exemplos. Escreva uma nota por linha na coluna A, a partir da linha 3.
@@ -152,7 +161,7 @@ As barras da bancada têm poucos botões. Os que têm uma seta (▾) abrem uma l
 | Projeto | Novo projeto, Planilha de circuitos, Importar QET |
 | Tomadas | Tomada baixa, média, alta, de piso, Tomada TUG |
 | Energia | Chuveiro, Ar-condicionado, Ventilador, Ponto de força |
-| Iluminação | Luz de teto, Arandela, Luminária tubular, Luz embutida, Luz de emergência |
+| Iluminação | Luz de teto, Arandela, Luminária tubular, Luz embutida, Luz de emergência, Luminotécnico |
 | Interruptores | Simples, paralelo, intermediário |
 | Quadros | Quadro distribuição, Quadro de comando, Quadro de medição, Medição agrupada |
 | Dados do quadro | Planilha do quadro, Circuito |
@@ -172,6 +181,7 @@ O texto embaixo de cada ícone pode ser desligado pela preferência `LegendaBoto
 - **Dimensionamento simplificado.** *Montar circuitos* verifica só a capacidade de condução (cabo de cobre com PVC, em eletroduto embutido) e a coordenação com o disjuntor. Não calcula queda de tensão, agrupamento, temperatura nem curto-circuito. Confira o resultado antes de usar.
 - **Demanda:** usa fatores de guias de instalações residenciais, não conferidos com a fonte. Cada concessionária tem tabela própria, e a demanda do edifício inteiro (vários apartamentos) não é calculada.
 - **Pressurização de escada e bomba de recalque:** são pré-dimensionamentos para estimar a carga elétrica. Os parâmetros precisam ser conferidos com a NBR 14880, o Corpo de Bombeiros e o projeto hidráulico. O disjuntor do motor não considera a corrente de partida.
+- **Luminotécnico:** usa um fator de utilização genérico e iluminâncias usuais por ambiente, não conferidos com a NBR ISO/CIE 8995-1 nem com catálogo. Vale para ambientes retangulares; um retângulo girado é tratado pelo retângulo reto que o contém.
 - **DR** é marcado em todos os circuitos de tomadas e de uso específico, mais do que a NBR 5410 exige.
 - **Tensão padrão** dos pontos é 127 V (220 V para chuveiro, ar-condicionado e ponto de força). Ajuste em cada ponto se a sua rede for diferente.
 - **Símbolos** são convenção da bancada, não cópia de uma norma.

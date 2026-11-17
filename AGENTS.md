@@ -100,6 +100,7 @@ Regras gerais:
 | `ImportQET`, `Add_Node` | `import_QEletrotech` | `services/qet_import`, `eletrodutos`; `core/qet` |
 | `CalcDemanda` | `calculos` | `services/circuitos`; `core/functions/Predial/demanda` |
 | `CalcPressurizacao`, `CalcRecalque` | `calculos` | `core/functions/Predial/pressurizacao`, `recalque`, `motores`; `UI/dialogs/calculo_dialog` |
+| `DistribuirLuminarias` | `calculos` | `services/luminotecnico`; `core/functions/Predial/luminotecnico`; `UI/dialogs/calculo_dialog` |
 | `GenerateReport` | `reports` | `services/pdf_generator`; `UI/dialogs/report_dialog` |
 | `GetSpaces`, `ReiniciarBancada` | `tools` | no próprio módulo |
 
@@ -119,7 +120,7 @@ As barras ficam em `init_gui.py`. As três barras próprias são enxutas: os com
 | `Grupo_Projeto` | `newProjetctEletrical`, `newSpreadsheet`, `ImportQET` |
 | `Grupo_Tomadas` | `Ponto_tomada_baixa`, `_media`, `_alta`, `_piso`; `InsertTugs` |
 | `Grupo_Energia` | `Ponto_chuveiro`, `_ar_condicionado`, `_ventilador`, `_ponto_forca` |
-| `Grupo_Iluminacao` | `Ponto_luz_teto`, `_arandela`, `_fluorescente`, `_embutida`, `_emergencia` |
+| `Grupo_Iluminacao` | `Ponto_luz_teto`, `_arandela`, `_fluorescente`, `_embutida`, `_emergencia`; `DistribuirLuminarias` |
 | `Grupo_Interruptores` | `InsertSwitch`, `InsertSwitchParalelo`, `InsertSwitchIntermediario` |
 | `Grupo_Quadros` | `Ponto_quadro_distribuicao`, `_quadro_comando`, `_quadro_medicao`, `_medicao_agrupada` |
 | `Grupo_DadosQuadro` | `GerarPlanilha`, `AddCircuito` |
@@ -171,6 +172,7 @@ Os comandos se encontram pelos objetos do documento, não por estado em Python:
 - **Motores calculados:** `CalcPressurizacao` e `CalcRecalque` podem inserir um `Ponto` do tipo `ponto_forca` com a potência aparente, a tensão e a ligação do motor; ele entra em `MontarCircuitos` como qualquer ponto.
 - **Diagrama:** grupo com Label `diagrama_<quadro>` e propriedade `quadro_origem` com o nome da planilha, recriado a cada geração. Os diagramas são empilhados, um por quadro.
 - **Legenda:** grupo `Legenda_simbolos`, recriado a cada geração na posição em que estava.
+- **Luminotécnico:** `DistribuirLuminarias` usa o retângulo envolvente (plano XY) do objeto selecionado como ambiente e cria um `Ponto` de iluminação por posição da malha, com a propriedade `Ambiente` = nome desse objeto. Repetir o comando no mesmo objeto apaga os pontos com esse `Ambiente` e cria de novo.
 - **Notas:** planilha com a propriedade `notas_do_projeto`, uma nota por linha na coluna A, da linha 3 em diante. `GerarNotas` recria o grupo `Notas_projeto` com o título e as notas numeradas, na posição em que estava ou embaixo da legenda.
 - **Caixas e tubos 3D:** objeto `<nome da origem>_3D`, substituído a cada geração.
 - **Unidades:** comprimentos em mm no FreeCAD; correntes em A; seções em mm².
@@ -237,10 +239,11 @@ Todos foram confirmados no código ou em execução e já existiam antes da reor
 - `core/functions/Predial/demanda.py`: fatores de demanda de guias de instalações residenciais, transcritos de memória e não conferidos com a fonte. Cada concessionária tem tabela própria. Não calcula a demanda do edifício (diversidade entre apartamentos).
 - `core/functions/Predial/pressurizacao.py`: áreas de fresta, número de portas abertas e acréscimos (25 % não identificados; 15 % duto metálico, 25 % alvenaria) precisam ser conferidos com a edição vigente da NBR 14880 e com o Corpo de Bombeiros.
 - `core/functions/Predial/recalque.py`: singularidades estimadas em 30 % do comprimento e rendimento da bomba de 50 % são suposições, editáveis só no código ou no formulário (rendimento).
+- `core/functions/Predial/luminotecnico.py`: o fator de utilização vem de uma curva genérica por índice do local, e as iluminâncias por ambiente são valores usuais, ambos não conferidos com a NBR ISO/CIE 8995-1 nem com catálogo. O ambiente é sempre tratado como retângulo reto.
 - `core/circuitos.py`, `dimensionar`: o disjuntor de motores é escolhido só pela corrente nominal, sem considerar a partida.
 - `services/circuitos.py`, `_de_tomada_sketch`: lê potência e tensão das tomadas em Sketch pelo número bruto, porque elas são gravadas sem unidade. Falta confirmar no FreeCAD e migrar para grandezas com unidade.
 - `core/quadro.py`: correntes comerciais de DR e de barramento, quantidade de DPS e módulos da caixa são regras gerais, não de um fabricante. O DR é sempre por circuito; não há DR geral nem agrupamento de circuitos em um DR.
-- As notas do projeto, a fiação em todos os pontos, a escala dos símbolos, os símbolos de quadro e medição, a lista de componentes do quadro, o medidor e os barramentos no unifilar, os botões de grupo (lista suspensa), as teclas da inserção (Espaço, R, L), os comandos Alinhar, Distribuir, Definir circuito, Ligar interruptor e Identificar pontos, os pontos novos, a legenda, `MontarCircuitos`, os cálculos prediais e as mudanças do unifilar têm teste unitário da lógica, mas ainda não foram executados no FreeCAD real: rode o `smoke_gui.py` e atualize este item.
+- O luminotécnico, as notas do projeto, a fiação em todos os pontos, a escala dos símbolos, os símbolos de quadro e medição, a lista de componentes do quadro, o medidor e os barramentos no unifilar, os botões de grupo (lista suspensa), as teclas da inserção (Espaço, R, L), os comandos Alinhar, Distribuir, Definir circuito, Ligar interruptor e Identificar pontos, os pontos novos, a legenda, `MontarCircuitos`, os cálculos prediais e as mudanças do unifilar têm teste unitário da lógica, mas ainda não foram executados no FreeCAD real: rode o `smoke_gui.py` e atualize este item.
 
 **Cálculos e tabelas, ainda sem uso na interface**
 - `core/functions/Barramento.py`: `Sec_tubular` gera `TypeError` (falta `*` em `math.pi(...)`) e não tem `return`. `Corrente_carga_maxima` usa `Qc*Qr-Qs`; conferir com a fonte, pois o balanço térmico sugere soma.

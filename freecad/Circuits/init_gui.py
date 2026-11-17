@@ -80,7 +80,14 @@ BIM_EXTRA_TOOLS = ["BIM_Project", "BIM_Column", "BIM_Beam", "BIM_Slab"]
 PROJECT_TOOLS = ["newProjetctEletrical", "newSpreadsheet", "ImportQET"]
 OUTLET_TOOLS = ["Ponto_tomada_baixa", "Ponto_tomada_media", "Ponto_tomada_alta", "Ponto_tomada_piso", "InsertTugs"]
 POWER_TOOLS = ["Ponto_chuveiro", "Ponto_ar_condicionado", "Ponto_ventilador", "Ponto_ponto_forca"]
-LIGHTING_TOOLS = ["Ponto_luz_teto", "Ponto_arandela", "Ponto_fluorescente", "Ponto_embutida", "Ponto_emergencia"]
+LIGHTING_TOOLS = [
+    "Ponto_luz_teto",
+    "Ponto_arandela",
+    "Ponto_fluorescente",
+    "Ponto_embutida",
+    "Ponto_emergencia",
+    "DistribuirLuminarias",
+]
 SWITCH_TOOLS = ["InsertSwitch", "InsertSwitchParalelo", "InsertSwitchIntermediario"]
 BOARD_SYMBOL_TOOLS = ["Ponto_quadro_distribuicao", "Ponto_quadro_comando", "Ponto_quadro_medicao", "Ponto_medicao_agrupada"]
 CIRCUIT_TOOLS = ["DefinirCircuito", "LigarInterruptor", "IdentificarPontos"]
@@ -111,7 +118,7 @@ GROUPS = {
     "Grupo_Projeto": ("Projeto", "Novo projeto, planilha de circuitos e importação do QElectroTech", PROJECT_TOOLS),
     "Grupo_Tomadas": ("Tomadas", "Tomadas baixa, média, alta, de piso e TUG", OUTLET_TOOLS),
     "Grupo_Energia": ("Energia", "Chuveiro, ar-condicionado, ventilador e ponto de força", POWER_TOOLS),
-    "Grupo_Iluminacao": ("Iluminação", "Luz de teto, arandela, luminária tubular, embutida e de emergência", LIGHTING_TOOLS),
+    "Grupo_Iluminacao": ("Iluminação", "Luz de teto, arandela, tubular, embutida, de emergência e o luminotécnico", LIGHTING_TOOLS),
     "Grupo_Interruptores": ("Interruptores", "Interruptor simples, paralelo e intermediário", SWITCH_TOOLS),
     "Grupo_Quadros": ("Quadros", "Quadro de distribuição, de comando, de medição e medição agrupada, na planta", BOARD_SYMBOL_TOOLS),
     "Grupo_DadosQuadro": ("Dados do quadro", "Planilha de dados do quadro e circuito digitado à mão", BOARD_DATA_TOOLS),

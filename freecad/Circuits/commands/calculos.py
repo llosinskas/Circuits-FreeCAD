@@ -1,12 +1,14 @@
-"""Comandos de cálculos prediais: demanda, pressurização de escada e bomba de recalque."""
+"""Comandos de cálculos prediais: demanda, pressurização, bomba de recalque e luminotécnico."""
 import FreeCAD as App
 import FreeCADGui as Gui
 
 from freecad.Circuits.commands._base import documento_ou_aviso, recursos
 from freecad.Circuits.commands.gerar_unifilar import _escolher_quadro
-from freecad.Circuits.core.functions.Predial import demanda, pressurizacao, recalque
+from freecad.Circuits.core.functions.Predial import demanda, luminotecnico, pressurizacao, recalque
+from freecad.Circuits.core.simbolos import CATALOGO, ILUMINACAO
 from freecad.Circuits.qt import QtWidgets
 from freecad.Circuits.services import circuitos
+from freecad.Circuits.services import luminotecnico as servico_luminotecnico
 from freecad.Circuits.UI.dialogs.calculo_dialog import CalculoDialog
 from freecad.Circuits.UI.dialogs.ComponentInserter import ComponentInsertionMode
 
@@ -151,6 +153,82 @@ class CalcRecalque:
         )
 
 
+class DistribuirLuminarias:
+    """Calcula e distribui as luminárias dentro do retângulo selecionado na planta."""
+
+    SIMBOLOS = {dados["legenda"]: chave for chave, dados in CATALOGO.items() if dados["categoria"] == ILUMINACAO}
+    CAMPOS = [
+        {"chave": "ambiente", "rotulo": "Ambiente", "valor": list(luminotecnico.ILUMINANCIAS)},
+        {
+            "chave": "iluminancia", "rotulo": "Iluminância (só para Personalizado)",
+            "valor": 300.0, "minimo": 10, "maximo": 5000, "decimais": 0, "sufixo": "lux",
+        },
+        {"chave": "simbolo", "rotulo": "Luminária", "valor": list(SIMBOLOS)},
+        {
+            "chave": "fluxo_luminaria", "rotulo": "Fluxo luminoso de cada luminária",
+            "valor": 2000.0, "minimo": 50, "maximo": 100000, "decimais": 0, "sufixo": "lm",
+        },
+        {
+            "chave": "potencia", "rotulo": "Potência de cada luminária",
+            "valor": 20.0, "minimo": 1, "maximo": 5000, "decimais": 0, "sufixo": "VA",
+        },
+        {"chave": "pe_direito", "rotulo": "Pé-direito", "valor": 2.7, "minimo": 1.8, "maximo": 30, "sufixo": "m"},
+        {
+            "chave": "plano_trabalho", "rotulo": "Altura do plano de trabalho",
+            "valor": luminotecnico.PLANO_DE_TRABALHO, "maximo": 3, "sufixo": "m",
+        },
+        {"chave": "suspensao", "rotulo": "Luminária abaixo do teto", "valor": 0.0, "maximo": 20, "sufixo": "m"},
+        {
+            "chave": "fator_utilizacao_informado", "rotulo": "Fator de utilização do catálogo (0 = estimar)",
+            "valor": 0.0, "maximo": 1,
+        },
+        {"chave": "circuito", "rotulo": "Circuito das luminárias", "valor": 1, "minimo": 1, "maximo": 999},
+    ]
+
+    def Activated(self):
+        doc = documento_ou_aviso()
+        if not doc:
+            return
+        selecionado = servico_luminotecnico.ambiente_selecionado(Gui.Selection.getSelection())
+        if selecionado is None:
+            QtWidgets.QMessageBox.information(
+                None,
+                "Luminotécnico",
+                "Desenhe um retângulo no contorno do ambiente (barra Desenho), selecione-o e clique de novo.",
+            )
+            return
+        ambiente, x_min, y_min, comprimento, largura = selecionado
+
+        def calcular(dados):
+            iluminancia = luminotecnico.ILUMINANCIAS[dados["ambiente"]] or dados["iluminancia"]
+            resultado = luminotecnico.dimensionar(
+                comprimento, largura, iluminancia, dados["fluxo_luminaria"],
+                pe_direito=dados["pe_direito"], plano_trabalho=dados["plano_trabalho"],
+                suspensao=dados["suspensao"], fator_utilizacao_informado=dados["fator_utilizacao_informado"],
+            )
+            return resultado, luminotecnico.relatorio(resultado)
+
+        dialog = CalculoDialog("Luminotécnico", self.CAMPOS, calcular, "Distribuir luminárias")
+        if not dialog.exec_() or not dialog.resultado:
+            return
+        dados = dialog.get_dados()
+        servico_luminotecnico.distribuir(
+            doc, ambiente, x_min, y_min, dialog.resultado["posicoes"],
+            self.SIMBOLOS[dados["simbolo"]], dados["potencia"], dados["circuito"],
+        )
+
+    def IsActive(self):
+        return True
+
+    def GetResources(self):
+        return recursos(
+            "luminotecnico.svg",
+            "Luminotécnico",
+            "Calcula e distribui as luminárias dentro do retângulo selecionado, pelo método dos lúmens",
+        )
+
+
 Gui.addCommand("CalcDemanda", CalcDemanda())
+Gui.addCommand("DistribuirLuminarias", DistribuirLuminarias())
 Gui.addCommand("CalcPressurizacao", CalcPressurizacao())
 Gui.addCommand("CalcRecalque", CalcRecalque())

@@ -206,6 +206,20 @@ def scenario(doc):
     run("LegendaSimbolos")  # segunda execução: precisa substituir, não duplicar
     result["steps"]["legenda"] = [o["name"] for o in snapshot(doc) if o["name"].startswith("Legenda")]
 
+    import Draft as _draft
+    ambiente = _draft.make_rectangle(5000, 4000)
+    doc.recompute()
+    calculo = locate("freecad.Circuits.UI.dialogs.calculo_dialog:CalculoDialog")
+    exec_original = calculo.exec_
+    calculo.exec_ = lambda self: (self.calcular(), 1)[1]
+    Gui.Selection.clearSelection()
+    Gui.Selection.addSelection(ambiente)
+    run("DistribuirLuminarias")
+    run("DistribuirLuminarias")  # segunda execução: precisa substituir, não duplicar
+    Gui.Selection.clearSelection()
+    calculo.exec_ = exec_original
+    result["steps"]["luminotecnico"] = len([o for o in doc.Objects if getattr(o, "Ambiente", "") == ambiente.Name])
+
     run("PlanilhaNotas")
     run("GerarNotas")
     run("GerarNotas")  # segunda execução: precisa substituir, não duplicar
