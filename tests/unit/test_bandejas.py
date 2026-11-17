@@ -54,8 +54,16 @@ class TestConexoes(unittest.TestCase):
         resultado = regras.analisar([
             caminho([(-3000, 0), (3000, 0)]), caminho([(0, -3000), (0, 3000)]),
         ])
-        # as duas linhas se cruzam sem vértice no meio: o cruzamento só vira nó se alguém tiver vértice lá
-        self.assertNotIn(regras.CRUZETA, pecas(resultado))
+        # na mesma altura, o cruzamento vira nó e cruzeta mesmo sem vértice desenhado lá
+        self.assertIn(regras.CRUZETA, pecas(resultado))
+        self.assertEqual(len(resultado["trechos"]), 4)
+        passando = regras.analisar([
+            caminho([(-3000, 0), (3000, 0)], altura=2800.0), caminho([(0, -3000), (0, 3000)], altura=2400.0),
+        ])
+        self.assertNotIn(regras.CRUZETA, pecas(passando))  # em alturas diferentes, uma passa sob a outra
+        self.assertEqual(len(passando["trechos"]), 2)
+        quina = regras.analisar([caminho([(0, 0), (3000, 0)]), caminho([(3000, 0), (3000, 3000)])])
+        self.assertEqual(len(quina["trechos"]), 2)  # tocar na ponta não é cruzamento
         resultado = regras.analisar([
             caminho([(-3000, 0), (0, 0), (3000, 0)]), caminho([(0, -3000), (0, 0), (0, 3000)]),
         ])
@@ -100,6 +108,119 @@ class TestConexoes(unittest.TestCase):
         self.assertEqual(regras.rotulo_da_conexao("Curva horizontal 90°"), "C90")
         self.assertEqual([regras.rotulo_da_conexao(p) for p in (regras.TE, regras.CRUZETA, regras.TERMINAL)],
                          ["T", "X", "TF"])
+
+
+class TestJuncoes(unittest.TestCase):
+    """Encaixe das pontas soltas: junção com outra bandeja no vértice (curva, cruzeta) ou no meio (tê)."""
+
+    def test_ponta_perto_do_meio_de_outra_bandeja_vira_te(self):
+        novos, juncoes = regras.encaixar([[(0, 0), (6000, 0)], [(3000, 250), (3000, 3000)]])
+        self.assertEqual((novos[1][0], juncoes), ((3000.0, 0.0), 1))
+        self.assertIn(regras.TE, pecas(regras.analisar([caminho(novos[0]), caminho(novos[1])])))
+
+    def test_pontas_proximas_viram_um_no_so(self):
+        novos, juncoes = regras.encaixar([[(0, 0), (3000, 0)], [(3100, 150), (3100, 3000)]])
+        self.assertEqual((novos[0][-1], juncoes), (novos[1][0], 1))  # uma das pontas vai até a outra
+        self.assertIn("Curva horizontal 90°", pecas(regras.analisar([caminho(novos[0]), caminho(novos[1])])))
+
+    def test_prefere_o_vertice_ao_meio_do_trecho(self):
+        novos, _ = regras.encaixar([[(0, 0), (3000, 0), (3000, 3000)], [(2900, 100), (0, 3000)]])
+        self.assertEqual(novos[1][0], (3000.0, 0.0))
+
+    def test_longe_ou_ja_ligada_fica_como_esta(self):
+        caminhos = [[(0, 0), (6000, 0)], [(3000, 500), (3000, 3000)], [(6000, 0), (6000, 2000)]]
+        novos, juncoes = regras.encaixar(caminhos)
+        self.assertEqual((novos, juncoes), ([[(float(x), float(y)) for x, y in c] for c in caminhos], 0))
+
+    def test_vertice_do_meio_nao_e_movido(self):
+        novos, juncoes = regras.encaixar([[(0, 0), (6000, 0)], [(3000, 2000), (3000, 100), (5000, 600)]])
+        self.assertEqual((novos[1][1], juncoes), ((3000.0, 100.0), 0))
+
+
+def no_ponto(resultado, x, y):
+    """Recuo de cada trecho no nó (x, y)."""
+    recuos = []
+    for t in resultado["trechos"]:
+        if (round(t["x1"]), round(t["y1"])) == (x, y):
+            recuos.append(round(t["recuo_inicio"], 2))
+        if (round(t["x2"]), round(t["y2"])) == (x, y):
+            recuos.append(round(t["recuo_fim"], 2))
+    return sorted(recuos)
+
+
+class TestPecasNosNos(unittest.TestCase):
+    """Os trechos retos são recortados para a peça do nó caber: curva, tê, cruzeta."""
+
+    def test_curva_de_90_recorta_o_raio_dos_dois_lados(self):
+        r = regras.analisar([caminho([(0, 0), (3000, 0), (3000, 3000)], largura=200)])
+        self.assertEqual(no_ponto(r, 3000, 0), [200.0, 200.0])  # raio da curva = largura
+        self.assertEqual(no_ponto(r, 0, 0), [0.0])  # terminal não recorta
+
+    def test_curva_de_45_recorta_menos(self):
+        r = regras.analisar([caminho([(0, 0), (3000, 0), (5000, 2000)], largura=200)])
+        self.assertEqual(no_ponto(r, 3000, 0), [82.84, 82.84])  # 200 · tg 22,5°
+
+    def test_arco_da_curva_tangente_aos_dois_trechos(self):
+        r = regras.analisar([caminho([(0, 0), (3000, 0), (3000, 3000)], largura=200)])
+        curva = next(c for c in r["conexoes"] if c["peca"].startswith(regras.CURVA))
+        cx, cy, raio, inicio, varredura = curva["arco"]
+        self.assertAlmostEqual(cx, 2800.0)
+        self.assertAlmostEqual(cy, 200.0)
+        self.assertEqual((raio, round(varredura, 6), round(inicio % 360, 6)), (200.0, 90.0, 270.0))
+
+    def test_te_e_cruzeta_recortam_meia_largura_da_principal(self):
+        te = regras.analisar([caminho([(0, 0), (6000, 0)], largura=300), caminho([(3000, 0), (3000, 2000)], largura=100)])
+        self.assertEqual(no_ponto(te, 3000, 0), [150.0, 150.0, 150.0])
+        reta = regras.analisar([caminho([(0, 0), (3000, 0), (6000, 0)])])
+        self.assertEqual(no_ponto(reta, 3000, 0), [0.0, 0.0])  # emenda
+
+
+class TestContorno(unittest.TestCase):
+    """Bandeja na planta em linha dupla, com as curvas em arco e os tês fechados."""
+
+    def test_curva_tem_dois_arcos_e_as_bordas_param_no_recorte(self):
+        c = regras.contorno_2d(regras.analisar([caminho([(0, 0), (3000, 0), (3000, 3000)], largura=200)]))
+        self.assertEqual(sorted(a[2] for a in c["arcos"]), [100.0, 300.0])
+        bordas = [l for l in c["linhas"] if l[1] == l[3] and abs(l[1]) == 100.0]  # bordas do trecho horizontal
+        self.assertEqual(sorted(round(max(l[0], l[2])) for l in bordas), [2800, 2800])
+        self.assertEqual(len(c["linhas"]), 4 + 2)  # 2 bordas por trecho e o fechamento das 2 pontas
+
+    def test_te_fecha_o_lado_sem_derivacao(self):
+        c = regras.contorno_2d(regras.analisar([caminho([(0, 0), (6000, 0)]), caminho([(3000, 0), (3000, 2000)])]))
+        fechamentos = [l for l in c["linhas"] if l[1] == l[3] == -100.0 and 2900 <= l[0] <= 3100 and 2900 <= l[2] <= 3100]
+        self.assertEqual(len(fechamentos), 1)
+        self.assertEqual(c["arcos"], [])
+
+    def test_ramal_mais_estreito_fecha_o_resto_do_lado(self):
+        # principal de 300 mm, ramal de 100 mm subindo: o lado de cima do quadrado fica aberto só 100 mm
+        r = regras.analisar([caminho([(0, 0), (6000, 0)], largura=300), caminho([(3000, 0), (3000, 2000)], largura=100)])
+        c = regras.contorno_2d(r)
+        de_cima = sorted((round(min(l[0], l[2])), round(max(l[0], l[2])))
+                         for l in c["linhas"] if l[1] == l[3] == 150.0 and 2850 <= min(l[0], l[2]) and max(l[0], l[2]) <= 3150)
+        self.assertEqual(de_cima, [(2850, 2950), (3050, 3150)])
+        te = next(x for x in r["conexoes"] if x["peca"] == regras.TE)
+        self.assertEqual(te["quadrado"]["aberturas"], {90.0: 100.0})
+
+    def test_cruzeta_fica_toda_aberta(self):
+        r = regras.analisar([caminho([(-3000, 0), (0, 0), (3000, 0)]), caminho([(0, -3000), (0, 0), (0, 3000)])])
+        c = regras.contorno_2d(r)
+        self.assertEqual(len(c["linhas"]), 4 * 2 + 4)  # 4 trechos com 2 bordas e 4 terminais
+
+
+class TestBlocosDaDerivacao(unittest.TestCase):
+    def test_te_tem_fundo_e_aba_no_lado_fechado(self):
+        blocos = regras.blocos_da_derivacao({"lado": 200, "angulo": 0.0, "fechados": [270.0], "aberturas": {}}, 50)
+        self.assertEqual(blocos, [(-100.0, -100.0, 0.0, 200.0, 200.0, regras.ESPESSURA_MM),
+                                  (-100.0, -100.0, 0.0, 200.0, regras.ESPESSURA_MM, 50.0)])
+
+    def test_ramal_estreito_deixa_aba_dos_dois_lados_dele(self):
+        blocos = regras.blocos_da_derivacao({"lado": 300, "angulo": 0.0, "fechados": [], "aberturas": {90.0: 100.0}}, 50)
+        abas = blocos[1:]
+        self.assertEqual([(b[0], round(b[0] + b[3])) for b in abas], [(-150.0, -50), (50.0, 150)])
+        self.assertTrue(all(b[1] == 150.0 - regras.ESPESSURA_MM for b in abas))
+
+    def test_cruzeta_so_tem_o_fundo(self):
+        self.assertEqual(len(regras.blocos_da_derivacao({"lado": 200, "angulo": 0.0, "fechados": []}, 50)), 1)
 
 
 class TestSuportes(unittest.TestCase):
@@ -229,3 +350,81 @@ class TestServico(unittest.TestCase):
         self.assertEqual(sorted(resultado), ["Superior", "Térreo"])
         self.assertIn("Curva horizontal 90°", pecas(resultado["Térreo"]))
         self.assertEqual(resultado["Superior"]["trechos"][0]["tipo"], "eletrocalha_perfurada")
+
+
+class DocumentoFalso:
+    def __init__(self, *objetos):
+        self.Objects = list(objetos)
+
+    def addObject(self, tipo, nome):
+        obj = Objeto(nome, ViewObject=types.SimpleNamespace())
+        self.Objects.append(obj)
+        return obj
+
+    def getObject(self, nome):
+        return next((o for o in self.Objects if o.Name == nome), None)
+
+    def removeObject(self, nome):
+        self.Objects = [o for o in self.Objects if o.Name != nome]
+
+    def recompute(self):
+        pass
+
+
+class TestServicoJuncoes(TestServico):
+    """Junções gravadas nas linhas, peças no 3D e contorno na planta, com o FreeCAD simulado."""
+
+    def setUp(self):
+        super().setUp()
+        fc = sys.modules["FreeCAD"]
+        fc.Vector = lambda x=0.0, y=0.0, z=0.0: types.SimpleNamespace(x=x, y=y, z=z)
+        self.pavimento = mock.patch.multiple(
+            self.servico.pavimentos, pavimento_do_objeto=mock.DEFAULT, elevacao_do_objeto=mock.DEFAULT,
+            guardar_3d=mock.DEFAULT, por_nome=mock.DEFAULT, elevacao=mock.DEFAULT)
+        falsos = self.pavimento.start()
+        falsos["pavimento_do_objeto"].return_value = None
+        falsos["elevacao_do_objeto"].return_value = 0.0
+        falsos["por_nome"].return_value = None
+
+    def tearDown(self):
+        self.pavimento.stop()
+        super().tearDown()
+
+    def bandeja(self, nome, pontos, largura=200.0):
+        obj = self.linha(nome, pontos)
+        obj.Placement.inverse = lambda: types.SimpleNamespace(multVec=lambda p: p)
+        obj.__dict__.update(TipoBandeja="eletrocalha_perfurada", Largura=largura, Aba=50.0, AlturaBandeja=2800.0,
+                            Tampa=False, Label=nome)
+        return obj
+
+    def test_encaixar_grava_as_pontas_nas_linhas(self):
+        a, b = self.bandeja("A", [(0, 0), (6000, 0)]), self.bandeja("B", [(3000, 250), (3000, 3000)])
+        doc = DocumentoFalso(a, b)
+        self.assertEqual(self.servico.encaixar(doc), 1)
+        self.assertEqual([(p.x, p.y, p.z) for p in b.Points], [(3000.0, 0.0, 0.0), (3000.0, 3000.0, 0.0)])
+        self.assertEqual([(p.x, p.y) for p in a.Points], [(0.0, 0.0), (6000.0, 0.0)])  # a outra não muda
+
+    def test_peca_3d_so_quando_ha_curva_ou_te(self):
+        doc = DocumentoFalso(self.bandeja("A", [(0, 0), (3000, 0), (3000, 3000)]))
+        self.servico.gerar_3d(doc)
+        pecas_3d = [o for o in doc.Objects if hasattr(o, "conexoes_3d_de")]
+        self.assertEqual(len(pecas_3d), 1)
+        self.assertTrue(any(o.Name == "A_3D" for o in doc.Objects))
+        self.servico.gerar_3d(doc)  # de novo: substitui, não duplica
+        self.assertEqual(len([o for o in doc.Objects if hasattr(o, "conexoes_3d_de")]), 1)
+        reta = DocumentoFalso(self.bandeja("R", [(0, 0), (3000, 0)]))
+        self.servico.gerar_3d(reta)
+        self.assertEqual([o for o in reta.Objects if hasattr(o, "conexoes_3d_de")], [])
+
+    def test_contorno_tem_uma_aresta_por_linha_e_por_arco(self):
+        part = sys.modules["Part"]
+        part.makeLine.reset_mock()
+        part.ArcOfCircle.reset_mock()
+        doc = DocumentoFalso(self.bandeja("A", [(0, 0), (3000, 0), (3000, 3000)]))
+        self.assertEqual(self.servico.desenhar_contorno(doc), 1)
+        esperado = regras.contorno_2d(regras.analisar([caminho([(0, 0), (3000, 0), (3000, 3000)])]))
+        self.assertEqual(part.makeLine.call_count, len(esperado["linhas"]))
+        self.assertEqual(part.ArcOfCircle.call_count, len(esperado["arcos"]))
+        self.assertEqual(len([o for o in doc.Objects if hasattr(o, "contorno_bandejas_de")]), 1)
+        self.servico.desenhar_contorno(doc)
+        self.assertEqual(len([o for o in doc.Objects if hasattr(o, "contorno_bandejas_de")]), 1)

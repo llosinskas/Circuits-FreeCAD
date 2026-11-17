@@ -334,6 +334,9 @@ def scenario(doc):
         "conexoes": sorted(o.conexao_bandeja for o in doc.Objects if hasattr(o, "conexao_bandeja")),
         "suportes": [(o.Label, o.Quantidade) for o in doc.Objects if hasattr(o, "suportes_de")],
         "modelos_3d": [o.Name for o in doc.Objects if o.Name.endswith("_3D") and o.Name.startswith("Wire")],
+        "pecas_3d": [(o.Label, o.Shape.isValid(), len(o.Shape.Solids)) for o in doc.Objects
+                     if hasattr(o, "conexoes_3d_de")],
+        "contorno": [(o.Label, len(o.Shape.Edges)) for o in doc.Objects if hasattr(o, "contorno_bandejas_de")],
     }
 
     run("ImportQET")

@@ -195,7 +195,9 @@ O botão **Fiação** desenha na planta os traços de fase, neutro e terra ao la
 
 1. Desenhe o trajeto com linhas (o botão **Bandeja/leito** sem nada selecionado abre a ferramenta de linha). Um ramal que sai do meio de outra bandeja é desenhado com a ponta sobre ela.
 2. Selecione as linhas e clique em **Infraestrutura > Bandeja/leito**: escolha eletrocalha perfurada, lisa ou leito para cabos, largura, aba, altura de instalação (do piso à base) e tampa.
-3. A bancada guarda as linhas na pasta *Bandejas e leitos* do pavimento, gera o modelo 3D (fundo e abas, ou longarinas e travessas no leito) e escreve na planta a sigla de cada conexão:
+   - **Junções automáticas:** a ponta de uma bandeja a até 30 cm de outra é levada até ela: para o vértice mais próximo (vira curva ou cruzeta) ou, sem vértice perto, para o meio do trecho (vira tê). Não é preciso acertar o encontro com o snap.
+   - **Cruzamentos:** duas bandejas na mesma altura que se cruzam viram cruzeta; em alturas diferentes, uma passa sob a outra.
+3. A bancada guarda as linhas na pasta *Bandejas e leitos* do pavimento, desenha a bandeja em linha dupla na planta, gera o modelo 3D (fundo e abas, ou longarinas e travessas no leito) com as peças montadas, e escreve na planta a sigla de cada conexão. As curvas são em arco, com raio igual à largura da bandeja; os tês e as cruzetas têm o fundo quadrado na largura da principal, fechado nos lados sem ramal e dos dois lados de um ramal mais estreito. Os trechos retos são recortados para as peças encaixarem:
 
 | Sigla | Peça | Quando |
 |---|---|---|
@@ -289,7 +291,7 @@ As barras *Desenho*, *Modificador*, *Snap* e *Arquitetura* trazem as ferramentas
 - **Pressurização, recalque e luminotécnico:** pré-dimensionamentos com parâmetros genéricos, a conferir com as normas, o Corpo de Bombeiros, o projeto hidráulico e os catálogos.
 - **Padrões:** pontos em 127 V (220 V para chuveiro, ar-condicionado e ponto de força); DR marcado em todos os circuitos de tomadas e de uso específico.
 - **Símbolos:** convenção da bancada, não cópia de uma norma.
-- **Bandejas e leitos:** curvas verticais sempre de 90° e a altura de cada linha é única (para subir, divida em duas linhas); no 3D, reduções aparecem como o encontro de duas larguras, sem a peça desenhada. Vão dos suportes, parafusos e materiais por regras usuais de catálogo, não de um fabricante.
+- **Bandejas e leitos:** curvas verticais sempre de 90° e a altura de cada linha é única (para subir, divida em duas linhas); no 3D, reduções aparecem como o encontro de duas larguras, sem a peça desenhada, e o tê é um quadrado na largura da principal, não o desenho do catálogo; o raio da curva é a largura da bandeja. Vão dos suportes, parafusos e materiais por regras usuais de catálogo, não de um fabricante.
 
 A lista completa está em "Problemas conhecidos" do [AGENTS.md](AGENTS.md), e o plano das próximas etapas em [docs/Plano_proximas_etapas.md](docs/Plano_proximas_etapas.md).
 

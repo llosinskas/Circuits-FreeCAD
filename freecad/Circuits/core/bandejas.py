@@ -9,6 +9,7 @@ posiciona os suportes ao longo dos trechos retos:
 - dois trechos alinhados: emenda;
 - três trechos: tê horizontal; quatro: cruzeta horizontal;
 - ponta de um trecho sobre o meio de outro: o outro é dividido e vira tê;
+- dois trechos que se cruzam no meio, na mesma altura: os dois são divididos e viram cruzeta;
 - trecho mais estreito que a bandeja principal do nó: redução;
 - trecho em outra altura: curvas verticais externa e interna e o trecho
   vertical entre as duas alturas.
@@ -42,6 +43,8 @@ COMPRIMENTO_BARRA_MM = 3000.0
 VAO_SUPORTE = {"eletrocalha_perfurada": 1500.0, "eletrocalha_lisa": 1500.0, "leito": 2000.0}
 DISTANCIA_SUPORTE_CONEXAO = 500.0
 TOLERANCIA_MM = 50.0
+TOLERANCIA_JUNCAO_MM = 300.0  # ponta solta até esta distância de outra bandeja é encaixada nela
+RAIO_CURVA_FATOR = 1.0  # raio da linha de centro da curva, em larguras da bandeja
 FOLGA_PERFILADO_MM = 100.0  # o perfilado passa 5 cm de cada lado da bandeja
 PERDA_BANDEJA = 0.05
 
@@ -126,6 +129,49 @@ class Rede:
                         break
                 if mudou:
                     break
+
+    def dividir_cruzamentos(self):
+        """Divide os dois trechos onde eles se cruzam no meio, na mesma altura (vira cruzeta).
+
+        Trechos em alturas diferentes (mais de ``TOLERANCIA_ALTURA_MM``) passam
+        um sob o outro e não se ligam.
+        """
+        mudou = True
+        while mudou:
+            mudou = False
+            for i, t1 in enumerate(self.trechos):
+                for t2 in self.trechos[i + 1:]:
+                    if {t1["a"], t1["b"]} & {t2["a"], t2["b"]}:
+                        continue
+                    if abs(float(t1["altura"] or 0) - float(t2["altura"] or 0)) > TOLERANCIA_ALTURA_MM:
+                        continue
+                    ponto = self._cruzamento(t1, t2)
+                    if ponto is None:
+                        continue
+                    novo = self.no(ponto)
+                    for trecho in (t1, t2):
+                        self.trechos.remove(trecho)
+                        self.trechos += [dict(trecho, b=novo), dict(trecho, a=novo)]
+                    mudou = True
+                    break
+                if mudou:
+                    break
+
+    def _cruzamento(self, t1, t2):
+        """Ponto onde os trechos se cruzam, longe das pontas dos dois, ou None."""
+        (ax, ay), (bx, by) = self.nos[t1["a"]], self.nos[t1["b"]]
+        (cx, cy), (dx, dy) = self.nos[t2["a"]], self.nos[t2["b"]]
+        r, s = (bx - ax, by - ay), (dx - cx, dy - cy)
+        denominador = r[0] * s[1] - r[1] * s[0]
+        if abs(denominador) < 1e-9:
+            return None  # paralelos
+        t = ((cx - ax) * s[1] - (cy - ay) * s[0]) / denominador
+        u = ((cx - ax) * r[1] - (cy - ay) * r[0]) / denominador
+        folga1 = self.tolerancia / math.hypot(*r)
+        folga2 = self.tolerancia / math.hypot(*s)
+        if folga1 < t < 1 - folga1 and folga2 < u < 1 - folga2:
+            return (ax + t * r[0], ay + t * r[1])
+        return None
 
     def ligados(self, indice):
         return [t for t in self.trechos if indice in (t["a"], t["b"])]
@@ -228,6 +274,105 @@ def _pecas_do_no(rede, indice):
     return pecas, verticais
 
 
+def encaixar(caminhos, tolerancia=TOLERANCIA_JUNCAO_MM):
+    """Junta as pontas soltas às bandejas vizinhas.
+
+    Cada ponta (primeiro ou último vértice) que não está ligada a outra bandeja
+    e fica a até ``tolerancia`` dela é levada ao vértice mais próximo (vira
+    curva, tê ou cruzeta) ou, sem vértice perto, ao ponto mais próximo do
+    trecho (vira tê). Os vértices do meio não mudam.
+
+    Args:
+        caminhos: listas de (x, y) [mm], uma por bandeja.
+    Returns:
+        (novas listas de pontos, quantidade de junções feitas).
+    """
+    novos = [[(float(x), float(y)) for x, y in pontos] for pontos in caminhos]
+    juncoes = 0
+    for i, pontos in enumerate(novos):
+        if len(pontos) < 2:
+            continue
+        for ponta in (0, len(pontos) - 1):
+            p = pontos[ponta]
+            outros = [c for j, c in enumerate(novos) if j != i and len(c) >= 2]
+            vertices = [v for c in outros for v in c]
+            no_meio = []
+            for c in outros:
+                for a, b in zip(c, c[1:]):
+                    t, distancia = _projecao(p, a, b)
+                    if 0.0 < t < 1.0:
+                        no_meio.append((distancia, (a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t)))
+            vertice = min(vertices, key=lambda v: _distancia(p, v), default=None)
+            meio = min(no_meio, default=None)
+            ja_ligada = (vertice is not None and _distancia(p, vertice) <= TOLERANCIA_MM) or \
+                (meio is not None and meio[0] <= TOLERANCIA_MM)
+            if ja_ligada:
+                continue
+            if vertice is not None and _distancia(p, vertice) <= tolerancia:
+                pontos[ponta] = vertice
+            elif meio is not None and meio[0] <= tolerancia:
+                pontos[ponta] = (round(meio[1][0], 6), round(meio[1][1], 6))
+            else:
+                continue
+            juncoes += 1
+    return novos, juncoes
+
+
+def _unitario(angulo_graus):
+    a = math.radians(angulo_graus)
+    return math.cos(a), math.sin(a)
+
+
+def _peca_horizontal(rede, indice):
+    """Recorte dos trechos no nó [mm] e a forma da peça.
+
+    Curva: tangente T = R·tg(desvio/2), com R = ``RAIO_CURVA_FATOR`` · largura,
+    e o arco (cx, cy, raio, ângulo inicial, varredura) da linha de centro.
+    Tê e cruzeta: meia largura da principal e o quadrado da derivação com os
+    lados fechados (normais, em graus, sem trecho chegando).
+
+    Returns:
+        (recorte, extras) — extras vai para o dicionário da peça.
+    """
+    ligados = rede.ligados(indice)
+    if len(ligados) < 2:
+        return 0.0, {}
+    principal = max(ligados, key=lambda t: (_secao_de(t), -ligados.index(t)))
+    largura = float(principal["largura"] or 0)
+    direcoes = [rede.direcao(t, indice) for t in ligados]
+    x, y = rede.nos[indice]
+    if len(ligados) == 2:
+        desvio = _desvio(*direcoes)
+        if desvio < 5.0:
+            return 0.0, {}
+        raio = RAIO_CURVA_FATOR * largura
+        recorte = raio * math.tan(math.radians(desvio) / 2)
+        (u1x, u1y), (u2x, u2y) = _unitario(direcoes[0]), _unitario(direcoes[1])
+        p1, p2 = (x + recorte * u1x, y + recorte * u1y), (x + recorte * u2x, y + recorte * u2y)
+        bx, by = u1x + u2x, u1y + u2y
+        norma = math.hypot(bx, by) or 1.0
+        distancia = math.hypot(raio, recorte)
+        cx, cy = x + bx / norma * distancia, y + by / norma * distancia
+        a1 = math.degrees(math.atan2(p1[1] - cy, p1[0] - cx))
+        a2 = math.degrees(math.atan2(p2[1] - cy, p2[0] - cx))
+        varredura = (a2 - a1) % 360.0
+        if varredura > 180.0:
+            a1, varredura = a2, 360.0 - varredura
+        return recorte, {"arco": (cx, cy, raio, a1, varredura)}
+    base = rede.direcao(principal, indice)
+    fechados, aberturas = [], {}
+    for k in range(4):
+        normal = round((base + 90.0 * k) % 360.0, 6)
+        chegando = [float(t["largura"] or 0) for t, d in zip(ligados, direcoes)
+                    if abs((d - normal + 180.0) % 360.0 - 180.0) <= 10.0]
+        if not chegando:
+            fechados.append(normal)
+        elif max(chegando) < largura - 1e-6:
+            aberturas[normal] = max(chegando)  # ramal mais estreito: o resto do lado é fechado
+    return largura / 2.0, {"quadrado": {"lado": largura, "angulo": base, "fechados": fechados,
+                                        "aberturas": aberturas}}
+
+
 def analisar(caminhos, tolerancia=TOLERANCIA_MM):
     """Conexões, trechos, verticais e suportes das bandejas de um pavimento.
 
@@ -248,10 +393,15 @@ def analisar(caminhos, tolerancia=TOLERANCIA_MM):
         dados = {chave: caminho.get(chave) for chave in ("tipo", "largura", "aba", "altura", "tampa", "nome")}
         rede.adicionar(caminho["pontos"], dados)
     rede.dividir_derivacoes()
+    rede.dividir_cruzamentos()
 
-    conexoes, verticais = [], []
+    conexoes, verticais, recortes = [], [], {}
     for indice in range(len(rede.nos)):
         pecas, do_no = _pecas_do_no(rede, indice)
+        recortes[indice], extras = _peca_horizontal(rede, indice)
+        for peca in pecas:
+            if peca["peca"].startswith(CURVA) or peca["peca"] in (TE, CRUZETA, DERIVACAO):
+                peca.update(extras)
         conexoes += pecas
         verticais += do_no
 
@@ -260,10 +410,13 @@ def analisar(caminhos, tolerancia=TOLERANCIA_MM):
         (x1, y1), (x2, y2) = rede.nos[trecho["a"]], rede.nos[trecho["b"]]
         comprimento = rede.comprimento(trecho)
         angulo = math.degrees(math.atan2(y2 - y1, x2 - x1))
+        inicio, fim = recortes[trecho["a"]], recortes[trecho["b"]]
+        if inicio + fim > comprimento > 0:  # trecho curto demais para as duas peças: divide o que há
+            inicio, fim = comprimento * inicio / (inicio + fim), comprimento * fim / (inicio + fim)
         trechos.append({
             "tipo": trecho["tipo"], "largura": trecho["largura"], "aba": trecho["aba"], "tampa": bool(trecho["tampa"]),
             "altura": trecho["altura"], "comprimento": comprimento, "x1": x1, "y1": y1, "x2": x2, "y2": y2,
-            "nome": trecho["nome"],
+            "nome": trecho["nome"], "recuo_inicio": inicio, "recuo_fim": fim,
         })
         vao = VAO_SUPORTE.get(trecho["tipo"], VAO_SUPORTE[TIPO_PADRAO])
         for distancia in _suportes_do_trecho(comprimento, vao):
@@ -395,6 +548,74 @@ def blocos_da_vertical(largura, aba, de, ate):
 ESPESSURA_MM = 3.0
 PASSO_TRAVESSA_MM = 300.0
 LARGURA_TRAVESSA_MM = 30.0
+
+
+def contorno_2d(resultado):
+    """Bandejas em linha dupla na planta, a partir de ``analisar``.
+
+    Bordas a meia largura de cada trecho, já recortadas nas peças; dois arcos
+    por curva; os lados fechados do quadrado de cada tê; e uma linha fechando
+    cada terminal.
+
+    Returns:
+        {'linhas': [(x1, y1, x2, y2)], 'arcos': [(cx, cy, raio, ângulo inicial, varredura)]} [mm, graus].
+    """
+    linhas, arcos = [], []
+    for t in resultado["trechos"]:
+        comprimento = t["comprimento"]
+        if comprimento <= 0:
+            continue
+        ux, uy = (t["x2"] - t["x1"]) / comprimento, (t["y2"] - t["y1"]) / comprimento
+        nx, ny = -uy * float(t["largura"]) / 2, ux * float(t["largura"]) / 2
+        sx, sy = t["x1"] + ux * t["recuo_inicio"], t["y1"] + uy * t["recuo_inicio"]
+        ex, ey = t["x2"] - ux * t["recuo_fim"], t["y2"] - uy * t["recuo_fim"]
+        for lado in (1, -1):
+            linhas.append((sx + lado * nx, sy + lado * ny, ex + lado * nx, ey + lado * ny))
+    for c in resultado["conexoes"]:
+        meia = float(c["largura"]) / 2
+        if c["peca"] == TERMINAL:
+            ux, uy = _unitario(c["angulo"])
+            linhas.append((c["x"] - uy * meia, c["y"] + ux * meia, c["x"] + uy * meia, c["y"] - ux * meia))
+        elif "arco" in c:
+            cx, cy, raio, inicio, varredura = c["arco"]
+            arcos += [(cx, cy, raio - meia, inicio, varredura), (cx, cy, raio + meia, inicio, varredura)]
+        elif "quadrado" in c:
+            quadrado = c["quadrado"]
+            lados = [(normal, 0.0) for normal in quadrado["fechados"]] + list(quadrado.get("aberturas", {}).items())
+            for normal, abertura in lados:
+                ux, uy = _unitario(normal)
+                mx, my = c["x"] + ux * meia, c["y"] + uy * meia
+                tx, ty = -uy, ux  # ao longo do lado
+                trechos_do_lado = [(-meia, meia)] if not abertura else [(-meia, -abertura / 2), (abertura / 2, meia)]
+                for de, ate in trechos_do_lado:
+                    linhas.append((mx + tx * de, my + ty * de, mx + tx * ate, my + ty * ate))
+    return {"linhas": [tuple(round(v, 6) for v in linha) for linha in linhas], "arcos": arcos}
+
+
+def blocos_da_derivacao(quadrado, aba):
+    """Blocos do tê ou da cruzeta no sistema local da principal (x ao longo dela, centro no nó).
+
+    Fundo quadrado na largura da principal; aba inteira nos lados sem
+    derivação e, nos lados com ramal mais estreito, aba dos dois lados do ramal.
+
+    Returns:
+        Lista de (x, y, z, comprimento, largura, altura) [mm].
+    """
+    lado, aba, e = float(quadrado["lado"]), float(aba), ESPESSURA_MM
+    meia = lado / 2
+    blocos = [(-meia, -meia, 0.0, lado, lado, e)]
+    lados = [(n, 0.0) for n in quadrado["fechados"]] + list(quadrado.get("aberturas", {}).items())
+    for normal, abertura in lados:
+        k = int(round(((normal - quadrado["angulo"]) % 360.0) / 90.0)) % 4
+        trechos = [(-meia, meia)] if not abertura else [(-meia, -abertura / 2), (abertura / 2, meia)]
+        for de, ate in trechos:
+            if k in (0, 2):  # lado perpendicular ao eixo x, em x = ±meia
+                x = meia - e if k == 0 else -meia
+                blocos.append((x, de, 0.0, e, ate - de, aba))
+            else:  # lado perpendicular ao eixo y, em y = ±meia
+                y = meia - e if k == 1 else -meia
+                blocos.append((de, y, 0.0, ate - de, e, aba))
+    return blocos
 
 
 def blocos_do_trecho(comprimento, largura, aba, tipo, recuo_inicio=0.0, avanco_fim=0.0):

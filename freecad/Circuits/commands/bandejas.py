@@ -36,14 +36,17 @@ class CableTray:
         doc.openTransaction("Bandejas e leitos")
         try:
             marcadas = bandejas.marcar(doc, linhas, **dados)
-            bandejas.gerar_3d(doc, marcadas)
+            juncoes = bandejas.encaixar(doc, marcadas)
+            bandejas.gerar_3d(doc)  # todas: uma junção nova muda o recorte das vizinhas
+            bandejas.desenhar_contorno(doc)
             conexoes = bandejas.anotar_conexoes(doc)
             doc.commitTransaction()
         except Exception:
             doc.abortTransaction()
             raise
         App.Console.PrintMessage(
-            f"{len(marcadas)} bandeja(s) marcada(s); {conexoes} conexão(ões) identificada(s) na planta.\n"
+            f"{len(marcadas)} bandeja(s) marcada(s), {juncoes} junção(ões) feita(s); "
+            f"{conexoes} ponto(s) com peça identificada na planta.\n"
         )
 
     def IsActive(self):
@@ -53,8 +56,9 @@ class CableTray:
         return recursos(
             "eletrocalha.svg",
             "Bandeja/leito",
-            "Eletrocalha ou leito: selecione as linhas do trajeto para definir tipo, largura, aba e altura; "
-            "gera o 3D e identifica curvas, tês, cruzetas e terminais",
+            "Eletrocalha ou leito: selecione as linhas do trajeto para definir tipo, largura, aba e altura. "
+            "Junta as pontas a até 30 cm de outra bandeja, cruza as da mesma altura e monta curvas, tês e "
+            "cruzetas no 3D e no contorno da planta",
         )
 
 

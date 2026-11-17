@@ -117,22 +117,6 @@ def _solido(blocos, x, y, z, angulo):
     return solidos
 
 
-def _forma_3d(obj, cota):
-    pontos = _pontos(obj)
-    largura, aba, tipo = _mm(obj.Largura), _mm(obj.Aba), str(obj.TipoBandeja)
-    solidos = []
-    for indice, (a, b) in enumerate(zip(pontos, pontos[1:])):
-        comprimento = math.hypot(b[0] - a[0], b[1] - a[1])
-        if comprimento <= 0:
-            continue
-        angulo = math.degrees(math.atan2(b[1] - a[1], b[0] - a[0]))
-        recuo = largura / 2.0 if indice > 0 else 0.0
-        avanco = largura / 2.0 if indice < len(pontos) - 2 else 0.0
-        blocos = regras.blocos_do_trecho(comprimento, largura, aba, tipo, recuo, avanco)
-        solidos += _solido(blocos, a[0], a[1], cota, angulo)
-    return Part.makeCompound(solidos)
-
-
 def _substituir(doc, nome, forma, cor):
     anterior = doc.getObject(nome)
     if anterior is not None:
@@ -146,44 +130,177 @@ def _substituir(doc, nome, forma, cor):
     return objeto
 
 
-def _verticais_por_bandeja(doc):
-    """{nome da bandeja: trechos verticais dela}, de ``core.bandejas.analisar``."""
-    por_nome = {}
-    for resultado in analisar(doc).values():
-        for vertical in resultado["verticais"]:
-            por_nome.setdefault(vertical["nome"], []).append(vertical)
-    return por_nome
+def _gravar_pontos(obj, pontos_xy):
+    """Grava os vértices (x, y globais) de volta na linha, mantendo a cota."""
+    z = obj.Placement.multVec(obj.Points[0]).z if obj.Points else 0.0
+    inversa = obj.Placement.inverse()
+    obj.Points = [inversa.multVec(App.Vector(x, y, z)) for x, y in pontos_xy]
+
+
+def encaixar(doc, objetos=None):
+    """Junta as pontas soltas das bandejas às vizinhas do mesmo pavimento (``core.bandejas.encaixar``).
+
+    Args:
+        objetos: bandejas recém-marcadas; só os pavimentos delas são tratados.
+            None trata todos.
+    Returns:
+        Quantidade de junções feitas.
+    """
+    por_pavimento = {}
+    for obj in listar(doc):
+        por_pavimento.setdefault(_nome_pavimento(doc, obj), []).append(obj)
+    alvo = {obj.Name for obj in objetos} if objetos is not None else None
+    juncoes = 0
+    for objs in por_pavimento.values():
+        if alvo is not None and not any(obj.Name in alvo for obj in objs):
+            continue
+        antes = [_pontos(obj) for obj in objs]
+        novos, feitas = regras.encaixar(antes)
+        for obj, pontos, ajustados in zip(objs, antes, novos):
+            if [(float(x), float(y)) for x, y in pontos] != ajustados:
+                _gravar_pontos(obj, ajustados)
+        juncoes += feitas
+    return juncoes
+
+
+def _cota_do_piso(doc, pav_nome):
+    pav = pavimentos.por_nome(doc, pav_nome) if pav_nome else None
+    return pavimentos.elevacao(pav) if pav is not None else 0.0
+
+
+def _setor(cx, cy, z, raio_externo, raio_interno, altura, inicio, varredura):
+    """Pedaço de anel (fundo ou aba da curva), de ``inicio`` a ``inicio + varredura`` graus."""
+    centro, eixo = App.Vector(cx, cy, z), App.Vector(0, 0, 1)
+    solido = Part.makeCylinder(raio_externo, altura, centro, eixo, varredura)
+    if raio_interno > 0:
+        solido = solido.cut(Part.makeCylinder(raio_interno, altura, centro, eixo, varredura))
+    solido.rotate(centro, eixo, inicio)
+    return solido
+
+
+def _curva_3d(conexao, cota):
+    """Curva horizontal: fundo e abas em arco, tangentes aos trechos recortados."""
+    cx, cy, raio, inicio, varredura = conexao["arco"]
+    meia, aba, e = float(conexao["largura"]) / 2, float(conexao["aba"]), regras.ESPESSURA_MM
+    return [
+        _setor(cx, cy, cota, raio + meia, raio - meia, e, inicio, varredura),
+        _setor(cx, cy, cota, raio + meia, raio + meia - e, aba, inicio, varredura),
+        _setor(cx, cy, cota, raio - meia + e, raio - meia, aba, inicio, varredura),
+    ]
+
+
+def _derivacao_3d(conexao, cota):
+    """Tê ou cruzeta: fundo quadrado na largura da principal e abas nos lados sem derivação."""
+    blocos = regras.blocos_da_derivacao(conexao["quadrado"], conexao["aba"])
+    return _solido(blocos, conexao["x"], conexao["y"], cota, conexao["quadrado"]["angulo"])
 
 
 def gerar_3d(doc, objetos=None):
-    """Recria o modelo 3D de cada bandeja, na cota do piso + ``AlturaBandeja``.
+    """Recria o modelo 3D das bandejas e das peças, na cota do piso + ``AlturaBandeja``.
 
-    Os trechos verticais (encontro com uma bandeja em outra altura) entram no
-    modelo da bandeja que chega ao nó.
+    Cada bandeja vira ``<nome>_3D`` com os trechos retos já recortados nos nós,
+    e os trechos verticais que chegam nela. As curvas (em arco), os tês e as
+    cruzetas de cada pavimento ficam num objeto só, com a propriedade
+    ``conexoes_3d_de``, recriado a cada uso.
 
     Returns:
         Quantidade de bandejas modeladas.
     """
+    resultados = analisar(doc)
+    trechos, verticais = {}, {}
+    for resultado in resultados.values():
+        for trecho in resultado["trechos"]:
+            trechos.setdefault(trecho["nome"], []).append(trecho)
+        for vertical in resultado["verticais"]:
+            verticais.setdefault(vertical["nome"], []).append(vertical)
+
     feitas = 0
-    verticais = _verticais_por_bandeja(doc)
     for obj in (objetos if objetos is not None else listar(doc)):
         if not eh_bandeja(obj):
             continue
         piso = pavimentos.elevacao_do_objeto(doc, obj)
         cota = piso + _mm(obj.AlturaBandeja)
-        forma = _forma_3d(obj, cota)
-        subidas = []
+        largura, aba, tipo = _mm(obj.Largura), _mm(obj.Aba), str(obj.TipoBandeja)
+        solidos = []
+        for trecho in trechos.get(obj.Name, []):
+            util = trecho["comprimento"] - trecho["recuo_inicio"] - trecho["recuo_fim"]
+            if util <= 0:
+                continue
+            ux = (trecho["x2"] - trecho["x1"]) / trecho["comprimento"]
+            uy = (trecho["y2"] - trecho["y1"]) / trecho["comprimento"]
+            angulo = math.degrees(math.atan2(uy, ux))
+            blocos = regras.blocos_do_trecho(util, largura, aba, tipo)
+            solidos += _solido(blocos, trecho["x1"] + ux * trecho["recuo_inicio"],
+                               trecho["y1"] + uy * trecho["recuo_inicio"], cota, angulo)
         for vertical in verticais.get(obj.Name, []):
             blocos = regras.blocos_da_vertical(vertical["largura"], vertical["aba"], vertical["de"], vertical["ate"])
-            subidas += _solido(blocos, vertical["x"], vertical["y"], piso, vertical["angulo"])
-        if subidas:
-            forma = Part.makeCompound([forma] + subidas)
-        modelo = _substituir(doc, f"{obj.Name}_3D", forma, COR_BANDEJA)
+            solidos += _solido(blocos, vertical["x"], vertical["y"], piso, vertical["angulo"])
+        modelo = _substituir(doc, f"{obj.Name}_3D", Part.makeCompound(solidos), COR_BANDEJA)
         modelo.Label = f"{obj.Label} 3D"
         pavimentos.guardar_3d(doc, obj, modelo)
         feitas += 1
+
+    _remover_marcados(doc, "conexoes_3d_de")
+    por_pavimento = {}
+    for obj in listar(doc):
+        por_pavimento.setdefault(_nome_pavimento(doc, obj), obj)
+    for indice, (pav_nome, resultado) in enumerate(resultados.items()):
+        piso = _cota_do_piso(doc, pav_nome)
+        solidos = []
+        for conexao in resultado["conexoes"]:
+            cota = piso + float(conexao["altura"] or 0)
+            if "arco" in conexao:
+                solidos += _curva_3d(conexao, cota)
+            elif "quadrado" in conexao:
+                solidos += _derivacao_3d(conexao, cota)
+        if not solidos:
+            continue
+        pecas_3d = _substituir(doc, f"Conexoes_bandejas_{indice}", Part.makeCompound(solidos), COR_BANDEJA)
+        pecas_3d.Label = f"Conexões {pav_nome or 'sem pavimento'} 3D"
+        pecas_3d.addProperty("App::PropertyString", "conexoes_3d_de", "Bandeja", "Pavimento destas curvas e tês")
+        pecas_3d.conexoes_3d_de = pav_nome
+        if pav_nome in por_pavimento:
+            pavimentos.guardar_3d(doc, por_pavimento[pav_nome], pecas_3d)
     doc.recompute()
     return feitas
+
+
+def desenhar_contorno(doc):
+    """Recria, por pavimento, a bandeja em linha dupla na planta (``core.bandejas.contorno_2d``).
+
+    O contorno fica no piso do pavimento, na pasta Bandejas e leitos, com a
+    propriedade ``contorno_bandejas_de``.
+
+    Returns:
+        Quantidade de contornos desenhados.
+    """
+    _remover_marcados(doc, "contorno_bandejas_de")
+    feitos = 0
+    for indice, (pav_nome, resultado) in enumerate(analisar(doc).items()):
+        z = _cota_do_piso(doc, pav_nome)
+        contorno = regras.contorno_2d(resultado)
+        arestas = [Part.makeLine(App.Vector(x1, y1, z), App.Vector(x2, y2, z))
+                   for x1, y1, x2, y2 in contorno["linhas"]]
+        for cx, cy, raio, inicio, varredura in contorno["arcos"]:
+            circulo = Part.Circle(App.Vector(cx, cy, z), App.Vector(0, 0, 1), raio)
+            arco = Part.ArcOfCircle(circulo, math.radians(inicio), math.radians(inicio + varredura))
+            arestas.append(arco.toShape())
+        if not arestas:
+            continue
+        desenho = _substituir(doc, f"Contorno_bandejas_{indice}", Part.makeCompound(arestas), COR_BANDEJA)
+        desenho.Label = f"Contorno bandejas {pav_nome or 'sem pavimento'}"
+        desenho.addProperty("App::PropertyString", "contorno_bandejas_de", "Bandeja", "Pavimento deste contorno")
+        desenho.contorno_bandejas_de = pav_nome
+        try:
+            desenho.ViewObject.LineColor = COR_BANDEJA
+        except Exception:
+            pass
+        pasta = _pasta_de(doc, pav_nome)
+        if pasta is not None:
+            pasta.addObject(desenho)
+        feitos += 1
+    doc.recompute()
+    return feitos
 
 
 # --- conexões na planta ----------------------------------------------------
