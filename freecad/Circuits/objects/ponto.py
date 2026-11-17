@@ -54,9 +54,16 @@ def _aresta(primitiva):
     return Part.makeCircle(primitiva[3], centro, eixo, primitiva[4], primitiva[5])
 
 
-def forma_do_simbolo(simbolo, tamanho):
-    """Compound com as arestas do símbolo, no plano Z=0."""
-    return Part.makeCompound([_aresta(p) for p in simbolos.geometria(simbolo, tamanho)])
+def forma_do_simbolo(simbolo, tamanho, com_vertice=False):
+    """Compound com as arestas do símbolo, no plano Z=0.
+
+    Com ``com_vertice``, inclui um vértice no ponto de inserção (a caixa), onde o
+    snap do Draft prende o eletroduto ao desenhar.
+    """
+    formas = [_aresta(p) for p in simbolos.geometria(simbolo, tamanho)]
+    if com_vertice:
+        formas.append(Part.Vertex(App.Vector(0, 0, 0)))
+    return Part.makeCompound(formas)
 
 
 class PontoEletrico:
@@ -132,7 +139,7 @@ class PontoEletrico:
         tamanho = tamanho_do_ponto(obj)
         if tamanho <= 0:
             return
-        obj.Shape = forma_do_simbolo(obj.Simbolo, tamanho)
+        obj.Shape = forma_do_simbolo(obj.Simbolo, tamanho, com_vertice=True)
 
     def onDocumentRestored(self, obj):
         """Acrescenta propriedades criadas em versões mais novas da bancada."""

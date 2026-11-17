@@ -18,6 +18,7 @@ PASTAS = {
     "iluminacao": "Iluminação",
     "interruptores": "Interruptores",
     "quadros": "Quadros e medição",
+    "eletrodutos": "Eletrodutos",
 }
 
 _PASTA_DA_CATEGORIA = {
@@ -26,15 +27,22 @@ _PASTA_DA_CATEGORIA = {
     simbolos.ILUMINACAO: "iluminacao",
     simbolos.QUADRO: "quadros",
 }
-_PASTA_DO_TIPO = {"Switch": "interruptores", "Lighting": "iluminacao", "Outlet": "tomadas", "tomada": "tomadas"}
+_PASTA_DO_TIPO = {
+    "Switch": "interruptores",
+    "Lighting": "iluminacao",
+    "Outlet": "tomadas",
+    "tomada": "tomadas",
+    "ConduitPath": "eletrodutos",
+    "eletroduto": "eletrodutos",
+}
 
 
 def pasta_do_objeto(tipo, simbolo=""):
     """Chave da pasta de um símbolo, ou None se o objeto não é um símbolo da planta.
 
     Args:
-        tipo: ``Proxy.Type`` do objeto (Ponto, Switch, Lighting, Outlet), ou
-            'tomada' para a tomada em Sketch.
+        tipo: ``Proxy.Type`` do objeto (Ponto, Switch, Lighting, Outlet, ConduitPath),
+            'tomada' para a tomada em Sketch ou 'eletroduto' para um Draft Wire marcado como eletroduto.
         simbolo: chave de ``core.simbolos.CATALOGO``, só para o tipo Ponto.
     """
     if tipo == "Ponto":

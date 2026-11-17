@@ -18,7 +18,7 @@ O projeto está em desenvolvimento. A seção [Limitações](#limitações) diz 
 - **Notas:** você escreve as notas do projeto numa planilha e um botão as desenha na planta.
 - **Fiação:** um botão desenha os traços de fase, neutro e terra em todas as tomadas e pontos.
 - **Escala dos símbolos:** cada símbolo tem uma escala, e um comando muda a de todos de uma vez.
-- **Infraestrutura:** caminho de eletrodutos em planta.
+- **Infraestrutura:** eletrodutos em planta, encaixe nas caixas, lista de verticais e contagem dos fios de cada circuito pelo caminho dos eletrodutos.
 - **Modelo 3D:** caixas dos pontos e tubos dos eletrodutos gerados a partir da planta.
 - **Biblioteca:** componentes `.FCStd` inseridos como link, com busca e miniatura.
 - **Quantitativos:** um botão levanta os materiais do projeto e grava a lista em CSV, XLSX e PDF.
@@ -198,6 +198,23 @@ Luminotécnico, Pressurização e Bomba de recalque usam o mesmo tipo de formul�
 - o resultado é recalculado a cada mudança;
 - os valores usados ficam guardados e voltam na próxima vez; **Restaurar padrões** volta aos iniciais.
 
+## Eletrodutos, fios e verticais
+
+1. Desenhe os eletrodutos com **Eletrodutos > Eletroduto**. Ao passar o cursor sobre um símbolo, o snap do Draft prende no ponto de inserção dele (a caixa).
+2. Selecione as linhas e clique em **Conectar às caixas**. As linhas viram eletrodutos (com diâmetro e altura, editáveis nas propriedades), vão para a pasta *Eletrodutos* do pavimento, e todo vértice ou trecho que passa a até 30 cm de uma caixa é puxado para cima dela. O comando lista os pontos com circuito que continuam sem eletroduto.
+3. **Lista de verticais** cria a planilha *Verticais*: para cada caixa, a altura do eletroduto, a altura da caixa, o comprimento da descida ou subida e o diâmetro.
+4. **Documentos > Quantitativos** passa a contar os fios: cada circuito sai do quadro e segue o caminho mais curto pelos eletrodutos até os seus pontos.
+
+Como os fios são contados:
+
+- fase até os pontos e os interruptores do circuito; neutro (azul claro) e terra (verde e amarelo) até os pontos;
+- um retorno do interruptor até as luminárias da mesma letra de comando, e dois condutores a mais entre interruptores paralelos e intermediários;
+- seção e número de fases pela planilha de circuitos do quadro (ou, sem ela, 1,5 mm² para iluminação e 2,5 mm² para o resto);
+- 30 cm de folga em cada caixa, e as verticais da caixa e do quadro;
+- o quadro de cada ponto é o indicado na propriedade `Quadro` dele, ou o quadro mais próximo pela rede.
+
+Uma caixa só entra na rede se houver um vértice de eletroduto sobre ela; por isso use **Conectar às caixas** depois de desenhar ou mexer nos eletrodutos.
+
 ## Quantitativos
 
 **Documentos > Quantitativos** levanta os materiais direto do desenho e grava três arquivos com o mesmo nome, na pasta que você escolher (por padrão, a do projeto):
@@ -213,10 +230,13 @@ O que entra, somado e separado em grupos:
 | Pontos | Cada tomada, ponto de energia e luminária, por tipo, tensão e potência |
 | Interruptores | Por tipo: simples, paralelo, intermediário |
 | Caixas | Uma por ponto: 4x2" na parede, octogonal 4x4" no teto, de piso na tomada de piso |
-| Eletrodutos | Comprimento desenhado de cada diâmetro, com 10 % de perdas |
+| Eletrodutos | Comprimento desenhado e verticais de cada diâmetro, com 10 % de perdas |
+| Fios e cabos | Metros por seção e função (fase, neutro, terra, retorno), pela rede de eletrodutos |
 | Quadros | Os símbolos de quadro e os componentes de cada quadro: disjuntores, DR, DPS, barramentos e caixa |
 
-É uma estimativa: as descidas dos eletrodutos até as caixas e os fios e cabos ainda não entram, e uma tomada e um interruptor no mesmo ponto contam duas caixas. Os eletrodutos só são contados depois de ter o diâmetro definido (pelo botão Eletrodutos 3D). O Relatório PDF usa o mesmo levantamento na seção de materiais.
+Além da lista principal, o XLSX tem as abas **Verticais** e **Fiação por circuito** (trajeto e metros de fio de cada circuito), que também saem em `_verticais.csv`, `_circuitos.csv` e no PDF, junto com os avisos (pontos sem eletroduto ou sem quadro).
+
+É uma estimativa: uma tomada e um interruptor no mesmo ponto contam duas caixas, e os eletrodutos só são contados depois de marcados por **Conectar às caixas** (ou Eletrodutos 3D). O Relatório PDF usa o mesmo levantamento na seção de materiais.
 
 ## Notas do projeto
 
@@ -245,7 +265,7 @@ As barras da bancada têm poucos botões. Os que têm uma seta (▾) abrem uma l
 | Quadros | Quadro distribuição, Quadro de comando, Quadro de medição, Medição agrupada |
 | Dados do quadro | Planilha do quadro, Circuitos do quadro, Circuito |
 | Circuitos | Definir circuito, Ligar interruptor, Identificar pontos |
-| Eletrodutos | Eletroduto, Dividir trecho, Fiação |
+| Eletrodutos | Eletroduto, Conectar às caixas, Dividir trecho, Lista de verticais, Fiação |
 | Cálculos | Demanda, Pressurização, Bomba de recalque |
 | Documentos | Quantitativos, Legenda, Planilha de notas, Notas, Sketches em preto, Relatório PDF |
 | Modelo 3D | Caixas 3D, Eletrodutos 3D, Tomadas 3D |

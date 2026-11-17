@@ -197,6 +197,8 @@ def chave_do_objeto(obj):
         return regras.pasta_do_objeto(tipo, obj.Simbolo)
     if getattr(obj, "tipo", "") == "tomada":
         return regras.pasta_do_objeto("tomada")
+    if not tipo and all(hasattr(obj, nome) for nome in ("Points", "Diametro", "Altura3D")):
+        return regras.pasta_do_objeto("eletroduto")  # Draft Wire marcado como eletroduto
     return regras.pasta_do_objeto(tipo)
 
 

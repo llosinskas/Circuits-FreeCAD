@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64">
+  <!-- Lista de verticais: eletroduto descendo do teto até as caixas -->
+  <path d="M6 8H58 M16 8V44M40 8V30 M10 44H22V56H10ZM34 30H46V42H34Z M24 22L16 30L8 22M48 14L40 22" fill="none" stroke-linecap="round" stroke-linejoin="round" stroke="#ffffff" stroke-width="7" stroke-opacity="0.85"/>
+  <path d="M6 8H58 M16 8V44M40 8V30 M10 44H22V56H10ZM34 30H46V42H34Z" fill="none" stroke-linecap="round" stroke-linejoin="round" stroke="#5f6368" stroke-width="3"/>
+  <path d="M24 22L16 30L8 22M48 14L40 22" fill="none" stroke-linecap="round" stroke-linejoin="round" stroke="#1a73e8" stroke-width="3"/>
+</svg>

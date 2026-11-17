@@ -8,16 +8,16 @@ Regras (estimativa; confira antes de comprar):
 
 - uma caixa por ponto: 4x2" na parede, octogonal 4x4" no teto, de piso no piso;
   quadros não levam caixa;
-- eletrodutos pelo comprimento desenhado, com ``PERDA_ELETRODUTO`` a mais;
-  as descidas até as caixas não entram;
-- os condutores (fios e cabos) não entram: dependem do roteamento dos circuitos,
-  que a bancada ainda não faz.
+- eletrodutos pelo comprimento desenhado e pelas verticais até as caixas, com
+  ``PERDA_ELETRODUTO`` a mais;
+- fios e cabos pelo roteamento dos circuitos na rede de eletrodutos
+  (``core.rede``), já com as folgas nas caixas.
 
 Unidades: comprimentos de entrada em mm, de saída em m.
 """
 from freecad.Circuits.core import simbolos
 
-GRUPOS = ["Pontos", "Interruptores", "Caixas", "Eletrodutos", "Quadros"]
+GRUPOS = ["Pontos", "Interruptores", "Caixas", "Eletrodutos", "Fios e cabos", "Quadros"]
 COLUNAS = ["Grupo", "Item", "Especificação", "Unidade", "Quantidade"]
 PERDA_ELETRODUTO = 0.10
 
@@ -25,6 +25,13 @@ CAIXAS = {
     "4x2": "Caixa 4x2\" de embutir",
     "octogonal": "Caixa octogonal 4x4\" de laje",
     "piso": "Caixa de piso 4x4\"",
+}
+CABO = "Cabo flexível 750 V"
+FUNCOES_FIO = {
+    "fase": "fase",
+    "neutro": "neutro (azul claro)",
+    "terra": "terra (verde e amarelo)",
+    "retorno": "retorno",
 }
 _CAIXA_DO_SIMBOLO = {
     "luz_teto": "octogonal",
@@ -47,7 +54,12 @@ def _linha(grupo, item, especificacao, unidade, quantidade):
     return {"grupo": grupo, "item": item, "especificacao": especificacao, "unidade": unidade, "quantidade": quantidade}
 
 
-def montar(pontos=(), eletrodutos=(), componentes_quadros=()):
+def _secao(valor):
+    """Seção como texto: 2.5 -> '2,5'; 10.0 -> '10'."""
+    return f"{float(valor):g}".replace(".", ",")
+
+
+def montar(pontos=(), eletrodutos=(), componentes_quadros=(), fios=None, verticais=()):
     """Linhas do quantitativo.
 
     Args:
@@ -55,6 +67,8 @@ def montar(pontos=(), eletrodutos=(), componentes_quadros=()):
             ``item``, ``especificacao`` e ``caixa`` (chave de ``CAIXAS`` ou None).
         eletrodutos: pares (diâmetro nominal, comprimento [mm]).
         componentes_quadros: itens de ``core.quadro.componentes`` de todos os quadros.
+        fios: {(seção [mm²], função): metros}, de ``core.rede.analisar``.
+        verticais: verticais de ``core.rede.analisar`` (usa ``diametro`` e ``comprimento`` em m).
     Returns:
         Lista de dicionários com ``grupo``, ``item``, ``especificacao``, ``unidade``
         e ``quantidade`` (inteiro para 'un', metros com duas casas para 'm').
@@ -73,13 +87,22 @@ def montar(pontos=(), eletrodutos=(), componentes_quadros=()):
         if comprimento_mm > 0:
             somar("Eletrodutos", "Eletroduto", f"{diametro}\" (inclui {PERDA_ELETRODUTO:.0%} de perdas)", "m",
                   comprimento_mm / 1000.0 * (1 + PERDA_ELETRODUTO))
+    for vertical in verticais:
+        somar("Eletrodutos", "Eletroduto", f"{vertical['diametro']}\" verticais (inclui {PERDA_ELETRODUTO:.0%} de perdas)",
+              "m", vertical["comprimento"] * (1 + PERDA_ELETRODUTO))
+    for (secao, funcao), metros in (fios or {}).items():
+        somar("Fios e cabos", CABO, f"{_secao(secao)} mm² - {FUNCOES_FIO.get(funcao, funcao)}", "m", metros)
     for componente in componentes_quadros:
         somar("Quadros", componente["item"], componente["especificacao"], componente["unidade"], componente["quantidade"])
 
     def ordem(chave):
         grupo, item, especificacao, _ = chave
         posicao = GRUPOS.index(grupo) if grupo in GRUPOS else len(GRUPOS)
-        return posicao, item, especificacao
+        if grupo == "Fios e cabos":  # por seção numérica e depois pela ordem das funções
+            secao, _, funcao = especificacao.partition(" mm² - ")
+            rotulos = list(FUNCOES_FIO.values())
+            return posicao, item, (float(secao.replace(",", ".")), rotulos.index(funcao) if funcao in rotulos else 9)
+        return posicao, item, (0.0, especificacao)
 
     linhas = []
     for chave in sorted(somas, key=ordem):
@@ -87,6 +110,30 @@ def montar(pontos=(), eletrodutos=(), componentes_quadros=()):
         quantidade = round(somas[chave], 2) if unidade == "m" else int(round(somas[chave]))
         linhas.append(_linha(grupo, item, especificacao, unidade, quantidade))
     return linhas
+
+
+COLUNAS_VERTICAIS = ["Pavimento", "Caixa", "Circuito", "Altura do eletroduto [m]", "Altura da caixa [m]",
+                     "Vertical [m]", "Sentido", "Diâmetro"]
+COLUNAS_CIRCUITOS = ["Quadro", "Circuito", "Seção [mm²]", "Condutores", "Pontos", "Trajeto [m]", "Fio total [m]"]
+
+
+def tabela_verticais(verticais):
+    """Lista de verticais (de ``core.rede.analisar``) como tabela, com cabeçalho."""
+    ordenadas = sorted(verticais, key=lambda v: (v["pavimento"], v["circuito"], v["caixa"]))
+    return [list(COLUNAS_VERTICAIS)] + [
+        [v["pavimento"], v["caixa"], v["circuito"], round(v["altura_eletroduto"] / 1000.0, 2),
+         round(v["altura_caixa"] / 1000.0, 2), round(v["comprimento"], 2), v["sentido"], f"{v['diametro']}\""]
+        for v in ordenadas
+    ]
+
+
+def tabela_circuitos(circuitos):
+    """Fiação por circuito (de ``core.rede.analisar``) como tabela, com cabeçalho."""
+    return [list(COLUNAS_CIRCUITOS)] + [
+        [c["quadro"], c["circuito"], _secao(c["secao"]), c["condutores"], c["pontos"], float(c["trajeto"]),
+         float(c["fio"])]
+        for c in circuitos
+    ]
 
 
 def como_tabela(linhas):

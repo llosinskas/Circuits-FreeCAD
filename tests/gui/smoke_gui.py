@@ -291,6 +291,9 @@ def scenario(doc):
     doc.recompute()
     Gui.Selection.clearSelection()
     Gui.Selection.addSelection(wire)
+    run("ConectarEletrodutos")
+    run("ListaVerticais")
+    result["steps"]["verticais"] = [o.Name for o in doc.Objects if hasattr(o, "lista_de_verticais")]
     run("Generate3DConduits")
     Gui.Selection.clearSelection()
     result["steps"]["eletrodutos"] = [o for o in snapshot(doc) if o["name"].startswith("Wire")]

@@ -28,7 +28,9 @@ class TestRegras(unittest.TestCase):
         self.assertEqual(regras.pasta_do_objeto("Outlet"), "tomadas")
         self.assertEqual(regras.pasta_do_objeto("Lighting"), "iluminacao")
         self.assertEqual(regras.pasta_do_objeto("tomada"), "tomadas")
-        self.assertIsNone(regras.pasta_do_objeto("ConduitPath"))
+        self.assertEqual(regras.pasta_do_objeto("ConduitPath"), "eletrodutos")
+        self.assertEqual(regras.pasta_do_objeto("eletroduto"), "eletrodutos")
+        self.assertIsNone(regras.pasta_do_objeto("Wall"))
         self.assertIsNone(regras.pasta_do_objeto("Ponto", "nao_existe"))
 
     def test_nome_do_pavimento(self):

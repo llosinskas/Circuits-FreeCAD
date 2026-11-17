@@ -16,6 +16,8 @@ from freecad.Circuits.core.simbolos import CATALOGO, QUADRO
 
 MODULOS_FREECAD = ("FreeCAD", "FreeCADGui", "Part", "Draft", "Sketcher", "Spreadsheet")
 RECARREGAR = ("freecad.Circuits.services.quantitativos", "freecad.Circuits.services.planilhas",
+              "freecad.Circuits.services.rede", "freecad.Circuits.services.eletrodutos",
+              "freecad.Circuits.services.pavimentos", "freecad.Circuits.services.alinhamento",
               "freecad.Circuits.services.tomadas", "freecad.Circuits.services.documento",
               "freecad.Circuits.services.estilo")
 NS = {"x": "http://schemas.openxmlformats.org/spreadsheetml/2006/main"}
@@ -121,6 +123,26 @@ class TestExportar(unittest.TestCase):
         self.assertTrue(folha["A1"].font.b)
 
 
+class TestAbas(unittest.TestCase):
+    def test_nomes_de_aba_validos_e_unicos(self):
+        usados = set()
+        nomes = [exportar._nome_de_aba(n, usados) for n in ("A/B", "A/B", "x" * 40, "", "[]")]
+        self.assertEqual(nomes[:2], ["AB", "AB 2"])
+        self.assertEqual(len(nomes[2]), 31)
+        self.assertEqual(nomes[3:], ["Planilha", "Planilha 2"])
+
+    def test_varias_abas_abrem_no_openpyxl(self):
+        try:
+            import openpyxl
+        except ImportError:
+            self.skipTest("openpyxl não instalado")
+        caminho = os.path.join(tempfile.mkdtemp(), "abas.xlsx")
+        exportar.para_xlsx_abas([("Um", [["a"], [1]]), ("Dois", [["b"], [2.5]])], caminho)
+        livro = openpyxl.load_workbook(caminho)
+        self.assertEqual(livro.sheetnames, ["Um", "Dois"])
+        self.assertEqual(livro["Dois"]["A2"].value, 2.5)
+
+
 class TestServico(unittest.TestCase):
     def setUp(self):
         falsos = {nome: mock.MagicMock(name=nome) for nome in MODULOS_FREECAD}
@@ -152,7 +174,10 @@ class TestServico(unittest.TestCase):
         ])
 
     def test_calcular_le_o_documento(self):
-        with mock.patch.object(self.servico, "coletar_componentes_quadros", return_value=[]):
+        fiacao = {"fios": {(2.5, "fase"): 12.0, (2.5, "terra"): 12.0, (1.5, "retorno"): 4.0},
+                  "verticais": [{"diametro": "3/4", "comprimento": 2.5}], "circuitos": [], "avisos": []}
+        with mock.patch.object(self.servico, "coletar_componentes_quadros", return_value=[]), \
+                mock.patch.object(self.servico.rede, "analisar", return_value=fiacao):
             linhas = self.servico.calcular(self.documento())
         por_item = {(l["item"], l["especificacao"]): l["quantidade"] for l in linhas}
         self.assertEqual(por_item[("Tomada baixa", "127V, 100 VA")], 2)
@@ -164,6 +189,14 @@ class TestServico(unittest.TestCase):
         self.assertEqual(por_item[("Caixa octogonal 4x4\" de laje", "")], 1)
         self.assertEqual(por_item[("Eletroduto", "3/4\" (inclui 10% de perdas)")], 11.0)
         self.assertEqual(por_item[("Eletroduto", "1\" (inclui 10% de perdas)")], 1.1)
+        self.assertEqual(por_item[("Eletroduto", "3/4\" verticais (inclui 10% de perdas)")], 2.75)
+        self.assertEqual(por_item[("Cabo flexível 750 V", "2,5 mm² - fase")], 12.0)
+        self.assertEqual(por_item[("Cabo flexível 750 V", "2,5 mm² - terra (verde e amarelo)")], 12.0)
+        self.assertEqual(por_item[("Cabo flexível 750 V", "1,5 mm² - retorno")], 4.0)
+        grupos = [l["grupo"] for l in linhas]
+        self.assertEqual(grupos.index("Fios e cabos"), grupos.index("Eletrodutos") + 3)  # depois dos eletrodutos
+        fios = [l["especificacao"] for l in linhas if l["grupo"] == "Fios e cabos"]
+        self.assertEqual(fios, ["1,5 mm² - retorno", "2,5 mm² - fase", "2,5 mm² - terra (verde e amarelo)"])
 
     def test_componentes_dos_quadros(self):
         quadro = object()
@@ -184,15 +217,30 @@ class TestServico(unittest.TestCase):
     def test_exportar_grava_os_tres_arquivos_com_o_mesmo_nome(self):
         linhas = quantitativos.montar([ponto("Tomada baixa")], [("3/4", 1000.0)])
         base = os.path.join(self.pasta, "lista.pdf")  # a extensão escolhida no diálogo é trocada
-        gravados, avisos = self.servico.exportar(types.SimpleNamespace(Label="Casa"), base, linhas)
-        esperados = [os.path.join(self.pasta, "lista" + ext) for ext in (".csv", ".xlsx")]
-        self.assertEqual(gravados[:2], esperados)
+        fiacao = {
+            "fios": {}, "avisos": ["T9: sem eletroduto chegando na caixa."],
+            "circuitos": [{"quadro": "QD1", "circuito": "1", "secao": 2.5, "pontos": 3, "condutores": "F+N+T",
+                           "trajeto": 7.5, "fio": 28.2}],
+            "verticais": [{"pavimento": "Térreo", "caixa": "Tomada baixa", "circuito": "1", "altura_eletroduto": 2800.0,
+                           "altura_caixa": 300.0, "comprimento": 2.5, "sentido": "descida", "diametro": "3/4"}],
+        }
+        gravados, avisos = self.servico.exportar(types.SimpleNamespace(Label="Casa"), base, linhas, fiacao)
+        esperados = [os.path.join(self.pasta, "lista" + ext)
+                     for ext in (".csv", "_verticais.csv", "_circuitos.csv", ".xlsx")]
+        self.assertEqual(gravados[:4], esperados)
+        with zipfile.ZipFile(esperados[3]) as arquivo:
+            livro = ElementTree.fromstring(arquivo.read("xl/workbook.xml"))
+            self.assertIn("xl/worksheets/sheet3.xml", arquivo.namelist())
+        self.assertEqual([aba.get("name") for aba in livro.iter(f"{{{NS['x']}}}sheet")],
+                         ["Quantitativo", "Verticais", "Fiação por circuito"])
+        with open(esperados[1], encoding="utf-8-sig") as arquivo:
+            self.assertEqual(arquivo.read().splitlines()[1], "Térreo;Tomada baixa;1;2,80;0,30;2,50;descida;\"3/4\"\"\"")
         if TEM_REPORTLAB:
-            self.assertEqual((gravados[2], avisos), (os.path.join(self.pasta, "lista.pdf"), []))
-            with open(gravados[2], "rb") as arquivo:
+            self.assertEqual((gravados[4], avisos), (os.path.join(self.pasta, "lista.pdf"), []))
+            with open(gravados[4], "rb") as arquivo:
                 self.assertTrue(arquivo.read().startswith(b"%PDF"))
         else:
-            self.assertEqual(len(gravados), 2)
+            self.assertEqual(len(gravados), 4)
             self.assertIn("reportlab", avisos[0])
         for caminho in gravados:
             self.assertGreater(os.path.getsize(caminho), 0)

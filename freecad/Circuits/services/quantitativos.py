@@ -6,7 +6,7 @@ from freecad.Circuits.core import exportar as gravacao
 from freecad.Circuits.core import quantitativos as regras
 from freecad.Circuits.core import quadro as regras_quadro
 from freecad.Circuits.core.simbolos import CATALOGO, QUADRO
-from freecad.Circuits.services import planilhas
+from freecad.Circuits.services import planilhas, rede
 from freecad.Circuits.services.tomadas import listar_tomadas
 
 EXTENSOES = (".csv", ".xlsx", ".pdf")
@@ -77,9 +77,24 @@ def coletar_componentes_quadros(doc):
     return componentes
 
 
+def levantar(doc):
+    """Quantitativo e fiação do documento.
+
+    Returns:
+        (linhas de ``core.quantitativos.montar``, resultado de ``services.rede.analisar``
+        com fios, circuitos, verticais e avisos).
+    """
+    fiacao = rede.analisar(doc)
+    linhas = regras.montar(
+        coletar_pontos(doc), coletar_eletrodutos(doc), coletar_componentes_quadros(doc),
+        fios=fiacao["fios"], verticais=fiacao["verticais"],
+    )
+    return linhas, fiacao
+
+
 def calcular(doc):
     """Linhas do quantitativo do documento (``core.quantitativos.montar``)."""
-    return regras.montar(coletar_pontos(doc), coletar_eletrodutos(doc), coletar_componentes_quadros(doc))
+    return levantar(doc)[0]
 
 
 def caminho_padrao(doc):
@@ -90,7 +105,30 @@ def caminho_padrao(doc):
     return nome
 
 
-def exportar_pdf(linhas, caminho, titulo):
+def _tabela_pdf(tabela, larguras_cm, estilos):
+    """Tabela do reportlab a partir de uma lista de listas com cabeçalho."""
+    from reportlab.lib import colors
+    from reportlab.lib.units import cm
+    from reportlab.platypus import Paragraph, Table, TableStyle
+
+    def texto(valor):
+        return f"{valor:.2f}".replace(".", ",") if isinstance(valor, float) else str(valor)
+
+    dados = [tabela[0]] + [[Paragraph(texto(v), estilos["BodyText"]) for v in linha] for linha in tabela[1:]]
+    resultado = Table(dados, colWidths=[largura * cm for largura in larguras_cm], repeatRows=1)
+    resultado.setStyle(TableStyle([
+        ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#3c4043")),
+        ("TEXTCOLOR", (0, 0), (-1, 0), colors.white),
+        ("FONTNAME", (0, 0), (-1, 0), "Helvetica-Bold"),
+        ("FONTSIZE", (0, 0), (-1, 0), 8),
+        ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
+        ("ROWBACKGROUNDS", (0, 1), (-1, -1), [colors.white, colors.HexColor("#f1f3f4")]),
+        ("GRID", (0, 0), (-1, -1), 0.5, colors.HexColor("#9aa0a6")),
+    ]))
+    return resultado
+
+
+def exportar_pdf(linhas, caminho, titulo, fiacao=None):
     """Grava o quantitativo em PDF, com uma tabela por grupo.
 
     Raises:
@@ -135,28 +173,53 @@ def exportar_pdf(linhas, caminho, titulo):
             ("GRID", (0, 0), (-1, -1), 0.5, colors.HexColor("#9aa0a6")),
         ]))
         historia += [tabela, Spacer(1, 0.4 * cm)]
+    if fiacao and fiacao["circuitos"]:
+        historia += [Paragraph("Fiação por circuito", estilos["Heading2"]),
+                     _tabela_pdf(regras.tabela_circuitos(fiacao["circuitos"]), [2.2, 1.8, 1.8, 2.6, 1.6, 2.2, 2.4], estilos),
+                     Spacer(1, 0.4 * cm)]
+    if fiacao and fiacao["verticais"]:
+        historia += [Paragraph("Lista de verticais", estilos["Heading2"]),
+                     _tabela_pdf(regras.tabela_verticais(fiacao["verticais"]),
+                                 [2.2, 3.2, 1.6, 2.0, 1.8, 1.8, 1.8, 1.6], estilos),
+                     Spacer(1, 0.4 * cm)]
+    if fiacao and fiacao["avisos"]:
+        historia.append(Paragraph("Avisos", estilos["Heading2"]))
+        historia += [Paragraph(aviso, estilos["BodyText"]) for aviso in fiacao["avisos"]]
     historia.append(Paragraph(
-        "Estimativa gerada a partir do desenho. Eletrodutos com perdas incluídas; descidas e condutores não entram. "
-        "Confira antes de comprar.", estilos["Italic"]))
+        "Estimativa gerada a partir do desenho: eletrodutos e verticais com perdas incluídas; fios pelo caminho mais "
+        "curto na rede de eletrodutos, com folga nas caixas. Confira antes de comprar.", estilos["Italic"]))
     SimpleDocTemplate(caminho, pagesize=A4, title=titulo).build(historia)
     return caminho
 
 
-def exportar(doc, caminho_base, linhas=None):
+def exportar(doc, caminho_base, linhas=None, fiacao=None):
     """Grava o quantitativo em CSV, XLSX e PDF com o mesmo nome base.
+
+    O XLSX tem as abas Quantitativo, Verticais e Fiação por circuito; os CSV das
+    verticais e da fiação são gravados ao lado, com os sufixos _verticais e _circuitos.
 
     Returns:
         (arquivos gravados, avisos): lista de caminhos e lista de textos.
     """
-    linhas = calcular(doc) if linhas is None else linhas
+    if linhas is None or fiacao is None:
+        linhas, fiacao = levantar(doc)
     base, extensao = os.path.splitext(caminho_base)
     if extensao.lower() not in EXTENSOES:
         base = caminho_base
     tabela = regras.como_tabela(linhas)
-    gravados = [gravacao.para_csv(tabela, base + ".csv"), gravacao.para_xlsx(tabela, base + ".xlsx")]
+    verticais = regras.tabela_verticais(fiacao["verticais"])
+    circuitos = regras.tabela_circuitos(fiacao["circuitos"])
+    gravados = [
+        gravacao.para_csv(tabela, base + ".csv"),
+        gravacao.para_csv(verticais, base + "_verticais.csv"),
+        gravacao.para_csv(circuitos, base + "_circuitos.csv"),
+        gravacao.para_xlsx_abas(
+            [("Quantitativo", tabela), ("Verticais", verticais), ("Fiação por circuito", circuitos)], base + ".xlsx"
+        ),
+    ]
     avisos = []
     try:
-        gravados.append(exportar_pdf(linhas, base + ".pdf", f"Quantitativo de materiais - {doc.Label}"))
+        gravados.append(exportar_pdf(linhas, base + ".pdf", f"Quantitativo de materiais - {doc.Label}", fiacao))
     except RuntimeError as erro:
         avisos.append(str(erro))
     return gravados, avisos

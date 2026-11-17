@@ -76,7 +76,7 @@ class GerarQuantitativos:
         if not doc:
             QtWidgets.QMessageBox.warning(None, "Erro", "Nenhum documento aberto.")
             return
-        linhas = quantitativos.calcular(doc)
+        linhas, fiacao = quantitativos.levantar(doc)
         if not linhas:
             QtWidgets.QMessageBox.information(
                 None, "Quantitativos", "Nenhum material encontrado: insira pontos, eletrodutos ou quadros no projeto."
@@ -89,13 +89,16 @@ class GerarQuantitativos:
         if not caminho:
             return
         try:
-            gravados, avisos = quantitativos.exportar(doc, caminho, linhas)
+            gravados, avisos = quantitativos.exportar(doc, caminho, linhas, fiacao)
         except OSError as erro:
             QtWidgets.QMessageBox.critical(None, "Quantitativos", f"Não foi possível gravar os arquivos:\n{erro}")
             return
         texto = [f"{len(linhas)} item(ns) levantado(s). Arquivos gravados:"] + [f"  {c}" for c in gravados]
+        avisos += fiacao["avisos"][:15]
+        if len(fiacao["avisos"]) > 15:
+            avisos.append(f"... e mais {len(fiacao['avisos']) - 15} aviso(s), listados no PDF.")
         if avisos:
-            texto += [""] + avisos
+            texto += ["", "Avisos:"] + [f"  {aviso}" for aviso in avisos]
         texto += ["", "Estimativa a partir do desenho: confira antes de comprar."]
         QtWidgets.QMessageBox.information(None, "Quantitativos", "\n".join(texto))
 
@@ -106,7 +109,7 @@ class GerarQuantitativos:
         return recursos(
             "quantitativos.svg",
             "Quantitativos",
-            "Levanta pontos, caixas, eletrodutos e componentes dos quadros e grava em CSV, XLSX e PDF",
+            "Levanta pontos, caixas, eletrodutos, verticais, fios e quadros e grava em CSV, XLSX e PDF",
         )
 
 

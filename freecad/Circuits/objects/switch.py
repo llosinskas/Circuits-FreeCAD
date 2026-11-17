@@ -130,7 +130,8 @@ class Switch:
                 p_e = App.Vector(raio + linha, dy, 0)
                 edges.append(Part.makeLine(p_s, p_e))
 
-        compound = Part.makeCompound(edges)
+        # Vértice no centro (a caixa), onde o snap do Draft prende o eletroduto.
+        compound = Part.makeCompound(edges + [Part.Vertex(App.Vector(0, 0, 0))])
         obj.Shape = compound
 
     def onChanged(self, fp, prop):

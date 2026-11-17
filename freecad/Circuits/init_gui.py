@@ -98,7 +98,7 @@ LIGHTING_TOOLS = [
 SWITCH_TOOLS = ["InsertSwitch", "InsertSwitchParalelo", "InsertSwitchIntermediario"]
 BOARD_SYMBOL_TOOLS = ["Ponto_quadro_distribuicao", "Ponto_quadro_comando", "Ponto_quadro_medicao", "Ponto_medicao_agrupada"]
 CIRCUIT_TOOLS = ["DefinirCircuito", "LigarInterruptor", "IdentificarPontos"]
-INFRA_TOOLS = ["InsertConduit", "Add_Node", "Cabo"]
+INFRA_TOOLS = ["InsertConduit", "ConectarEletrodutos", "Add_Node", "ListaVerticais", "Cabo"]
 BOARD_DATA_TOOLS = ["GerarPlanilha", "CircuitosQuadro", "AddCircuito"]
 BOARD_TOOLS = ["GerarPlanilha", "CircuitosQuadro", "AddCircuito", "MontarCircuitos", "ComponentesQuadro", "GerarUnifilar"]
 CALC_TOOLS = ["CalcDemanda", "CalcPressurizacao", "CalcRecalque"]
@@ -137,7 +137,7 @@ GROUPS = {
     "Grupo_Quadros": ("Quadros", "Quadro de distribuição, de comando, de medição e medição agrupada, na planta", BOARD_SYMBOL_TOOLS),
     "Grupo_DadosQuadro": ("Dados do quadro", "Planilha de dados do quadro, planilha de circuitos e circuito digitado em formulário", BOARD_DATA_TOOLS),
     "Grupo_Circuitos": ("Circuitos", "Definir o circuito dos pontos, ligar interruptores e identificar na planta", CIRCUIT_TOOLS),
-    "Grupo_Infra": ("Eletrodutos", "Caminho de eletroduto, divisão de trecho e fiação", INFRA_TOOLS),
+    "Grupo_Infra": ("Eletrodutos", "Eletroduto, conexão às caixas, divisão de trecho, lista de verticais e fiação", INFRA_TOOLS),
     "Grupo_Calculos": ("Cálculos", "Demanda do quadro, pressurização de escada e bomba de recalque", CALC_TOOLS),
     "Grupo_Documentos": ("Documentos", "Quantitativos, legenda de símbolos, notas, Sketches em preto e relatório em PDF", DOCUMENT_TOOLS),
     "Grupo_3D": ("Modelo 3D", "Caixas, eletrodutos e tomadas em 3D, gerados a partir da planta", MODEL_3D_TOOLS),
@@ -247,6 +247,7 @@ class CircuitsWorkbench(gui.Workbench):
             alinhar,
             identificacao,
             pavimentos,
+            rede,
             calculos,
             generate_3d,
             gerar_unifilar,
