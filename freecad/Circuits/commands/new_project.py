@@ -16,13 +16,13 @@ class newProjetctEletrical:
     def Activated(self):
         doc = App.activeDocument() or App.newDocument("Projeto_eletrico")
         criar_grupos(doc, GRUPOS_PROJETO)
-        pavimentos.garantir_ativo(doc)  # os símbolos entram no Térreo até o usuário escolher outro pavimento
+        pavimentos.garantir_ativo(doc)  # nível do BIM ou Térreo; o usuário troca no botão Pavimento
 
     def GetResources(self):
         return recursos(
             "newProject.svg",
             "Novo projeto",
-            "Cria os grupos do projeto elétrico e o pavimento Térreo, em um documento novo se preciso",
+            "Cria os grupos do projeto elétrico e ativa um pavimento (um nível do BIM, ou o Térreo se não houver)",
         )
 
 

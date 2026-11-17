@@ -7,7 +7,8 @@ MM_POR_M = 1000.0
 class DefinirPavimentoDialog(QtWidgets.QDialog):
     """
     Args:
-        pavimentos: lista de dicionários com ``nome``, ``elevacao_mm``, ``altura_mm`` e ``ativo``.
+        pavimentos: lista de dicionários com ``nome``, ``elevacao_mm``, ``altura_mm``, ``ativo`` e ``bim``
+            (níveis do BIM têm cota e altura só para leitura).
         sugestao: dicionário com ``nome``, ``elevacao_mm`` e ``altura_mm`` do próximo pavimento.
     """
 
@@ -25,13 +26,17 @@ class DefinirPavimentoDialog(QtWidgets.QDialog):
         )
         layout.addRow(aviso)
 
+        self.nota = QtWidgets.QLabel("Nível do BIM: a cota e a altura vêm do BIM e não mudam aqui.")
+        self.nota.setVisible(False)
+        layout.addRow(self.nota)
+
         self.nome = QtWidgets.QComboBox()
         self.nome.setEditable(True)
         self.nome.addItems(list(self._valores))
         layout.addRow("Pavimento:", self.nome)
 
         self.elevacao = QtWidgets.QDoubleSpinBox()
-        self.elevacao.setRange(-50.0, 500.0)
+        self.elevacao.setRange(-500.0, 5000.0)
         self.elevacao.setDecimals(2)
         self.elevacao.setSuffix(" m")
         self.elevacao.setToolTip("Cota do piso, a partir do térreo. Soma-se à altura de montagem nas caixas 3D.")
@@ -66,6 +71,10 @@ class DefinirPavimentoDialog(QtWidgets.QDialog):
         if dados is not None:
             self.elevacao.setValue(dados["elevacao_mm"] / MM_POR_M)
             self.altura.setValue(dados["altura_mm"] / MM_POR_M)
+        bim = bool(dados and dados.get("bim"))
+        self.elevacao.setEnabled(not bim)
+        self.altura.setEnabled(not bim)
+        self.nota.setVisible(bim)
 
     def get_dados(self):
         return {

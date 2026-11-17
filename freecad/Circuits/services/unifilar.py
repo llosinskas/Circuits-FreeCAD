@@ -8,6 +8,7 @@ from freecad.Circuits.core import simbolos
 from freecad.Circuits.core.planilha import PRIMEIRA_LINHA_CIRCUITOS
 from freecad.Circuits.services import planilhas
 from freecad.Circuits.services.cabos import desenhar_cabo_unifilar
+from freecad.Circuits.services.estilo import pintar_sketch
 
 ALTURA_PADRAO = 100
 ESPACAMENTO_CIRCUITOS = 5  # distância entre circuitos, em alturas de texto
@@ -22,6 +23,7 @@ def add_texto(texto, posicao, angulo, h, grupo):
 
 def desenhar_dps(doc, posicao, h, grupo):
     sketch = doc.addObject("Sketcher::SketchObject", "dps")
+    pintar_sketch(sketch)
     sketch.Placement = App.Placement(posicao, App.Rotation(0, 0, 0))
 
     def linha(p1, p2):
@@ -173,6 +175,7 @@ def desenhar_circuito(doc, potencia, dr, bitola, posicao, corrente, comprimento,
     disjuntor; ``fases`` (ex.: 'R' ou 'RS') aparece embaixo dele.
     """
     sketch = doc.addObject("Sketcher::SketchObject", "Circuito")
+    pintar_sketch(sketch)
     sketch.Placement = posicao
 
     def linha(x1, y1, x2, y2):

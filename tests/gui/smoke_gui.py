@@ -168,6 +168,11 @@ def scenario(doc):
         obj.Circuito = str(numero)
     doc.recompute()
     result["steps"]["inseridos"] = snapshot(doc)
+    run("PintarSketches")
+    result["steps"]["sketches_pretos"] = sorted({
+        tuple(round(c, 2) for c in o.ViewObject.LineColor[:3])
+        for o in doc.Objects if o.TypeId == "Sketcher::SketchObject" and o.ViewObject is not None
+    })
 
     # Pavimentos: os símbolos entram nas pastas do Térreo; um pavimento novo recebe os próximos e depois o ponto volta.
     pav = importlib.import_module("freecad.Circuits.services.pavimentos")

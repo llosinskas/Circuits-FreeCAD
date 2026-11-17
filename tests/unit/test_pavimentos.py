@@ -95,6 +95,12 @@ class Documento:
         pass
 
 
+def nivel_bim(nome, z, altura=0.0):
+    """Nível da bancada BIM: BuildingPart do tipo Building Storey, com a cota na posição Z."""
+    return Objeto(nome, IfcType="Building Storey", Height=altura,
+                  Placement=types.SimpleNamespace(Base=types.SimpleNamespace(z=z)))
+
+
 def ponto(nome, simbolo):
     obj = Objeto(nome, Simbolo=simbolo)
     obj.Proxy = types.SimpleNamespace(Type="Ponto")
@@ -221,6 +227,46 @@ class TestServico(unittest.TestCase):
         self.assertEqual(self.servico.elevacao_do_objeto(self.doc, solto), 0.0)
         solto.Pavimento = "1º Pavimento"
         self.assertEqual(self.servico.elevacao_do_objeto(self.doc, solto), 3000.0)
+
+    def test_niveis_do_bim_sao_pavimentos(self):
+        terreo, primeiro = self.adicionar(nivel_bim("Terreo", 0.0, 3200.0)), self.adicionar(nivel_bim("Nivel 1", 3200.0))
+        self.adicionar(Objeto("Parede", IfcType="Wall"))  # outro objeto do BIM: não é pavimento
+        self.assertEqual(self.servico.listar(self.doc), [terreo, primeiro])
+        self.assertEqual([(r["nome"], r["elevacao_mm"], r["altura_mm"], r["bim"]) for r in self.servico.resumo(self.doc)],
+                         [("Terreo", 0.0, 3200.0, True), ("Nivel 1", 3200.0, 3000.0, True)])  # altura 0 no BIM: padrão
+
+    def test_com_niveis_do_bim_nao_cria_o_terreo(self):
+        terreo, primeiro = self.adicionar(nivel_bim("Terreo", 0.0)), self.adicionar(nivel_bim("Nivel 1", 3000.0))
+        self.assertIs(self.servico.garantir_ativo(self.doc), terreo)
+        self.assertEqual(self.servico.listar(self.doc), [terreo, primeiro])
+        self.assertTrue(terreo.Ativo)
+        self.assertFalse(hasattr(primeiro, "Ativo"))  # só o nível ativado ganha a marca
+
+    def test_simbolos_vao_para_dentro_do_nivel_do_bim(self):
+        terreo = self.adicionar(nivel_bim("Terreo", 0.0))
+        primeiro = self.adicionar(nivel_bim("Nivel 1", 3000.0))
+        a, b = self.adicionar(ponto("T1", "tomada_baixa")), self.adicionar(interruptor("S1"))
+        self.servico.arquivar(self.doc, a)
+        self.servico.definir(self.doc, "Nivel 1")
+        self.servico.arquivar(self.doc, b)
+        self.assertEqual(self.pastas(terreo), {"tomadas": ["T1"]})
+        self.assertEqual(self.pastas(primeiro), {"interruptores": ["S1"]})
+        self.assertEqual((a.Pavimento, b.Pavimento), ("Terreo", "Nivel 1"))
+        self.assertEqual([terreo.Ativo, primeiro.Ativo], [False, True])
+        self.assertEqual(self.servico.elevacao_do_objeto(self.doc, b), 3000.0)
+
+    def test_definir_nao_altera_a_cota_nem_a_altura_de_um_nivel_do_bim(self):
+        nivel = self.adicionar(nivel_bim("Nivel 1", 3000.0, 2800.0))
+        self.assertIs(self.servico.definir(self.doc, "Nivel 1", 9999.0, 1234.0), nivel)
+        self.assertEqual((nivel.Placement.Base.z, nivel.Height, nivel.Ativo), (3000.0, 2800.0, True))
+        self.assertEqual(len(self.servico.listar(self.doc)), 1)  # não criou outro com o mesmo nome
+
+    def test_niveis_do_bim_e_pastas_da_bancada_convivem_ordenados_pela_cota(self):
+        self.adicionar(nivel_bim("Nivel 1", 3000.0))
+        cobertura = self.servico.definir(self.doc, "Cobertura", 6000.0, 2500.0)
+        self.assertEqual([p.Label for p in self.servico.listar(self.doc)], ["Nivel 1", "Cobertura"])
+        self.assertEqual(self.servico.sugestao_novo(self.doc), ("1º Pavimento", 8500.0, 2500.0))
+        self.assertTrue(cobertura.Ativo)
 
     def test_rotulo_repetido_cai_no_nome_com_o_pavimento(self):
         class GrupoUnico(Objeto):

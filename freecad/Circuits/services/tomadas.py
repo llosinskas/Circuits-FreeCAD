@@ -5,6 +5,7 @@ import Part
 import Sketcher  # noqa: F401  (registra o tipo Sketcher::SketchObject)
 
 from freecad.Circuits.services.documento import create_group
+from freecad.Circuits.services.estilo import pintar_sketch
 
 ALTURA_SIMBOLO = 100
 
@@ -20,6 +21,7 @@ def _desenhar_simbolo(sketch, h):
 def _criar_sketch(doc):
     """Sketch com o símbolo da tomada."""
     sketch = doc.addObject("Sketcher::SketchObject", "Tomada")
+    pintar_sketch(sketch)
     _desenhar_simbolo(sketch, ALTURA_SIMBOLO)
     return sketch
 

@@ -137,12 +137,17 @@ Pontos_eletricos
     └── ...
 ```
 
-- **Novo projeto** cria o *Térreo* e o deixa ativo. Todo símbolo que você inserir (tomadas, pontos, interruptores, luminárias do luminotécnico) vai sozinho para a pasta do tipo dele, dentro do pavimento ativo.
+- **Níveis do BIM:** se o projeto já tem níveis da bancada BIM (Level, "Building Storey"), eles são os pavimentos: os símbolos entram nas pastas dentro do próprio nível, a cota vem do nível e o Térreo não é criado. A bancada não altera a cota nem a altura de um nível do BIM; para mudá-las, use o BIM.
+- **Novo projeto** ativa um nível do BIM, se houver, ou cria o *Térreo*. Todo símbolo que você inserir (tomadas, pontos, interruptores, luminárias do luminotécnico) vai sozinho para a pasta do tipo dele, dentro do pavimento ativo.
 - **Projeto > Pavimento** escolhe o pavimento ativo ou cria um novo, com a cota do piso e a altura de piso a piso. O programa sugere o próximo (1º Pavimento, na cota seguinte).
 - **Projeto > Mover para pavimento** leva os símbolos selecionados para as pastas de outro pavimento.
 - Cada símbolo guarda o nome do pavimento na propriedade `Pavimento`, e as caixas 3D somam a cota do pavimento à altura de montagem.
 
 Os símbolos já existentes no projeto não são movidos sozinhos: selecione-os e use *Mover para pavimento*. Eletrodutos, textos e outros desenhos não entram nas pastas.
+
+## Sketches pretos
+
+Os Sketches que a bancada cria (tomada TUG, fiação, unifilar) nascem com as linhas pretas, porque o branco padrão do FreeCAD some sobre o fundo claro. Para pintar os de um projeto antigo, use **Documentos > Sketches em preto**.
 
 ## Fiação e escala dos símbolos
 
@@ -202,7 +207,7 @@ As barras da bancada têm poucos botões. Os que têm uma seta (▾) abrem uma l
 | Circuitos | Definir circuito, Ligar interruptor, Identificar pontos |
 | Eletrodutos | Eletroduto, Dividir trecho, Fiação |
 | Cálculos | Demanda, Pressurização, Bomba de recalque |
-| Documentos | Legenda, Planilha de notas, Notas, Relatório PDF |
+| Documentos | Legenda, Planilha de notas, Notas, Sketches em preto, Relatório PDF |
 | Modelo 3D | Caixas 3D, Eletrodutos 3D, Tomadas 3D |
 | Biblioteca | Equipamento, Componente, Criar modelo, Importar modelo |
 

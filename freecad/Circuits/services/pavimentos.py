@@ -1,4 +1,9 @@
-"""Pavimentos do projeto e as pastas dos símbolos dentro de cada um."""
+"""Pavimentos do projeto e as pastas dos símbolos dentro de cada um.
+
+Um pavimento é um nível da bancada BIM (BuildingPart do tipo "Building Storey")
+ou, quando o projeto não tem níveis, uma pasta criada pela bancada. Os níveis do
+BIM têm a cota e a altura lidas do próprio BIM e nunca são alterados aqui.
+"""
 import FreeCAD as App
 
 from freecad.Circuits.core import pavimentos as regras
@@ -29,13 +34,31 @@ def _rotular(obj, desejado, alternativo):
 
 # --- pavimentos ------------------------------------------------------------
 
+def eh_nivel_bim(obj):
+    """Nível da bancada BIM: um BuildingPart do tipo Building Storey."""
+    return getattr(obj, "IfcType", "") == "Building Storey" and hasattr(obj, "Group")
+
+
 def eh_pavimento(obj):
-    return hasattr(obj, "AlturaPavimento")
+    return hasattr(obj, "AlturaPavimento") or eh_nivel_bim(obj)
+
+
+def elevacao(pav):
+    """Cota do piso do pavimento [mm]. Num nível do BIM é a posição Z dele."""
+    return float(pav.Placement.Base.z) if eh_nivel_bim(pav) else _mm(pav.Elevacao)
+
+
+def altura(pav):
+    """Altura de piso a piso [mm]. Num nível do BIM vem da propriedade Height, ou vale o padrão se for zero."""
+    if eh_nivel_bim(pav):
+        altura_bim = _mm(pav.Height) if hasattr(pav, "Height") else 0.0
+        return altura_bim if altura_bim > 0 else regras.ALTURA_PADRAO_MM
+    return _mm(pav.AlturaPavimento)
 
 
 def listar(doc):
-    """Pavimentos do documento, do mais baixo para o mais alto."""
-    return sorted((obj for obj in doc.Objects if eh_pavimento(obj)), key=lambda obj: _mm(obj.Elevacao))
+    """Pavimentos do documento (níveis do BIM e pastas da bancada), do mais baixo para o mais alto."""
+    return sorted((obj for obj in doc.Objects if eh_pavimento(obj)), key=elevacao)
 
 
 def por_nome(doc, nome):
@@ -44,21 +67,33 @@ def por_nome(doc, nome):
 
 
 def ativo(doc):
-    return next((pav for pav in listar(doc) if pav.Ativo), None)
+    return next((pav for pav in listar(doc) if getattr(pav, "Ativo", False)), None)
 
 
 def ativar(doc, pavimento):
     """Torna este o pavimento onde os próximos símbolos são inseridos."""
     for pav in listar(doc):
-        pav.Ativo = pav.Name == pavimento.Name
+        if pav.Name == pavimento.Name:
+            if not hasattr(pav, "Ativo"):  # nível do BIM: a marca é acrescentada só quando ele é ativado
+                pav.addProperty("App::PropertyBool", "Ativo", "Pavimento", "Pavimento onde os próximos símbolos entram")
+            pav.Ativo = True
+        elif hasattr(pav, "Ativo"):
+            pav.Ativo = False
 
 
 def definir(doc, nome, elevacao_mm=0.0, altura_mm=regras.ALTURA_PADRAO_MM):
-    """Cria o pavimento (ou atualiza o de mesmo nome) e o torna o ativo."""
+    """Cria o pavimento (ou atualiza o de mesmo nome) e o torna o ativo.
+
+    Um nível do BIM só é ativado: a cota e a altura dele são do BIM e não mudam aqui.
+    """
     nome = regras.nome_do_pavimento(nome)
     pav = por_nome(doc, nome)
     doc.openTransaction("Definir pavimento")
     try:
+        if pav is not None and eh_nivel_bim(pav):
+            ativar(doc, pav)
+            doc.commitTransaction()
+            return pav
         if pav is None:
             pav = doc.addObject("App::DocumentObjectGroup", "Pavimento")
             pav.Label = nome
@@ -80,7 +115,10 @@ def definir(doc, nome, elevacao_mm=0.0, altura_mm=regras.ALTURA_PADRAO_MM):
 
 
 def garantir_ativo(doc):
-    """Pavimento ativo; sem nenhum ativo, ativa o mais baixo, e sem pavimentos cria o Térreo."""
+    """Pavimento ativo; sem nenhum ativo, ativa o mais baixo, e sem pavimentos cria o Térreo.
+
+    Num projeto com níveis do BIM, o ativo é um deles, e o Térreo não é criado.
+    """
     pav = ativo(doc)
     if pav is not None:
         return pav
@@ -94,7 +132,13 @@ def garantir_ativo(doc):
 def resumo(doc):
     """Dados dos pavimentos para os diálogos: nome, cota e altura em mm e se é o ativo."""
     return [
-        {"nome": pav.Label, "elevacao_mm": _mm(pav.Elevacao), "altura_mm": _mm(pav.AlturaPavimento), "ativo": bool(pav.Ativo)}
+        {
+            "nome": pav.Label,
+            "elevacao_mm": elevacao(pav),
+            "altura_mm": altura(pav),
+            "ativo": bool(getattr(pav, "Ativo", False)),
+            "bim": eh_nivel_bim(pav),
+        }
         for pav in listar(doc)
     ]
 
@@ -192,4 +236,4 @@ def pavimento_do_objeto(doc, obj):
 def elevacao_do_objeto(doc, obj):
     """Cota do piso do pavimento do símbolo [mm]; fora de qualquer pavimento vale 0."""
     pav = pavimento_do_objeto(doc, obj)
-    return _mm(pav.Elevacao) if pav is not None else 0.0
+    return elevacao(pav) if pav is not None else 0.0

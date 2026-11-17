@@ -6,6 +6,7 @@ from freecad.Circuits.core.simbolos import CATALOGO, QUADRO
 from freecad.Circuits.core.simbologia import condutores, posicoes_fase
 from freecad.Circuits.objects.ponto import tamanho_do_ponto
 from freecad.Circuits.services.documento import create_group
+from freecad.Circuits.services.estilo import pintar_sketch
 from freecad.Circuits.services.tomadas import escala_da_tomada
 
 ALTURA_SIMBOLO = 100
@@ -18,6 +19,7 @@ def _linha(sketch, x1, y1, x2, y2):
 
 def _novo_sketch(doc, posicao):
     sketch = doc.addObject("Sketcher::SketchObject", "Cabo")
+    pintar_sketch(sketch)
     sketch.Placement = App.Placement(posicao + DESLOCAMENTO, App.Rotation(0, 0, 0))
     return sketch
 
@@ -30,6 +32,7 @@ def _desenhar_fases(sketch, fases, neutro, terra, h):
 def _desenhar_simbolo_planta(doc, posicao, fases, neutro, terra, h, grupo, origem):
     """Traços de terra, neutro e fases ao lado de um ponto da planta."""
     sketch = doc.addObject("Sketcher::SketchObject", "Cabo")
+    pintar_sketch(sketch)
     sketch.Placement = App.Placement(posicao + App.Vector(h / 2, h / 2, 0), App.Rotation(0, 0, 0))
     sketch.addProperty("App::PropertyString", "fiacao_de", "Fiação", "Ponto da planta a que este símbolo pertence")
     sketch.fiacao_de = origem

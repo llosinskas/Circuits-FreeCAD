@@ -6,6 +6,7 @@ import FreeCAD as App
 import FreeCADGui as Gui
 
 from freecad.Circuits.commands._base import documento_ou_aviso, recursos
+from freecad.Circuits.services import estilo
 
 _PACOTE = "freecad.Circuits"
 _CHAVE_BANCADA = "CircuitsWorkbench"
@@ -24,6 +25,25 @@ class GetSpaces:
             "listar_objetos.svg",
             "Listar objetos",
             "Lista no painel de relatório todos os objetos do documento",
+        )
+
+
+class PintarSketches:
+    """Pinta de preto todos os Sketches do documento, inclusive os de projetos antigos."""
+
+    def Activated(self):
+        doc = documento_ou_aviso()
+        if doc:
+            App.Console.PrintMessage(f"{estilo.pintar_todos(doc)} Sketch(es) pintado(s) de preto.\n")
+
+    def IsActive(self):
+        return True
+
+    def GetResources(self):
+        return recursos(
+            "sketches_pretos.svg",
+            "Sketches em preto",
+            "Pinta de preto as linhas de todos os Sketches do documento (os novos já nascem pretos)",
         )
 
 
@@ -52,4 +72,5 @@ class ReiniciarBancada:
 
 
 Gui.addCommand("GetSpaces", GetSpaces())
+Gui.addCommand("PintarSketches", PintarSketches())
 Gui.addCommand("ReiniciarBancada", ReiniciarBancada())
