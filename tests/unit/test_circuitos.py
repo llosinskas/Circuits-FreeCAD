@@ -2,7 +2,7 @@
 import unittest
 
 from tests import ROOT  # noqa: F401  (configura o caminho do pacote)
-from freecad.Circuits.core import circuitos
+from freecad.Circuits.core import circuitos, parametros
 from freecad.Circuits.core.planilha import COLUNAS_CIRCUITO
 from freecad.Circuits.core.simbolos import ILUM, TUE, TUG
 
@@ -106,7 +106,7 @@ class TestLinhaPlanilha(unittest.TestCase):
         grupo = circuitos.agrupar([ponto("1", 600, TUG, fp=0.8)])
         circuitos.distribuir_fases(grupo, 3)
         linha = circuitos.linha_planilha(grupo[0])
-        self.assertEqual(set(linha), set(COLUNAS_CIRCUITO.values()))
+        self.assertEqual(set(linha), set(COLUNAS_CIRCUITO.values()) | {"Comprimento", "Queda", "Criterio", "_avisos"})
         self.assertEqual(linha["Potencia"], "480")
         self.assertEqual(linha["Corrente"], "4.72")
         self.assertEqual((linha["Cabo"], linha["Disjuntor"]), ("2.5", "6"))
@@ -117,6 +117,62 @@ class TestLinhaPlanilha(unittest.TestCase):
         grupo = circuitos.agrupar([ponto("1", 300, ILUM)])
         linha = circuitos.linha_planilha(grupo[0])
         self.assertEqual((linha["DR"], linha["Corrente_DR"], linha["Cabo"]), ("False", "", "1.5"))
+
+
+class TestLinhaPlanilhaNBR5410(unittest.TestCase):
+    """A linha da planilha dimensiona pela NBR 5410 com o comprimento, o agrupamento e os parâmetros."""
+
+    def circuito(self, potencia=1270, tipo=TUG):
+        grupo = circuitos.agrupar([ponto("1", potencia, tipo)])  # 1270 VA em 127 V = 10 A
+        circuitos.distribuir_fases(grupo, 3)
+        return grupo[0]
+
+    def test_sem_dados_da_rede_fica_como_antes_e_diz_o_criterio(self):
+        linha = circuitos.linha_planilha(self.circuito())
+        self.assertEqual((linha["Cabo"], linha["Disjuntor"]), ("2.5", "10"))
+        self.assertEqual((linha["Criterio"], linha["Comprimento"], linha["Queda"]), ("Seção mínima", "", ""))
+        self.assertEqual(linha["_avisos"], [])
+
+    def test_circuito_longo_aumenta_o_cabo_pela_queda(self):
+        linha = circuitos.linha_planilha(self.circuito(), comprimento=60.0)
+        self.assertEqual((linha["Cabo"], linha["Criterio"]), ("6", "Queda de tensão"))
+        self.assertEqual((linha["Comprimento"], linha["Queda"]), ("60", "2.81"))
+
+    def test_agrupamento_aumenta_o_cabo(self):
+        linha = circuitos.linha_planilha(self.circuito(2286), agrupados=4)  # 18 A, disjuntor 20 A
+        self.assertEqual((linha["Disjuntor"], linha["Cabo"], linha["Criterio"]),
+                         ("20", "4", "Capacidade de condução"))
+
+    def test_temperatura_dos_parametros(self):
+        quente = parametros.ler({"temperatura_ambiente": "45"})
+        linha = circuitos.linha_planilha(self.circuito(2794), parametros=quente)  # 22 A, disjuntor 25 A
+        self.assertEqual((linha["Disjuntor"], linha["Cabo"]), ("25", "4"))
+
+    def test_curva_e_sensibilidade_dos_parametros(self):
+        p = parametros.ler({"curva_tomadas": "B", "sensibilidade_dr": "300"})
+        linha = circuitos.linha_planilha(self.circuito(), parametros=p)
+        self.assertEqual((linha["Curva"], linha["Corrente_DR"]), ("B", "300mA"))
+        luz = circuitos.linha_planilha(self.circuito(300, ILUM), parametros=parametros.ler({}))
+        self.assertEqual(luz["Curva"], "B")  # padrão da iluminação
+
+    def test_esquema_tt_poe_dr_em_todos_os_circuitos(self):
+        luz = circuitos.linha_planilha(self.circuito(300, ILUM), parametros=parametros.ler({"esquema": "TT"}))
+        self.assertEqual((luz["DR"], luz["Corrente_DR"]), ("True", "30mA"))
+
+    def test_aviso_quando_o_disjuntor_nao_secciona_no_tn(self):
+        p = parametros.ler({"curva_iluminacao": "D"})
+        # 16 A em curva D (Ia = 320 A), cabo de 6 mm² pela queda: L máx ≈ 42 m
+        longe = circuitos.linha_planilha(self.circuito(2032, ILUM), parametros=p, comprimento=45.0)
+        self.assertEqual(longe["Cabo"], "6")
+        self.assertEqual(len(longe["_avisos"]), 1)
+        self.assertIn("contatos indiretos", longe["_avisos"][0])
+        perto = circuitos.linha_planilha(self.circuito(2032, ILUM), parametros=p, comprimento=40.0)
+        self.assertEqual(perto["_avisos"], [])
+
+    def test_curto_circuito_dos_parametros(self):
+        p = parametros.ler({"icc_entrada_ka": "6", "tempo_curto": "0.1"})  # 6000·√0,1/115 = 16,5 → 25 mm²
+        linha = circuitos.linha_planilha(self.circuito(), parametros=p)
+        self.assertEqual((linha["Cabo"], linha["Criterio"]), ("25", "Curto-circuito"))
 
 
 if __name__ == "__main__":

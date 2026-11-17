@@ -165,6 +165,11 @@ class Rede:
         Returns:
             (comprimento horizontal [mm], destinos sem caminho).
         """
+        comprimento, sem_caminho, _ = self.arvore_com_arestas(origem, destinos)
+        return comprimento, sem_caminho
+
+    def arvore_com_arestas(self, origem, destinos):
+        """Como ``arvore``, e também as arestas usadas (conjuntos {nó, nó})."""
         dist, anterior = self.distancias(origem)
         arestas, sem_caminho = set(), []
         for destino in destinos:
@@ -176,7 +181,7 @@ class Rede:
                 arestas.add(frozenset((no, anterior[no])))
                 no = anterior[no]
         comprimento = sum(self.vizinhos[a][b] for a, b in (tuple(aresta) for aresta in arestas))
-        return comprimento, sem_caminho
+        return comprimento, sem_caminho, arestas
 
 
 def _rotulo_condutores(fases, neutro, terra):
@@ -239,6 +244,13 @@ def analisar(caminhos, caixas, info_circuito, folga=FOLGA_PONTA_MM, tolerancia=T
             return None
         return next(q for q in quadros if q["id"] == min(alcancaveis)[1])
 
+    def mais_longe(origem, membros):
+        """Do quadro ao ponto mais distante pela rede [m], com a descida no quadro e no ponto."""
+        no_origem, vertical_origem = ligadas[origem["id"]]
+        dist, _ = rede.distancias(no_origem)
+        trechos = [dist[ligadas[m["id"]][0]] + ligadas[m["id"]][1] for m in membros if ligadas[m["id"]][0] in dist]
+        return (max(trechos) + vertical_origem) / 1000.0 if trechos else 0.0
+
     def lance(origem, membros):
         """Comprimento de um condutor [m] da origem até todos os membros, com verticais e folgas."""
         no_origem, vertical_origem = ligadas[origem["id"]]
@@ -257,6 +269,14 @@ def analisar(caminhos, caixas, info_circuito, folga=FOLGA_PONTA_MM, tolerancia=T
             avisos.append(f"{caixa['nome']}: nenhum quadro ligado pela rede ao circuito {caixa['circuito']}.")
             continue
         grupos.setdefault((quadro["id"], str(caixa["circuito"]).strip()), []).append(caixa)
+
+    arestas_por_circuito, circuitos_por_aresta = {}, {}
+    for (quadro_id, numero), membros in grupos.items():
+        quadro = next(q for q in quadros if q["id"] == quadro_id)
+        _, _, arestas = rede.arvore_com_arestas(ligadas[quadro["id"]][0], [ligadas[m["id"]][0] for m in membros])
+        arestas_por_circuito[(quadro_id, numero)] = arestas
+        for aresta in arestas:
+            circuitos_por_aresta[aresta] = circuitos_por_aresta.get(aresta, 0) + 1
 
     for (quadro_id, numero), membros in sorted(grupos.items(), key=lambda item: (item[0][0], item[0][1])):
         quadro = next(q for q in quadros if q["id"] == quadro_id)
@@ -279,6 +299,8 @@ def analisar(caminhos, caixas, info_circuito, folga=FOLGA_PONTA_MM, tolerancia=T
             "pontos": len(membros),
             "condutores": _rotulo_condutores(info["fases"], info["neutro"], info["terra"]),
             "trajeto": round(trajeto, 2),
+            "comprimento": round(mais_longe(quadro, pontos), 2),
+            "agrupados": max((circuitos_por_aresta[a] for a in arestas_por_circuito[(quadro_id, numero)]), default=1),
             "fio": round(total, 2),
         })
 

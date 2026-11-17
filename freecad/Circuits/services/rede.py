@@ -191,6 +191,21 @@ def _info_circuito(doc, cache):
     return info
 
 
+def dados_dos_circuitos(doc, planilha):
+    """{número do circuito: {'comprimento' [m], 'agrupados'}} dos circuitos do quadro na rede.
+
+    O quadro da planilha é achado pelo símbolo de quadro ligado a ela (propriedade
+    ``Planilha``). Sem símbolo ligado ou sem rede, devolve {}.
+    """
+    nomes = {c["nome"] for c in listar_caixas(doc) if c["tipo"] == "quadro" and planilha.Name in c.get("refs", ())}
+    if not nomes:
+        return {}
+    return {
+        c["circuito"]: {"comprimento": c["comprimento"], "agrupados": c["agrupados"]}
+        for c in analisar(doc)["circuitos"] if c["quadro"] in nomes
+    }
+
+
 def analisar(doc):
     """Fios, fiação por circuito e verticais de todos os pavimentos (``core.rede.analisar``)."""
     caminhos_por_pav = {}

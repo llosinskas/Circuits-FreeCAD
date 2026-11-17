@@ -5,12 +5,13 @@ os padrões e converte os tipos.
 """
 import unittest
 
-from tests.plano._apoio import carregar
+from tests import ROOT  # noqa: F401  (configura o caminho do pacote)
+from freecad.Circuits.core import parametros
 
 
 class Base(unittest.TestCase):
     def setUp(self):
-        self.p = carregar(self, "parametros", 2)
+        self.p = parametros
 
 
 class TestPadroes(Base):

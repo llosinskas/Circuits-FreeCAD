@@ -89,6 +89,9 @@ COLUNAS_CIRCUITO = {
     "T": "Terra",
     "U": "DR",
     "V": "Corrente_DR",
+    "W": "Comprimento",
+    "X": "Queda",
+    "Y": "Criterio",
 }
 
 LINHA_CABECALHO_CIRCUITOS = 5
@@ -127,6 +130,9 @@ PLANILHA_CIRCUITOS = [
     ("K", "Corrente_DR", "Sensibilidade do DR"),
     ("L", "Neutro", "Neutro (S/N)"),
     ("M", "Terra", "Terra (S/N)"),
+    ("N", "Comprimento", "Comprimento [m]"),
+    ("O", "Queda", "Queda de tensão [%]"),
+    ("P", "Criterio", "Critério determinante"),
 ]
 LINHA_TITULO_CIRCUITOS = 1
 LINHA_TITULOS_COLUNAS = 2

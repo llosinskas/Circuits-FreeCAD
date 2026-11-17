@@ -15,6 +15,7 @@ Unidades: potência em VA ou W, tensão em V, corrente em A, seção em mm².
 import math
 import re
 
+from freecad.Circuits.core import nbr5410
 from freecad.Circuits.core.simbolos import ILUM, LIGACOES, TUE, TUG
 
 # NBR 5410, Tabela 36, método B1, cobre/PVC: capacidade de condução [A] por seção [mm²].
@@ -27,6 +28,12 @@ DISJUNTORES = [6, 10, 16, 20, 25, 32, 40, 50, 63, 70, 80, 100, 125]  # A
 DESTINO_PADRAO = {ILUM: "Iluminação", TUG: "Tomadas", TUE: "Uso específico"}
 CORRENTE_DR = "30mA"
 FASES = ("R", "S", "T")
+CRITERIOS = {
+    "secao_minima": "Seção mínima",
+    "capacidade": "Capacidade de condução",
+    "queda_tensao": "Queda de tensão",
+    "curto_circuito": "Curto-circuito",
+}
 
 _MULTIPLOS = {"": 1.0, "k": 1000.0}
 
@@ -157,23 +164,55 @@ def _numero(valor):
     return f"{valor:.2f}".rstrip("0").rstrip(".")
 
 
-def linha_planilha(circuito, curva="C"):
-    """Dados do circuito com as chaves de ``core.planilha.COLUNAS_CIRCUITO``.
+def linha_planilha(circuito, curva="C", parametros=None, comprimento=0.0, agrupados=1, metodo="B1"):
+    """Dados do circuito com as chaves de ``core.planilha.COLUNAS_CIRCUITO``, dimensionado pela NBR 5410.
+
+    Além das colunas antigas, traz ``Comprimento`` [m], ``Queda`` [%] e
+    ``Criterio`` (o critério que determinou o cabo), e ``_avisos`` (textos,
+    não gravados na planilha).
+
+    Args:
+        parametros: de ``core.parametros.ler``; None usa a curva dada, PVC, 30 °C,
+            4 % de queda e não verifica curto nem seccionamento.
+        comprimento: do quadro ao ponto mais distante [m]; 0 não verifica a queda.
+        agrupados: circuitos no trecho mais cheio do trajeto.
+        metodo: método de instalação da NBR 5410.
 
     DR de 30 mA em tomadas e pontos de uso específico: é uma simplificação a
     favor da segurança do item 5.1.3.2.2 da NBR 5410, que o exige em áreas
-    molhadas e externas.
+    molhadas e externas. No esquema TT, DR em todos os circuitos.
     """
-    calculo = dimensionar(circuito["potencia_va"], circuito["tensao"], circuito["n_fases"], circuito["tipo"])
+    p = parametros or {}
+    tipo = circuito["tipo"]
+    if parametros:
+        curva = p["curva_iluminacao"] if tipo == ILUM else p["curva_tomadas"]
+    corrente = corrente_projeto(circuito["potencia_va"], circuito["tensao"], circuito["n_fases"])
+    calculo = nbr5410.dimensionar_circuito(
+        corrente, tipo, comprimento, circuito["tensao"], circuito["n_fases"], metodo=metodo, agrupados=agrupados,
+        temperatura=p.get("temperatura_ambiente", 30.0), isolacao=p.get("isolacao", "PVC"),
+        queda_max=p.get("queda_terminal", 4.0),
+        icc_ka=p.get("icc_entrada_ka") if p.get("tempo_curto", 0.0) > 0 else None,
+        tempo_curto=p.get("tempo_curto", 0.0) or 0.1, material=p.get("material", "cobre"),
+    )
     fases = circuito.get("fases") or list(FASES[:circuito["n_fases"]])
-    com_dr = circuito["tipo"] in (TUG, TUE)
+    com_dr = tipo in (TUG, TUE) or p.get("esquema") == "TT"
+    sensibilidade = f"{p['sensibilidade_dr']:g}mA" if parametros else CORRENTE_DR
+
+    avisos = []
+    esquema = p.get("esquema", "")
+    if esquema.startswith("TN") and comprimento > 0 and not nbr5410.seccionamento_ok(
+            comprimento, p["tensao_fn"], calculo["secao"], calculo["secao"], calculo["disjuntor"], curva, com_dr):
+        maximo = nbr5410.comprimento_maximo_tn(p["tensao_fn"], calculo["secao"], calculo["secao"],
+                                               calculo["disjuntor"], curva)
+        avisos.append(f"proteção contra contatos indiretos: {comprimento:.0f} m passa do máximo de {maximo:.0f} m "
+                      f"para o disjuntor {curva}{calculo['disjuntor']}; use DR ou aumente o cabo de proteção")
     return {
         "N_circuito": circuito["numero"],
         "Destino": circuito["destino"],
         "Potencia": _numero(circuito["potencia_w"]),
         "Tensao": _numero(circuito["tensao"]),
         "Corrente": _numero(calculo["corrente"]),
-        "Cabo": _numero(calculo["cabo"]),
+        "Cabo": _numero(calculo["secao"]),
         "Disjuntor": _numero(calculo["disjuntor"]),
         "Curva": curva,
         "Fase_R": str("R" in fases),
@@ -182,5 +221,9 @@ def linha_planilha(circuito, curva="C"):
         "Neutro": str(circuito["n_fases"] == 1),
         "Terra": "True",
         "DR": str(com_dr),
-        "Corrente_DR": CORRENTE_DR if com_dr else "",
+        "Corrente_DR": sensibilidade if com_dr else "",
+        "Comprimento": _numero(comprimento) if comprimento else "",
+        "Queda": _numero(calculo["queda"]) if comprimento else "",
+        "Criterio": CRITERIOS[calculo["criterio"]],
+        "_avisos": avisos,
     }

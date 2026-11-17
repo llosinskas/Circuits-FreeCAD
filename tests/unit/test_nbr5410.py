@@ -7,13 +7,14 @@ conduto fechado), tabela 47 (seção mínima). k da tabela 30: 115 (PVC) e 143 (
 import math
 import unittest
 
-from tests.plano._apoio import carregar
+from tests import ROOT  # noqa: F401  (configura o caminho do pacote)
+from freecad.Circuits.core import nbr5410
 from freecad.Circuits.core import rede
 
 
 class Base(unittest.TestCase):
     def setUp(self):
-        self.n = carregar(self, "nbr5410", 3)
+        self.n = nbr5410
 
 
 class TestCapacidade(Base):
@@ -95,6 +96,24 @@ class TestCurtoCircuito(Base):
         self.assertEqual([self.n.secao_comercial(v) for v in (1.0, 2.5, 8.25, 26)], [1.5, 2.5, 10, 35])
 
 
+class TestContatosIndiretos(Base):
+    """Seccionamento automático no esquema TN: L máx = 0,8·U0·Sf / (ρ·(1 + m)·Ia), m = Sf / Spe."""
+
+    def test_comprimento_maximo_tn(self):
+        # C16: Ia = 10 · 16 = 160 A; ρ = 0,0225 Ω·mm²/m (cobre, temperatura de curto)
+        self.assertAlmostEqual(self.n.comprimento_maximo_tn(127, 2.5, 2.5, 16, "C"), 0.8 * 127 * 2.5 / (0.0225 * 2 * 160),
+                               places=2)
+
+    def test_curva_b_permite_circuito_mais_longo(self):
+        self.assertGreater(self.n.comprimento_maximo_tn(127, 2.5, 2.5, 16, "B"),
+                           self.n.comprimento_maximo_tn(127, 2.5, 2.5, 16, "C"))
+
+    def test_dr_dispensa_a_verificacao(self):
+        self.assertTrue(self.n.seccionamento_ok(100.0, 127, 2.5, 2.5, 16, "C", com_dr=True))
+        self.assertFalse(self.n.seccionamento_ok(100.0, 127, 2.5, 2.5, 16, "C", com_dr=False))
+        self.assertTrue(self.n.seccionamento_ok(20.0, 127, 2.5, 2.5, 16, "C", com_dr=False))
+
+
 class TestDimensionarCircuito(Base):
     def dimensionar(self, **dados):
         padrao = {"corrente": 10.0, "tipo": "TUG", "comprimento": 10.0, "tensao": 127.0, "n_fases": 1,
@@ -144,9 +163,43 @@ class TestComprimentoNaRede(unittest.TestCase):
         caminhos = [{"pontos": [(0.0, 0.0), (10000.0, 0.0)], "altura": 2800.0, "diametro": "3/4"}]
         info = lambda quadro, numero, membros: {"secao": 2.5, "fases": 1, "neutro": True, "terra": True}  # noqa: E731
         (circuito,) = rede.analisar(caminhos, caixas, info)["circuitos"]
-        self.assertIn("comprimento", circuito, "Etapa 3: core.rede ainda não informa o comprimento com as descidas")
+        self.assertIn("comprimento", circuito)
         # 10 m na horizontal + 1,3 m até o quadro (2,8 − 1,5) + 2,5 m até a tomada (2,8 − 0,3)
         self.assertAlmostEqual(circuito["comprimento"], 13.8, places=2)
+
+    def test_comprimento_vai_ate_o_ponto_mais_longe(self):
+        caixas = [
+            {"id": "Q", "nome": "QD1", "x": 0.0, "y": 0.0, "tipo": "quadro", "altura": 2800.0, "pavimento": "",
+             "circuito": "", "quadro": "QD1", "descricao": "QD1"},
+            {"id": "A", "nome": "T1", "x": 4000.0, "y": 0.0, "tipo": "ponto", "altura": 2800.0, "pavimento": "",
+             "circuito": "1", "quadro": "", "ligacao": "F+N", "comando": ""},
+            {"id": "B", "nome": "T2", "x": 4000.0, "y": 6000.0, "tipo": "ponto", "altura": 2800.0, "pavimento": "",
+             "circuito": "1", "quadro": "", "ligacao": "F+N", "comando": ""},
+        ]
+        caminhos = [{"pontos": [(0.0, 0.0), (4000.0, 0.0), (4000.0, 6000.0)], "altura": 2800.0, "diametro": "3/4"}]
+        info = lambda quadro, numero, membros: {"secao": 2.5, "fases": 1, "neutro": True, "terra": True}  # noqa: E731
+        (circuito,) = rede.analisar(caminhos, caixas, info)["circuitos"]
+        self.assertAlmostEqual(circuito["comprimento"], 10.0, places=2)  # 4 m + 6 m, sem descidas
+
+    def test_circuitos_agrupados_no_trecho_mais_cheio(self):
+        caixas = [
+            {"id": "Q", "nome": "QD1", "x": 0.0, "y": 0.0, "tipo": "quadro", "altura": 2800.0, "pavimento": "",
+             "circuito": "", "quadro": "QD1", "descricao": "QD1"},
+            {"id": "A", "nome": "T1", "x": 5000.0, "y": 0.0, "tipo": "ponto", "altura": 2800.0, "pavimento": "",
+             "circuito": "1", "quadro": "", "ligacao": "F+N", "comando": ""},
+            {"id": "B", "nome": "T2", "x": 5000.0, "y": 3000.0, "tipo": "ponto", "altura": 2800.0, "pavimento": "",
+             "circuito": "2", "quadro": "", "ligacao": "F+N", "comando": ""},
+            {"id": "C", "nome": "T3", "x": 0.0, "y": 3000.0, "tipo": "ponto", "altura": 2800.0, "pavimento": "",
+             "circuito": "3", "quadro": "", "ligacao": "F+N", "comando": ""},
+        ]
+        caminhos = [
+            {"pontos": [(0.0, 0.0), (5000.0, 0.0), (5000.0, 3000.0)], "altura": 2800.0, "diametro": "3/4"},
+            {"pontos": [(0.0, 0.0), (0.0, 3000.0)], "altura": 2800.0, "diametro": "3/4"},
+        ]
+        info = lambda quadro, numero, membros: {"secao": 2.5, "fases": 1, "neutro": True, "terra": True}  # noqa: E731
+        por_numero = {c["circuito"]: c for c in rede.analisar(caminhos, caixas, info)["circuitos"]}
+        # os circuitos 1 e 2 dividem o trecho até T1; o 3 vai sozinho
+        self.assertEqual({n: c.get("agrupados") for n, c in por_numero.items()}, {"1": 2, "2": 2, "3": 1})
 
 
 if __name__ == "__main__":

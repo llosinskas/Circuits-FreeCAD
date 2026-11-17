@@ -263,11 +263,18 @@ def scenario(doc):
     run("GerarNotas")  # segunda execução: precisa substituir, não duplicar
     result["steps"]["notas"] = [o["name"] for o in snapshot(doc) if o["name"].startswith("Notas")]
 
+    run("ParametrosProjeto")
+    run("ParametrosProjeto")  # segunda execução: abre a mesma planilha, não cria outra
+    result["steps"]["parametros"] = [o.Label for o in doc.Objects if hasattr(o, "parametros_do_projeto")]
     run("GerarPlanilha")
     run("AddCircuito")
     run("MontarCircuitos")
     run("MontarCircuitos")  # segunda execução: atualiza as linhas, não duplica
     result["steps"]["montar_circuitos"] = avisos
+    result["steps"]["criterios"] = [
+        (o.getContents("A2"), o.getContents("P2"), o.getContents("P3"), o.getContents("O3"))
+        for o in doc.Objects if hasattr(o, "circuitos_de")
+    ]
     run("CircuitosQuadro")
     result["steps"]["planilha_circuitos"] = [
         {c: clean(o.getContents(c)) for c in sorted(o.getUsedCells())}

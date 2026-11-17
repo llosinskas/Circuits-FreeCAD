@@ -13,6 +13,8 @@ from tests import ROOT  # noqa: F401  (configura o caminho do pacote)
 
 MODULOS_FREECAD = ("FreeCAD", "FreeCADGui", "Part", "Draft", "Sketcher", "Spreadsheet")
 SERVICOS = ("freecad.Circuits.services.circuitos", "freecad.Circuits.services.planilhas",
+            "freecad.Circuits.services.rede", "freecad.Circuits.services.parametros",
+            "freecad.Circuits.services.pavimentos", "freecad.Circuits.services.alinhamento",
             "freecad.Circuits.services.tomadas", "freecad.Circuits.services.documento",
             "freecad.Circuits.objects.ponto")
 
@@ -110,6 +112,41 @@ class TestSequenciaQuadro(unittest.TestCase):
         self.assertNotIn("A6", planilha.celulas)
         self.assertNotIn("A6", quadro.celulas)  # nada de circuito na planilha de dados do quadro
 
+    def test_comprimento_e_agrupamento_vem_da_rede(self):
+        quadro = PlanilhaFalsa()
+        doc = self.documento(objeto_ponto("tomada_baixa", "2", 1270))  # 10 A
+        da_rede = {"2": {"comprimento": 60.0, "agrupados": 1}}
+        with mock.patch.object(self.circuitos.rede, "dados_dos_circuitos", return_value=da_rede) as rede:
+            gravados, avisos = self.circuitos.montar_circuitos(doc, quadro)
+        rede.assert_called_once_with(doc, quadro)
+        planilha = self.planilhas.planilha_de_circuitos(quadro, criar=False)
+        self.assertEqual((planilha.get("G3"), planilha.get("N3"), planilha.get("O3"), planilha.get("P3")),
+                         ("6", "60", "2.81", "Queda de tensão"))
+        self.assertEqual(planilha.get("P2"), "Critério determinante")
+
+    def test_parametros_do_projeto_entram_no_calculo(self):
+        quadro = PlanilhaFalsa()
+        doc = self.documento(objeto_ponto("tomada_baixa", "2", 1270))
+        with mock.patch.object(self.circuitos.parametros, "ler", return_value=self._parametros(curva_tomadas="B")):
+            self.circuitos.montar_circuitos(doc, quadro)
+        planilha = self.planilhas.planilha_de_circuitos(quadro, criar=False)
+        self.assertEqual(planilha.get("I3"), "B")
+
+    @staticmethod
+    def _parametros(**mudancas):
+        from freecad.Circuits.core import parametros
+        return parametros.ler(mudancas)
+
+    def test_avisos_de_seccionamento_voltam_para_o_usuario(self):
+        quadro = PlanilhaFalsa()
+        doc = self.documento(objeto_ponto("luz_teto", "1", 2032))  # 16 A de iluminação, sem DR
+        with mock.patch.object(self.circuitos.parametros, "ler", return_value=self._parametros(curva_iluminacao="D")), \
+                mock.patch.object(self.circuitos.rede, "dados_dos_circuitos",
+                                  return_value={"1": {"comprimento": 45.0, "agrupados": 1}}):
+            _, avisos = self.circuitos.montar_circuitos(doc, quadro)
+        self.assertEqual(len(avisos), 1)
+        self.assertIn("Circuito 1", avisos[0])
+
     def test_repetir_atualiza_no_lugar_e_preserva_circuito_manual(self):
         quadro = PlanilhaFalsa()
         luz = objeto_ponto("luz_teto", "1", 100)
@@ -191,7 +228,7 @@ class TestSequenciaQuadro(unittest.TestCase):
         self.assertEqual([linha["N_circuito"] for linha in linhas], ["1", "2"])
         itens = {(i["item"], i["especificacao"]): i["quantidade"] for i in regras.componentes(dados, linhas)}
         self.assertEqual(itens[("Disjuntor geral", "3P 40 A curva C")], 1)
-        self.assertEqual(itens[("Disjuntor de circuito", "1P 6 A curva C")], 1)
+        self.assertEqual(itens[("Disjuntor de circuito", "1P 6 A curva B")], 1)  # iluminação: curva B por padrão
         self.assertEqual(itens[("Disjuntor de circuito", "1P 10 A curva C")], 1)
         self.assertEqual(itens[("Interruptor DR", "2P 25 A, 30mA")], 1)
 

@@ -36,8 +36,8 @@ python -B -m unittest discover -s tests/plano -t .
 |---|---|---|
 | `test_pre_requisitos.py` | o que já existe e o plano reaproveita | 4, passam |
 | `test_etapa1_quadro_de_cargas.py` | `core/quadro_cargas.py` | 14 |
-| `test_etapa2_parametros.py` | `core/parametros.py` | 7 |
-| `test_etapa3_nbr5410.py` | `core/nbr5410.py` e `comprimento` em `core/rede.py` | 25 |
+| ~~`test_etapa2_parametros.py`~~ | `core/parametros.py` | pronta: em `tests/unit/test_parametros.py` |
+| ~~`test_etapa3_nbr5410.py`~~ | `core/nbr5410.py`, `comprimento` e `agrupados` em `core/rede.py` | pronta: em `tests/unit/test_nbr5410.py` |
 | `test_etapa4_ocupacao.py` | `core/ocupacao.py` | 8 |
 | `test_etapa6_comando.py` | `core/comando.py` | 8 |
 
@@ -107,7 +107,10 @@ condutores, seção, potência, fases e descrição (`core/unifilar.py`). Falta:
 
 ---
 
-## Etapa 2: parâmetros do projeto
+## Etapa 2: parâmetros do projeto (pronta)
+
+Feita como planilha (`services/parametros.py`, botão **Projeto > Parâmetros**), não como
+formulário: a planilha guarda os valores no próprio projeto e é editada como as outras.
 
 Hoje cada cálculo tem os próprios valores fixos (127 V, PVC, 30 °C, método B1). Proposta:
 uma planilha **Parâmetros do projeto** (propriedade `parametros_do_projeto`), criada pelo
@@ -126,7 +129,13 @@ uma planilha **Parâmetros do projeto** (propriedade `parametros_do_projeto`), c
 
 ---
 
-## Etapa 3: dimensionamento completo pela NBR 5410
+## Etapa 3: dimensionamento completo pela NBR 5410 (pronta, com pendências)
+
+Feito em `core/nbr5410.py` e ligado ao **Montar circuitos**. Ficaram para depois: o método
+pelo trajeto (as bandejas ainda não entram na rede dos circuitos, então vale B1), a tabela 39
+(método F), a capacidade de interrupção dos disjuntores, a impedância do alimentador no curto
+e a remoção das tabelas antigas em pandas e de `Cabo.py`. O curto só é verificado quando o
+tempo de atuação é informado, porque o I²t dos disjuntores limitadores é bem menor que I²·t.
 
 Usar o que a rede já calcula para fechar os 6 critérios de cada circuito:
 

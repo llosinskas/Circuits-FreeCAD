@@ -5,7 +5,7 @@ from freecad.Circuits.core import circuitos as calculo
 from freecad.Circuits.core import simbolos
 from freecad.Circuits.core.functions.Predial import demanda as calculo_demanda
 from freecad.Circuits.objects.ponto import TENSOES, create_ponto
-from freecad.Circuits.services import planilhas
+from freecad.Circuits.services import parametros, planilhas, rede
 from freecad.Circuits.services.tomadas import listar_tomadas
 
 # Objetos anteriores ao PontoEletrico: tipo de circuito e dados que eles não guardam.
@@ -145,6 +145,9 @@ def montar_circuitos(doc, quadro):
 
     Entram os pontos sem quadro definido e os que apontam para este quadro.
     Circuitos que já estão na planilha com o mesmo número são atualizados.
+    O dimensionamento segue a NBR 5410 (``core.nbr5410``) com os parâmetros do
+    projeto e, quando a rede de eletrodutos chega ao símbolo do quadro, com o
+    comprimento e o agrupamento de cada circuito.
 
     Returns:
         (circuitos gravados, avisos) — avisos é uma lista de textos para o usuário.
@@ -154,13 +157,23 @@ def montar_circuitos(doc, quadro):
 
     avisos = []
     gravados = []
+    dados_projeto = parametros.ler(doc)
+    try:
+        da_rede = rede.dados_dos_circuitos(doc, quadro)
+    except Exception as erro:  # a rede é opcional: sem ela, o cálculo segue sem comprimento
+        da_rede = {}
+        avisos.append(f"A rede de eletrodutos não foi lida ({erro}); queda de tensão não verificada.")
     for circuito in circuitos:
         avisos += [f"Circuito {circuito['numero']}: {aviso}." for aviso in circuito["avisos"]]
+        trajeto = da_rede.get(circuito["numero"], {})
         try:
-            dados = calculo.linha_planilha(circuito)
+            dados = calculo.linha_planilha(circuito, parametros=dados_projeto,
+                                           comprimento=trajeto.get("comprimento", 0.0),
+                                           agrupados=trajeto.get("agrupados", 1))
         except ValueError as erro:
             avisos.append(f"Circuito {circuito['numero']} não foi gravado: {erro}")
             continue
+        avisos += [f"Circuito {circuito['numero']}: {aviso}." for aviso in dados.pop("_avisos")]
         planilhas.adicionar_circuito(quadro, dados)
         gravados.append(circuito)
 

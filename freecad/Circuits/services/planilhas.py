@@ -188,6 +188,8 @@ def adicionar_circuito(quadro, dados):
         A linha em que o circuito ficou.
     """
     planilha = planilha_de_circuitos(quadro)
+    for coluna, _, titulo in layout.PLANILHA_CIRCUITOS:  # planilhas antigas ganham as colunas novas
+        planilha.set(f"{coluna}{layout.LINHA_TITULOS_COLUNAS}", f"'{titulo}")
     linha = linha_do_circuito(quadro, dados["N_circuito"])
     if linha is None:
         linha = max(ultima_linha(planilha) + 1, layout.PRIMEIRA_LINHA_PLANILHA_CIRCUITOS)

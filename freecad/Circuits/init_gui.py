@@ -79,6 +79,7 @@ BIM_EXTRA_TOOLS = ["BIM_Project", "BIM_Column", "BIM_Beam", "BIM_Slab"]
 # --- Comandos da bancada -------------------------------------------------------
 PROJECT_TOOLS = [
     "newProjetctEletrical",
+    "ParametrosProjeto",
     "DefinirPavimento",
     "AdicionarNivelBIM",
     "MoverParaPavimento",

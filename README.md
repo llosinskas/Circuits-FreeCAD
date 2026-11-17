@@ -44,13 +44,13 @@ O relatório e o quantitativo em PDF usam a biblioteca `reportlab`, que já vem 
 
 ## Um projeto do começo ao fim
 
-1. **Projeto > Novo projeto** cria a estrutura do documento e o pavimento *Térreo* (ou ativa o primeiro nível do BIM, se o projeto já tiver níveis).
+1. **Projeto > Novo projeto** cria a estrutura do documento, a planilha *Parâmetros do projeto* e o pavimento *Térreo* (ou ativa o primeiro nível do BIM, se o projeto já tiver níveis). Confira os parâmetros em **Projeto > Parâmetros**: tensões, esquema de aterramento, isolação, temperatura e limites de queda.
 2. **Projeto > Pavimento** ou **Nível do BIM** escolhe ou cria o pavimento em que você vai desenhar.
 3. **Tomadas, Energia, Iluminação e Interruptores**: insira os pontos na planta. Cada símbolo vai sozinho para a pasta do tipo dele no pavimento ativo.
 4. **Iluminação > Luminotécnico**: com um retângulo do ambiente selecionado, calcula e distribui as luminárias.
 5. **Circuitos > Definir circuito** e **Ligar interruptor**: agrupe os pontos em circuitos e ligue cada interruptor às suas luminárias.
 6. **Quadros**: coloque na planta o quadro de distribuição, o de comando e a medição. Com o quadro selecionado, **Dados do quadro > Planilha do quadro** cria os dados dele e a planilha de circuitos.
-7. **Montar circuitos**: soma os pontos de cada circuito, escolhe cabo e disjuntor e grava na planilha de circuitos do quadro.
+7. **Montar circuitos**: soma os pontos de cada circuito, dimensiona cabo e disjuntor pela NBR 5410 e grava na planilha de circuitos do quadro. Desenhe e conecte os eletrodutos antes (passo 8) para a queda de tensão e o agrupamento entrarem no cálculo.
 8. **Infraestrutura > Eletroduto** e **Conectar às caixas**: desenhe a rede de eletrodutos e prenda-a nas caixas. Em áreas técnicas e prumadas, **Bandeja/leito** e **Suportes**.
 9. **Componentes** e **Unifilar**: lista o que vai dentro de cada quadro e desenha o diagrama.
 10. **Cálculos > Demanda**: grava a demanda do quadro, que aparece no unifilar.
@@ -140,8 +140,36 @@ Cada quadro tem uma planilha de dados (tensão, fases, disjuntor geral, DPS) e u
 | Fases (R, S, T) | `R`, `RS` ou `RST` |
 | Corrente, Cabo, Disjuntor, Curva | Podem ficar em branco |
 | DR, Sensibilidade, Neutro, Terra | `S` ou `N` |
+| Comprimento [m], Queda de tensão [%], Critério determinante | Preenchidos pelo Montar circuitos |
 
 **Montar circuitos** preenche essa planilha a partir da planta, mas ela também pode ser preenchida à mão. O Unifilar e os Componentes calculam o que ficar em branco e respeitam o que foi digitado.
+
+### Dimensionamento pela NBR 5410
+
+O **Montar circuitos** escolhe o disjuntor (Ib ≤ In) e o menor cabo que atende a todos os critérios, e escreve na planilha qual deles decidiu:
+
+| Critério | Como é verificado |
+|---|---|
+| Seção mínima | 1,5 mm² na iluminação, 2,5 mm² nos outros (tabela 47) |
+| Capacidade de condução | Iz corrigida pela temperatura dos parâmetros (tabela 40) e pelo número de circuitos no trecho mais cheio do trajeto (tabela 42), com In ≤ Iz |
+| Queda de tensão | Até o ponto mais distante, com as descidas, limitada pelo valor dos parâmetros (4 %) |
+| Curto-circuito | S ≥ I·√t / k, só quando o tempo de atuação é preenchido nos parâmetros |
+| Contatos indiretos | No esquema TN, o comprimento máximo para o disjuntor seccionar; acima dele, aviso para usar DR. No TT, DR em todos os circuitos |
+
+O comprimento e o agrupamento vêm da rede de eletrodutos e só entram quando ela chega ao símbolo do quadro ligado à planilha. Sem rede, valem a seção mínima e a capacidade de condução.
+
+**Projeto > Parâmetros** abre a planilha *Parâmetros do projeto*. Edite a coluna *Valor*; em branco vale o padrão:
+
+| Parâmetro | Padrão |
+|---|---|
+| Tensão fase-neutro e fase-fase | 127 V e 220 V |
+| Esquema de aterramento | TN-S (TN-C-S e TT também) |
+| Material e isolação | Cobre, PVC (EPR e XLPE também) |
+| Temperatura ambiente | 30 °C |
+| Queda máxima nos terminais e total | 4 % e 7 % |
+| Curva dos disjuntores | B na iluminação, C nas tomadas e no uso específico |
+| Sensibilidade do DR | 30 mA |
+| Corrente de curto na entrada e tempo de atuação | 5 kA e 0 (0 não verifica o curto) |
 
 ### Unifilar e componentes
 
@@ -254,7 +282,7 @@ As barras *Desenho*, *Modificador*, *Snap* e *Arquitetura* trazem as ferramentas
 
 ## Limitações
 
-- **Dimensionamento simplificado:** cabo e disjuntor só pela capacidade de condução (cobre, PVC, eletroduto embutido) e pela coordenação com o disjuntor. Queda de tensão, agrupamento, temperatura e curto-circuito não são verificados.
+- **Dimensionamento:** o método de instalação é sempre B1 (eletroduto), porque as bandejas ainda não entram na rede dos circuitos. A capacidade de interrupção dos disjuntores não é verificada, e o curto-circuito só quando o tempo de atuação é informado (disjuntores limitadores: confira o I²t no catálogo). Tabelas transcritas da NBR 5410:2004, a conferir com a norma.
 - **Fios e verticais:** dependem de a rede de eletrodutos estar conectada às caixas. Prumadas entre pavimentos ainda não entram.
 - **Demanda:** fatores de guias residenciais, não conferidos com a fonte; cada concessionária tem a sua tabela, e a demanda do edifício inteiro não é calculada.
 - **Aterramento:** resistividades de solo típicas e fórmulas para hastes em linha; meça o solo e confira o valor máximo com a NBR 5410 e a NBR 5419.

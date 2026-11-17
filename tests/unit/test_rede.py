@@ -206,6 +206,21 @@ class TestServico(unittest.TestCase):
         doc.getObject.return_value = None
         return doc
 
+    def test_dados_dos_circuitos_do_quadro_da_planilha(self):
+        planilha = types.SimpleNamespace(Name="Spreadsheet001")
+        caixas = [{"tipo": "quadro", "nome": "QD1", "refs": {"QD1", "Spreadsheet001"}},
+                  {"tipo": "quadro", "nome": "QD2", "refs": {"QD2", "Spreadsheet002"}},
+                  {"tipo": "ponto", "nome": "T1"}]
+        circuitos = [{"quadro": "QD1", "circuito": "1", "comprimento": 12.5, "agrupados": 3},
+                     {"quadro": "QD2", "circuito": "1", "comprimento": 40.0, "agrupados": 1}]
+        with mock.patch.object(self.servico, "listar_caixas", return_value=caixas), \
+                mock.patch.object(self.servico, "analisar", return_value={"circuitos": circuitos}) as analisar:
+            self.assertEqual(self.servico.dados_dos_circuitos(None, planilha),
+                             {"1": {"comprimento": 12.5, "agrupados": 3}})
+            analisar.reset_mock()
+            self.assertEqual(self.servico.dados_dos_circuitos(None, types.SimpleNamespace(Name="Outra")), {})
+            analisar.assert_not_called()  # sem símbolo ligado à planilha, nem lê a rede
+
     def test_eh_eletroduto(self):
         self.assertTrue(self.servico.eh_eletroduto(types.SimpleNamespace(Proxy=types.SimpleNamespace(Type="ConduitPath"))))
         self.assertTrue(self.servico.eh_eletroduto(types.SimpleNamespace(Points=[], Diametro="1", Altura3D=2800)))

@@ -65,9 +65,11 @@ class TestPlanilhaDeCircuitos(unittest.TestCase):
         from freecad.Circuits.core import planilha as layout
         circuito = {"N_circuito": "3", "Destino": "Chuveiro", "Potencia": "5500", "Tensao": "220", "Corrente": "25",
                     "Cabo": "4", "Disjuntor": "25", "Curva": "C", "Fase_R": "True", "Fase_S": "True", "Fase_T": "False",
-                    "Neutro": "False", "Terra": "True", "DR": "True", "Corrente_DR": "30mA"}
+                    "Neutro": "False", "Terra": "True", "DR": "True", "Corrente_DR": "30mA",
+                    "Comprimento": "18", "Queda": "2.1", "Criterio": "Capacidade de condução"}
         linha = layout.circuito_para_linha(circuito)
         self.assertEqual((linha["E"], linha["J"], linha["L"], linha["M"]), ("RS", "S", "N", "S"))
+        self.assertEqual((linha["N"], linha["O"], linha["P"]), ("18", "2.1", "Capacidade de condução"))
         por_chave = {chave: linha[coluna] for coluna, chave, _ in layout.PLANILHA_CIRCUITOS}
         self.assertEqual(layout.linha_para_circuito(por_chave), circuito)
 

@@ -126,7 +126,12 @@ class MontarCircuitos:
         ]
         if avisos:
             linhas += ["", "Avisos:"] + [f"  {aviso}" for aviso in avisos]
-        linhas += ["", "O cálculo não considera queda de tensão nem agrupamento: confira antes de usar."]
+        linhas += [
+            "",
+            "Dimensionado pela NBR 5410 com os Parâmetros do projeto: seção mínima, capacidade com temperatura e "
+            "agrupamento, queda de tensão e seccionamento. Comprimento e agrupamento só entram quando a rede de "
+            "eletrodutos chega ao símbolo do quadro; veja as colunas Comprimento, Queda e Critério da planilha.",
+        ]
         QtWidgets.QMessageBox.information(None, "Montar circuitos", "\n".join(linhas))
 
     def IsActive(self):
@@ -136,7 +141,8 @@ class MontarCircuitos:
         return recursos(
             "montar_circuitos.svg",
             "Montar circuitos",
-            "Soma os pontos da planta por circuito, escolhe cabo e disjuntor e grava no quadro",
+            "Soma os pontos da planta por circuito, dimensiona cabo e disjuntor pela NBR 5410 (capacidade, "
+            "agrupamento, temperatura, queda de tensão) e grava no quadro",
         )
 
 
