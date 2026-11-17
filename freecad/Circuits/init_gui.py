@@ -112,7 +112,10 @@ GROUNDING_TOOLS = [
 ]
 BOARD_SYMBOL_TOOLS = ["Ponto_quadro_distribuicao", "Ponto_quadro_comando", "Ponto_quadro_medicao", "Ponto_medicao_agrupada"]
 CIRCUIT_TOOLS = ["DefinirCircuito", "LigarInterruptor", "IdentificarPontos"]
-INFRA_TOOLS = ["InsertConduit", "Ponto_caixa_passagem", "ConectarEletrodutos", "Add_Node", "ListaVerticais", "Cabo"]
+INFRA_TOOLS = [
+    "InsertConduit", "Ponto_caixa_passagem", "ConectarEletrodutos", "Add_Node", "ListaVerticais", "Cabo",
+    "InsertCableTray", "GerarSuportes",
+]
 BOARD_DATA_TOOLS = ["GerarPlanilha", "CircuitosQuadro", "AddCircuito"]
 BOARD_TOOLS = ["GerarPlanilha", "CircuitosQuadro", "AddCircuito", "MontarCircuitos", "ComponentesQuadro", "GerarUnifilar"]
 CALC_TOOLS = ["CalcDemanda", "CalcPressurizacao", "CalcRecalque"]
@@ -134,7 +137,6 @@ EXTRA_TOOLS = [
     "InsertLighting",
     "ComponentEletric",
     "InsertWire",
-    "InsertCableTray",
     "AddSpreadsheet",
     "NewQuadro",
     "GetSpaces",
@@ -159,7 +161,9 @@ GROUPS = {
     "Grupo_DadosQuadro": ("Dados do quadro", "Planilha de dados do quadro, planilha de circuitos e circuito digitado em formulário", BOARD_DATA_TOOLS),
     "Grupo_Circuitos": ("Circuitos", "Definir o circuito dos pontos, ligar interruptores e identificar na planta", CIRCUIT_TOOLS),
     "Grupo_Infra": (
-        "Eletrodutos", "Eletroduto, caixa de passagem, conexão às caixas, divisão de trecho, verticais e fiação",
+        "Infraestrutura",
+        "Eletroduto, caixa de passagem, conexão às caixas, divisão de trecho, verticais, fiação, "
+        "bandejas e leitos com conexões e suportes",
         INFRA_TOOLS,
     ),
     "Grupo_Calculos": ("Cálculos", "Demanda do quadro, pressurização de escada e bomba de recalque", CALC_TOOLS),
@@ -215,7 +219,7 @@ MENUS = [
     ([MENU, "Quadros e medição"], BOARD_SYMBOL_TOOLS),
     ([MENU, "Circuitos e comandos"], CIRCUIT_TOOLS),
     ([MENU, "Alinhar e escalar símbolos"], ALIGN_TOOLS),
-    ([MENU, "Eletrodutos e fiação"], INFRA_TOOLS),
+    ([MENU, "Eletrodutos, bandejas e fiação"], INFRA_TOOLS),
     ([MENU, "Quadros e diagramas"], BOARD_TOOLS),
     ([MENU, "Cálculos prediais"], CALC_TOOLS),
     ([MENU, "Documentos"], DOCUMENT_TOOLS),
@@ -272,6 +276,7 @@ class CircuitsWorkbench(gui.Workbench):
         from .commands import (  # noqa: F401
             alinhar,
             aterramento,
+            bandejas,
             identificacao,
             pavimentos,
             rede,

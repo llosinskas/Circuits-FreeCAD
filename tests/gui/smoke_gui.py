@@ -304,6 +304,25 @@ def scenario(doc):
     Gui.Selection.clearSelection()
     result["steps"]["eletrodutos"] = [o for o in snapshot(doc) if o["name"].startswith("Wire")]
 
+    bandeja_dialogo = locate("freecad.Circuits.UI.dialogs.bandeja_dialog:BandejaDialog")
+    bandeja_dialogo.exec_ = lambda self: 1
+    tronco = Draft.make_wire([App.Vector(0, 3000, 0), App.Vector(6000, 3000, 0), App.Vector(6000, 6000, 0)])
+    ramal = Draft.make_wire([App.Vector(3000, 3000, 0), App.Vector(3000, 5000, 0)])
+    doc.recompute()
+    Gui.Selection.clearSelection()
+    for linha in (tronco, ramal):
+        Gui.Selection.addSelection(linha)
+    run("InsertCableTray")
+    Gui.Selection.clearSelection()
+    run("GerarSuportes")
+    run("GerarSuportes")  # segunda execução: precisa substituir, não duplicar
+    result["steps"]["bandejas"] = {
+        "marcadas": [o.Name for o in doc.Objects if hasattr(o, "TipoBandeja")],
+        "conexoes": sorted(o.conexao_bandeja for o in doc.Objects if hasattr(o, "conexao_bandeja")),
+        "suportes": [(o.Label, o.Quantidade) for o in doc.Objects if hasattr(o, "suportes_de")],
+        "modelos_3d": [o.Name for o in doc.Objects if o.Name.endswith("_3D") and o.Name.startswith("Wire")],
+    }
+
     run("ImportQET")
     result["steps"]["qet"] = [o for o in snapshot(doc) if "circuits_smoke_sample" in o["name"]]
 

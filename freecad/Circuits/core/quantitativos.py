@@ -17,7 +17,8 @@ Unidades: comprimentos de entrada em mm, de saída em m.
 """
 from freecad.Circuits.core import simbolos
 
-GRUPOS = ["Pontos", "Interruptores", "Caixas", "Eletrodutos", "Fios e cabos", "Quadros", "Aterramento"]
+GRUPOS = ["Pontos", "Interruptores", "Caixas", "Eletrodutos", "Fios e cabos", "Bandejas e leitos", "Suportes", "Quadros",
+          "Aterramento"]
 COLUNAS = ["Grupo", "Item", "Especificação", "Unidade", "Quantidade"]
 PERDA_ELETRODUTO = 0.10
 

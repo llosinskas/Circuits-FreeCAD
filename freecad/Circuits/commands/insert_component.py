@@ -219,28 +219,11 @@ class Conduit:
         )
 
 
-class CableTray:
-    def Activated(self):
-        if documento_ou_aviso():
-            QtWidgets.QMessageBox.information(None, "Funcionalidade", "Eletrocalhas serão implementadas em breve.")
-
-    def IsActive(self):
-        return True
-
-    def GetResources(self):
-        return recursos(
-            "eletrocalha.svg",
-            "Eletrocalha",
-            "Eletrocalhas (em breve)",
-        )
-
-
 Gui.addCommand("InsertComponent", InsertComponent())
 Gui.addCommand("InsertTugs", Tugs())
 Gui.addCommand("InsertEquipaments", Equipaments())
 Gui.addCommand("InsertWire", Wire())
 Gui.addCommand("InsertConduit", Conduit())
-Gui.addCommand("InsertCableTray", CableTray())
 Gui.addCommand("InsertSwitch", InsertSwitch())
 Gui.addCommand("InsertSwitchParalelo", InsertSwitchParalelo())
 Gui.addCommand("InsertSwitchIntermediario", InsertSwitchIntermediario())

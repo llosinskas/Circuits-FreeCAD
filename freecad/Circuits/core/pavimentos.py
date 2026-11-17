@@ -19,6 +19,7 @@ PASTAS = {
     "interruptores": "Interruptores",
     "quadros": "Quadros e medição",
     "eletrodutos": "Eletrodutos",
+    "bandejas": "Bandejas e leitos",
     "aterramento": "Aterramento",
     "circuitos": "Circuitos",
     "fiacao": "Fiação",
@@ -41,6 +42,7 @@ _PASTA_DO_TIPO = {
     "ConduitPath": "eletrodutos",
     "eletroduto": "eletrodutos",
     "condutor_aterramento": "aterramento",
+    "bandeja": "bandejas",
 }
 
 

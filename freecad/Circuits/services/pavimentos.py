@@ -237,6 +237,8 @@ def chave_do_objeto(obj):
         return regras.pasta_do_objeto(tipo, obj.Simbolo)
     if getattr(obj, "tipo", "") == "tomada":
         return regras.pasta_do_objeto("tomada")
+    if not tipo and hasattr(obj, "Points") and hasattr(obj, "TipoBandeja"):
+        return regras.pasta_do_objeto("bandeja")  # linha marcada como eletrocalha ou leito
     if not tipo and hasattr(obj, "Points") and hasattr(obj, "SecaoAterramento"):
         return regras.pasta_do_objeto("condutor_aterramento")  # linha marcada como condutor de aterramento
     if not tipo and all(hasattr(obj, nome) for nome in ("Points", "Diametro", "Altura3D")):
@@ -399,7 +401,7 @@ def arquivar(doc, obj, pavimento=None):
             atual.removeObject(obj)
         destino.addObject(obj)
     _marcar(obj, pavimento.Label)
-    if chave != "eletrodutos" and not hasattr(obj, "SecaoAterramento"):  # linhas têm a cota do próprio traçado
+    if chave not in ("eletrodutos", "bandejas") and not hasattr(obj, "SecaoAterramento"):  # linhas têm a cota do próprio traçado
         ajustar_cota(doc, obj, pavimento)
     return destino
 
@@ -431,7 +433,7 @@ def mover(doc, objetos, pavimento):
                 continue
             antes = elevacao_do_objeto(doc, obj)
             if arquivar(doc, obj, pavimento) is not None:  # símbolos: arquivar já ajusta a cota
-                if chave_do_objeto(obj) == "eletrodutos" or hasattr(obj, "SecaoAterramento"):
+                if chave_do_objeto(obj) in ("eletrodutos", "bandejas") or hasattr(obj, "SecaoAterramento"):
                     _subir(obj, elevacao(pavimento) - antes)
                 movidos += 1
         doc.commitTransaction()

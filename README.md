@@ -51,7 +51,7 @@ O relatório e o quantitativo em PDF usam a biblioteca `reportlab`, que já vem 
 5. **Circuitos > Definir circuito** e **Ligar interruptor**: agrupe os pontos em circuitos e ligue cada interruptor às suas luminárias.
 6. **Quadros**: coloque na planta o quadro de distribuição, o de comando e a medição. Com o quadro selecionado, **Dados do quadro > Planilha do quadro** cria os dados dele e a planilha de circuitos.
 7. **Montar circuitos**: soma os pontos de cada circuito, escolhe cabo e disjuntor e grava na planilha de circuitos do quadro.
-8. **Eletrodutos > Eletroduto** e **Conectar às caixas**: desenhe a rede de eletrodutos e prenda-a nas caixas.
+8. **Infraestrutura > Eletroduto** e **Conectar às caixas**: desenhe a rede de eletrodutos e prenda-a nas caixas. Em áreas técnicas e prumadas, **Bandeja/leito** e **Suportes**.
 9. **Componentes** e **Unifilar**: lista o que vai dentro de cada quadro e desenha o diagrama.
 10. **Cálculos > Demanda**: grava a demanda do quadro, que aparece no unifilar.
 11. **Documentos**: quantitativos, legenda, notas e relatório PDF.
@@ -66,7 +66,7 @@ O relatório e o quantitativo em PDF usam a biblioteca `reportlab`, que já vem 
 | Energia | Chuveiro, ar-condicionado, ventilador, ponto de força, campainha |
 | Iluminação | Luz de teto, arandela, luminária tubular, luz embutida, luz de emergência |
 | Comandos | Interruptor simples, paralelo, intermediário, botão de campainha, fotocélula |
-| Eletrodutos | Caixa de passagem (além das ferramentas de eletroduto) |
+| Infraestrutura | Caixa de passagem (além das ferramentas de eletroduto, bandeja e suportes) |
 | Aterramento | Haste de aterramento, caixa de inspeção, BEP |
 | Quadros | Quadro de distribuição (QD), de comando (QC), de medição (QM), medição agrupada (CM) |
 
@@ -102,6 +102,7 @@ Pontos_eletricos
 │   ├── Interruptores
 │   ├── Quadros e medição     (símbolos, planilhas do quadro e diagrama unifilar)
 │   ├── Eletrodutos
+│   ├── Bandejas e leitos     (bandejas, conexões e suportes)
 │   ├── Circuitos             (textos de identificação dos pontos)
 │   └── Fiação                (traços de fase, neutro e terra)
 └── 1º Pavimento
@@ -162,6 +163,23 @@ Os fios são contados pelo caminho mais curto na rede, do quadro até os pontos 
 
 O botão **Fiação** desenha na planta os traços de fase, neutro e terra ao lado de cada ponto.
 
+## Bandejas e leitos
+
+1. Desenhe o trajeto com linhas (o botão **Bandeja/leito** sem nada selecionado abre a ferramenta de linha). Um ramal que sai do meio de outra bandeja é desenhado com a ponta sobre ela.
+2. Selecione as linhas e clique em **Infraestrutura > Bandeja/leito**: escolha eletrocalha perfurada, lisa ou leito para cabos, largura, aba, altura de instalação (do piso à base) e tampa.
+3. A bancada guarda as linhas na pasta *Bandejas e leitos* do pavimento, gera o modelo 3D (fundo e abas, ou longarinas e travessas no leito) e escreve na planta a sigla de cada conexão:
+
+| Sigla | Peça | Quando |
+|---|---|---|
+| C90, C45 | Curva horizontal 90° ou 45° (outros ângulos com o valor medido) | dois trechos com mudança de direção |
+| T | Tê horizontal | três trechos no mesmo nó, ou a ponta de um ramal sobre outra bandeja |
+| X | Cruzeta horizontal | quatro trechos no mesmo nó |
+| TF | Terminal de fechamento | ponta solta |
+
+**Infraestrutura > Suportes** coloca um suporte suspenso a 50 cm de cada conexão e os intermediários com vão de até 1,5 m (eletrocalha) ou 2,0 m (leito). Cada suporte é um perfilado 38x38 sob a bandeja e dois tirantes de 3/8" até a laje (altura de piso a piso do pavimento); aparece como um traço na planta e no modelo 3D. Repetir o comando refaz os suportes.
+
+Nos quantitativos, os grupos *Bandejas e leitos* (metros por tipo e seção com 5 % de perdas, curvas, tês, cruzetas, terminais, emendas e tampa) e *Suportes* (suportes, perfilado, vergalhão roscado, chumbadores, porcas e arruelas) entram no total e em cada pavimento.
+
 ## Documentação
 
 ### Quantitativos
@@ -181,6 +199,8 @@ O quantitativo por pavimento soma em cada um os pontos, caixas, eletrodutos, ver
 | Interruptores | Simples, paralelo, intermediário, botão de campainha, fotocélula |
 | Caixas | Uma por ponto: 4x2" na parede, octogonal 4x4" no teto, de piso; e as caixas de passagem |
 | Eletrodutos | Trechos horizontais e verticais por diâmetro, com 10 % de perdas |
+| Bandejas e leitos | Metros por tipo e seção, conexões, emendas e tampa |
+| Suportes | Suporte suspenso por posição, com perfilado, tirantes até a laje e chumbadores |
 | Fios e cabos | Metros por seção e função: fase, neutro, terra, retorno |
 | Quadros | Símbolos de quadro e componentes de cada quadro |
 | Aterramento | Hastes, caixas de inspeção, BEP, conectores haste-cabo e cabo de cobre nu por seção, com 10 % de perdas |
@@ -218,7 +238,7 @@ Os botões com seta (▾) abrem uma lista; o botão mostra o último item usado.
 
 | Barra | Botões |
 |---|---|
-| Planta elétrica | Projeto ▾, Tomadas ▾, Energia ▾, Iluminação ▾, Comandos ▾, Circuitos ▾, Eletrodutos ▾, Aterramento ▾ |
+| Planta elétrica | Projeto ▾, Tomadas ▾, Energia ▾, Iluminação ▾, Comandos ▾, Circuitos ▾, Infraestrutura ▾, Aterramento ▾ |
 | Quadros e documentos | Quadros ▾, Dados do quadro ▾, Montar circuitos, Componentes, Unifilar, Cálculos ▾, Documentos ▾ |
 | Modelo e biblioteca | Modelo 3D ▾, Biblioteca ▾ |
 
@@ -233,7 +253,7 @@ As barras *Desenho*, *Modificador*, *Snap* e *Arquitetura* trazem as ferramentas
 - **Pressurização, recalque e luminotécnico:** pré-dimensionamentos com parâmetros genéricos, a conferir com as normas, o Corpo de Bombeiros, o projeto hidráulico e os catálogos.
 - **Padrões:** pontos em 127 V (220 V para chuveiro, ar-condicionado e ponto de força); DR marcado em todos os circuitos de tomadas e de uso específico.
 - **Símbolos:** convenção da bancada, não cópia de uma norma.
-- **Eletrocalhas:** ainda não implementadas.
+- **Bandejas e leitos:** só conexões horizontais; mudanças de altura (curvas verticais) e reduções de largura não são identificadas. Vão dos suportes e materiais por regras usuais de catálogo, não de um fabricante.
 
 A lista completa está em "Problemas conhecidos" do [AGENTS.md](AGENTS.md), e o plano de evolução em [docs/Revisao_e_Roadmap_Predial.md](docs/Revisao_e_Roadmap_Predial.md).
 
