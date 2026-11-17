@@ -36,6 +36,29 @@ def _propriedade(obj, tipo, nome, dica, valor):
     setattr(obj, nome, valor)
 
 
+def configurar_suportes(
+    objetos,
+    tipo_suporte=regras.TIPO_SUPORTE_PADRAO,
+    vao_suporte=0.0,
+    distancia_no=regras.DISTANCIA_SUPORTE_CONEXAO,
+    pendente=regras.PENDENTE_PADRAO_MM,
+    folga_perfilado=regras.FOLGA_PERFILADO_MM,
+):
+    """Grava nas bandejas os ajustes de suporte (tipo, vão, distância às conexões, comprimento do pendente e folga)."""
+    for obj in objetos:
+        if not hasattr(obj, "Points"):
+            continue
+        if not hasattr(obj, "TipoSuporte"):
+            obj.addProperty("App::PropertyEnumeration", "TipoSuporte", "Suportes", "Tipo de suporte da bandeja")
+            obj.TipoSuporte = list(regras.TIPOS_SUPORTE)
+        obj.TipoSuporte = tipo_suporte if tipo_suporte in regras.TIPOS_SUPORTE else regras.TIPO_SUPORTE_PADRAO
+        vao_padrao = regras.VAO_SUPORTE.get(str(getattr(obj, "TipoBandeja", regras.TIPO_PADRAO)), 1500.0)
+        _propriedade(obj, "App::PropertyLength", "VaoSuporte", "Espaçamento máximo entre suportes", float(vao_suporte or vao_padrao))
+        _propriedade(obj, "App::PropertyLength", "DistanciaConexao", "Distância do suporte às conexões/pontas", float(distancia_no))
+        _propriedade(obj, "App::PropertyLength", "ComprimentoPendente", "Comprimento dos pendentes/tirantes (0 = até a laje)", float(pendente))
+        _propriedade(obj, "App::PropertyLength", "FolgaPerfilado", "Folga lateral total do perfilado além da largura da bandeja", float(folga_perfilado))
+
+
 def marcar(doc, objetos, tipo=regras.TIPO_PADRAO, largura=regras.LARGURA_PADRAO_MM, aba=regras.ABA_PADRAO_MM,
            altura=regras.ALTURA_PADRAO_MM, tampa=False):
     """Marca as linhas como bandejas e as guarda na pasta Bandejas e leitos do pavimento.
@@ -69,10 +92,21 @@ def _pontos(obj):
 
 
 def _caminho(obj):
-    return {
+    dados = {
         "pontos": _pontos(obj), "tipo": str(obj.TipoBandeja), "largura": _mm(obj.Largura), "aba": _mm(obj.Aba),
         "altura": _mm(obj.AlturaBandeja), "tampa": bool(getattr(obj, "Tampa", False)), "nome": obj.Name,
     }
+    if hasattr(obj, "TipoSuporte") and obj.TipoSuporte:
+        dados["tipo_suporte"] = str(obj.TipoSuporte)
+    if hasattr(obj, "VaoSuporte") and obj.VaoSuporte is not None:
+        dados["vao_suporte"] = _mm(obj.VaoSuporte)
+    if hasattr(obj, "DistanciaConexao") and obj.DistanciaConexao is not None:
+        dados["distancia_no"] = _mm(obj.DistanciaConexao)
+    if hasattr(obj, "ComprimentoPendente") and obj.ComprimentoPendente is not None:
+        dados["pendente"] = _mm(obj.ComprimentoPendente)
+    if hasattr(obj, "FolgaPerfilado") and obj.FolgaPerfilado is not None:
+        dados["folga_perfilado"] = _mm(obj.FolgaPerfilado)
+    return dados
 
 
 def _nome_pavimento(doc, obj):
@@ -385,13 +419,21 @@ def gerar_suportes(doc):
         linhas, solidos = [], []
         for suporte in suportes:
             angulo = math.radians(suporte["angulo"])
-            meia = (float(suporte["largura"]) + regras.FOLGA_PERFILADO_MM) / 2.0
+            folga = float(suporte["folga_perfilado"]) if suporte.get("folga_perfilado") is not None else regras.FOLGA_PERFILADO_MM
+            meia = (float(suporte["largura"]) + folga) / 2.0
             nx, ny = -math.sin(angulo) * meia, math.cos(angulo) * meia
             linhas.append(Part.makeLine(App.Vector(suporte["x"] - nx, suporte["y"] - ny, cota),
                                         App.Vector(suporte["x"] + nx, suporte["y"] + ny, cota)))
             if suporte.get("vertical"):
                 continue  # suporte de parede do trecho vertical: só no quantitativo
-            blocos = regras.blocos_do_suporte(suporte["largura"], suporte["altura"], laje)
+            blocos = regras.blocos_do_suporte(
+                suporte["largura"],
+                suporte["altura"],
+                laje,
+                pendente_mm=suporte.get("pendente", 0.0),
+                folga_perfilado_mm=folga,
+                tipo_suporte=suporte.get("tipo_suporte", regras.TIPO_SUPORTE_PADRAO),
+            )
             solidos += _solido(blocos, suporte["x"], suporte["y"], cota, suporte["angulo"])
 
         sufixo = pav_nome or "sem pavimento"
