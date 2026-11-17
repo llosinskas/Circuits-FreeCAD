@@ -40,5 +40,15 @@ class TestGerarTubos(unittest.TestCase):
         arquivar.assert_called_once_with(doc, solta, nivel)
 
 
+    def test_rigido_tambem_faz_a_curva_em_arco_no_3d(self):
+        linha = types.SimpleNamespace(Diametro="3/4", Tipo="Rígido", Altura3D=2800.0, Cor="Amarelo", FilletRadius=0.0)
+        self.servico._preparar_caminho(linha)
+        raio_tubo = self.servico.DIAMETROS_EXTERNOS["3/4"] / 2
+        self.assertAlmostEqual(linha.FilletRadius, raio_tubo * self.servico.FATOR_RAIO_CURVA_RIGIDO)
+        linha.Tipo = "Flexível"
+        self.servico._preparar_caminho(linha)
+        self.assertAlmostEqual(linha.FilletRadius, raio_tubo * self.servico.FATOR_RAIO_CURVA_FLEXIVEL)
+
+
 if __name__ == "__main__":
     unittest.main()

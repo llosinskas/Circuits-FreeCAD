@@ -8,9 +8,10 @@ from freecad.Circuits.objects.lighting import create_lighting
 from freecad.Circuits.objects.outlet import create_outlet
 from freecad.Circuits.objects.switch import create_switch
 from freecad.Circuits.qt import QtCore, QtWidgets
-from freecad.Circuits.services import alinhamento, pavimentos
+from freecad.Circuits.services import alinhamento, eletrodutos_planta, pavimentos, rede
 from freecad.Circuits.services.tomadas import criar_tug
 from freecad.Circuits.UI.dialogs.ComponentInserter import ComponentInserter, ComponentInsertionMode
+from freecad.Circuits.UI.dialogs.eletroduto_dialog import EletrodutoDialog
 
 
 def _posicionar_com_mouse(obj, mensagem, ao_fixar=None, cota=0.0):
@@ -199,14 +200,50 @@ class Wire:
 
 
 class Conduit:
-    """Inicia o desenho do caminho do eletroduto com o Draft Wire nativo."""
+    """Eletroduto com a dinâmica das eletrocalhas.
+
+    Sem seleção, abre a linha do Draft para desenhar o caminho. Com linhas
+    selecionadas, pergunta diâmetro, tipo, material, instalação e altura, junta
+    as pontas aos vizinhos e às caixas, cria as caixas de passagem que faltam e
+    escreve o diâmetro e as siglas das peças na planta.
+    """
 
     def Activated(self):
-        if documento_ou_aviso():
+        doc = documento_ou_aviso()
+        if not doc:
+            return
+        linhas = [obj for obj in Gui.Selection.getSelection() if hasattr(obj, "Points")]
+        if not linhas:
             App.Console.PrintMessage(
-                "Ferramenta de Eletroduto ativada. Desenhe a linha base usando as propriedades de Wire do FreeCAD.\n"
+                "Eletroduto: desenhe o caminho com a linha, selecione as linhas e clique de novo em Eletroduto "
+                "para definir diâmetro, tipo e instalação.\n"
             )
             Gui.runCommand("Draft_Wire")
+            return
+        dialogo = EletrodutoDialog(len(linhas), _valores_do_eletroduto(linhas[0]))
+        if not dialogo.exec_():
+            return
+        doc.openTransaction("Eletrodutos")
+        try:
+            marcados = eletrodutos_planta.marcar(doc, linhas, **dialogo.get_dados())
+            juncoes = eletrodutos_planta.encaixar(doc, marcados)
+            _, caixas_ligadas, _ = rede.conectar(doc, marcados)
+            resultados = eletrodutos_planta.analisar(doc)
+            caixas_novas = eletrodutos_planta.criar_caixas(doc, resultados)
+            if caixas_novas:
+                rede.conectar(doc, marcados)
+            textos = eletrodutos_planta.anotar(doc)
+            doc.commitTransaction()
+        except Exception:
+            doc.abortTransaction()
+            raise
+        avisos = [a for r in eletrodutos_planta.analisar(doc).values() for a in r["avisos"]]
+        linhas_msg = [f"{len(marcados)} eletroduto(s); {juncoes} junção(ões) entre eletrodutos; "
+                      f"{caixas_ligadas} caixa(s) ligada(s); {caixas_novas} caixa(s) de passagem criada(s); "
+                      f"{textos} texto(s) na planta."]
+        if avisos:
+            linhas_msg += [""] + avisos[:15]
+        QtWidgets.QMessageBox.information(None, "Eletroduto", "\n".join(linhas_msg))
 
     def IsActive(self):
         return True
@@ -215,8 +252,17 @@ class Conduit:
         return recursos(
             "conduite.svg",
             "Eletroduto",
-            "Desenha na planta o caminho do eletroduto, ponto a ponto",
+            "Sem seleção, desenha o caminho do eletroduto. Com as linhas selecionadas, define diâmetro, tipo, "
+            "material e instalação, junta as pontas às caixas e aos vizinhos, cria caixas de passagem nas "
+            "derivações e escreve o diâmetro e as curvas na planta",
         )
+
+
+def _valores_do_eletroduto(obj):
+    if not hasattr(obj, "Diametro"):
+        return None
+    dados = eletrodutos_planta.caminho(obj)
+    return {chave: dados[chave] for chave in ("diametro", "tipo", "material", "instalacao", "altura")}
 
 
 Gui.addCommand("InsertComponent", InsertComponent())

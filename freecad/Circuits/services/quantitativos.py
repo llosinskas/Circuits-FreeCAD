@@ -6,7 +6,7 @@ from freecad.Circuits.core import exportar as gravacao
 from freecad.Circuits.core import quantitativos as regras
 from freecad.Circuits.core import quadro as regras_quadro
 from freecad.Circuits.core.simbolos import ATERRAMENTO, CATALOGO, COMANDO, PASSAGEM, QUADRO
-from freecad.Circuits.services import bandejas, pavimentos, planilhas, rede
+from freecad.Circuits.services import bandejas, eletrodutos_planta, pavimentos, planilhas, rede
 from freecad.Circuits.services.tomadas import listar_tomadas
 
 EXTENSOES = (".csv", ".xlsx", ".pdf")
@@ -153,6 +153,14 @@ def _bandejas(doc):
         return []
 
 
+def _pecas_eletrodutos(doc):
+    """(pavimento, itens) das curvas, luvas, buchas, conduletes e abraçadeiras (``services.eletrodutos_planta``)."""
+    try:
+        return eletrodutos_planta.materiais_por_pavimento(doc)
+    except Exception:
+        return []
+
+
 def _conector(quantidade):
     return {"item": "Conector haste-cabo", "especificacao": "", "quantidade": quantidade, "unidade": "un",
             "grupo": "Aterramento"}
@@ -188,7 +196,7 @@ def levantar_por_pavimento(doc, fiacao=None):
         de(ponto.get("pavimento", ""))["pontos"].append(ponto)
     for pavimento, diametro, comprimento in _eletrodutos(doc):
         de(pavimento)["eletrodutos"].append((diametro, comprimento))
-    for pavimento, itens in _componentes_por_quadro(doc) + _bandejas(doc):
+    for pavimento, itens in _componentes_por_quadro(doc) + _bandejas(doc) + _pecas_eletrodutos(doc):
         de(pavimento)["componentes"].extend(itens)
     condutores, conectores = _aterramento(doc)
     for pavimento, secao, comprimento in condutores:
@@ -222,7 +230,7 @@ def levantar(doc):
     componentes = coletar_componentes_quadros(doc)
     if conectores:
         componentes = componentes + [_conector(conectores)]
-    componentes = componentes + [item for _, itens in _bandejas(doc) for item in itens]
+    componentes = componentes + [item for _, itens in _bandejas(doc) + _pecas_eletrodutos(doc) for item in itens]
     linhas = regras.montar(
         coletar_pontos(doc), coletar_eletrodutos(doc), componentes,
         fios=fiacao["fios"], verticais=fiacao["verticais"] + fiacao.get("transicoes", []), aterramento=condutores,

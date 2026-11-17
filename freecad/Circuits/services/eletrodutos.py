@@ -8,6 +8,7 @@ from freecad.Circuits.services.tomadas import listar_tomadas
 
 TOLERANCIA_TOMADA_MM = 10.0
 FATOR_RAIO_CURVA_FLEXIVEL = 15
+FATOR_RAIO_CURVA_RIGIDO = 6  # curva pré-fabricada: raio de 3 diâmetros externos
 
 
 def listar_caminhos(doc):
@@ -37,7 +38,7 @@ def _preparar_caminho(obj):
 
     if hasattr(obj, "FilletRadius"):
         raio = DIAMETROS_EXTERNOS.get(obj.Diametro, DIAMETRO_PADRAO) / 2.0
-        obj.FilletRadius = raio * FATOR_RAIO_CURVA_FLEXIVEL if obj.Tipo == "Flexível" else 0.0
+        obj.FilletRadius = raio * (FATOR_RAIO_CURVA_FLEXIVEL if obj.Tipo == "Flexível" else FATOR_RAIO_CURVA_RIGIDO)
 
 
 def _como_wire(obj):

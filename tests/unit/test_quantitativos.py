@@ -261,6 +261,21 @@ class TestServico(unittest.TestCase):
         self.assertEqual({(l["item"], l["especificacao"]): l["quantidade"] for l in linhas}[esperado], 3.19)
         self.assertEqual({(l["item"], l["especificacao"]): l["quantidade"] for l in por_pav[""]}[esperado], 3.19)
 
+    def test_pecas_dos_eletrodutos_entram_no_total_e_por_pavimento(self):
+        curva = {"grupo": "Eletrodutos", "item": "Curva 90°", "especificacao": 'PVC rígido 3/4"', "unidade": "un",
+                 "quantidade": 3}
+        fiacao = {"fios": {}, "verticais": [], "circuitos": [], "avisos": []}
+        doc = types.SimpleNamespace(Label="Casa", FileName="", Objects=[])
+        with mock.patch.object(self.servico, "_componentes_por_quadro", return_value=[]), \
+                mock.patch.object(self.servico, "coletar_componentes_quadros", return_value=[]), \
+                mock.patch.object(self.servico.rede, "analisar", return_value=fiacao), \
+                mock.patch.object(self.servico.eletrodutos_planta, "materiais_por_pavimento",
+                                  return_value=[("Térreo", [curva])]):
+            total = self.servico.calcular(doc)
+            por_pav = dict(self.servico.levantar_por_pavimento(doc, fiacao))
+        self.assertIn(("Curva 90°", 3), [(l["item"], l["quantidade"]) for l in total])
+        self.assertIn(("Curva 90°", 3), [(l["item"], l["quantidade"]) for l in por_pav["Térreo"]])
+
     def test_componentes_dos_quadros(self):
         quadro = object()
         with mock.patch.object(self.servico.planilhas, "listar_quadros", return_value=[quadro, quadro]), \

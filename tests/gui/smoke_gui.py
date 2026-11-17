@@ -309,6 +309,25 @@ def scenario(doc):
     result["steps"]["verticais"] = [o.Name for o in doc.Objects if hasattr(o, "lista_de_verticais")]
     run("Generate3DConduits")
     Gui.Selection.clearSelection()
+
+    eletroduto_dialogo = locate("freecad.Circuits.UI.dialogs.eletroduto_dialog:EletrodutoDialog")
+    eletroduto_dialogo.exec_ = lambda self: 1
+    eletroduto_dialogo.get_dados = lambda self: {"diametro": "3/4", "tipo": "Rígido", "material": "PVC",
+                                                 "instalacao": "Embutido no teto ou parede", "altura": 2800.0}
+    tronco = Draft.make_wire([App.Vector(0, -2000, 0), App.Vector(6000, -2000, 0), App.Vector(6000, -5000, 0)])
+    ramal = Draft.make_wire([App.Vector(3000, -1800, 0), App.Vector(3000, 0, 0)])  # ponta a 20 cm: vira derivação
+    doc.recompute()
+    for linha in (tronco, ramal):
+        Gui.Selection.addSelection(linha)
+    run("InsertConduit")
+    Gui.Selection.clearSelection()
+    result["steps"]["eletroduto_dinamica"] = {
+        "tipo": [(o.Name, o.Tipo, getattr(o, "Material", ""), getattr(o, "Instalacao", "")) for o in (tronco, ramal)],
+        "pastas": sorted({getattr(o.getParentGroup(), "Label", "") for o in (tronco, ramal)}),
+        "ramal_inicio": [round(ramal.Points[0].x), round(ramal.Points[0].y)],
+        "caixas_criadas": len([o for o in doc.Objects if getattr(o, "Simbolo", "") == "caixa_passagem"]),
+        "textos": sorted(o.rotulo_eletroduto for o in doc.Objects if hasattr(o, "rotulo_eletroduto")),
+    }
     result["steps"]["eletrodutos"] = [o for o in snapshot(doc) if o["name"].startswith("Wire")]
 
     bandeja_dialogo = locate("freecad.Circuits.UI.dialogs.bandeja_dialog:BandejaDialog")

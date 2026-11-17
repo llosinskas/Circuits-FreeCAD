@@ -178,8 +178,24 @@ O comprimento e o agrupamento vêm da rede de eletrodutos e só entram quando el
 
 ## Eletrodutos, fios e verticais
 
-1. Desenhe os eletrodutos com **Eletrodutos > Eletroduto**. O snap do Draft pode prender no ponto de inserção de cada símbolo (a caixa).
-2. Selecione as linhas e clique em **Conectar às caixas**. Elas viram eletrodutos (diâmetro e altura nas propriedades), vão para a pasta *Eletrodutos* do pavimento, e todo vértice ou trecho a até 30 cm de uma caixa é puxado para cima dela.
+1. Desenhe os eletrodutos com **Infraestrutura > Eletroduto** (sem nada selecionado, abre a ferramenta de linha). O snap do Draft pode prender no ponto de inserção de cada símbolo (a caixa).
+2. Selecione as linhas e clique de novo em **Eletroduto**. No formulário, escolha diâmetro, tipo (flexível ou rígido), material (PVC ou aço), instalação (teto ou parede, piso ou aparente) e altura. A bancada, como nas eletrocalhas:
+   - guarda as linhas na pasta *Eletrodutos* do pavimento e deixa tracejado o eletroduto do piso;
+   - junta a ponta solta a até 30 cm de outro eletroduto (no vértice, ou no meio do trecho, como derivação) e puxa para a caixa os vértices a até 30 cm dela;
+   - cria uma **caixa de passagem** em cada derivação embutida sem caixa; no aparente, a derivação leva condulete;
+   - escreve o diâmetro (`Ø3/4"`) em cada eletroduto e a sigla das curvas e conduletes (C90, C45, CT, CX), e avisa das pontas soltas.
+
+   **Conectar às caixas** continua servindo para encaixar nas caixas os eletrodutos já marcados, todos de uma vez.
+
+   | Peça | Quando |
+   |---|---|
+   | Curva 90° / 45° | rígido mudando de direção (o flexível só dobra) |
+   | Luva | rígido entre barras de 3 m e em trechos alinhados |
+   | Bucha e arruela | cada rígido que entra numa caixa |
+   | Condulete T / X | derivação aparente sem caixa |
+   | Abraçadeira tipo D | aparente, a cada 1,5 m e na ponta de cada trecho |
+
+   Todas entram nos quantitativos, no total e por pavimento. No 3D, o rígido faz a curva com raio de 3 diâmetros.
 3. **Lista de verticais** cria a planilha *Verticais*, com a descida ou subida de cada caixa: altura do eletroduto, altura da caixa, comprimento e diâmetro.
 
 Os fios são contados pelo caminho mais curto na rede, do quadro até os pontos de cada circuito:
