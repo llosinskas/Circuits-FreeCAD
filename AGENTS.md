@@ -24,7 +24,7 @@ Circuits/                        pasta dentro de Mod/, raiz do repositório
 ├── tests/unit/                  testes sem FreeCAD
 ├── tests/gui/smoke_gui.py       regressão com o FreeCAD real
 ├── docs/                        guias antigos (podem estar desatualizados)
-├── Planejamento.md              roadmap
+├── Planejamento.md              roadmap antigo; o atual é docs/Plano_proximas_etapas.md
 └── freecad/Circuits/
     ├── __init__.py              caminhos e metadados (sem FreeCAD nem Qt)
     ├── init_gui.py              classe da bancada, toolbars e menus
@@ -43,6 +43,7 @@ Circuits/                        pasta dentro de Mod/, raiz do repositório
     │   ├── formularios.py       campos dos formulários de cálculo: opções prontas, dicas, avançados
     │   ├── rede.py              rede de eletrodutos: encaixe nas caixas, roteamento, fios e verticais
     │   ├── bandejas.py          eletrocalhas e leitos: conexões (curvas, tês, cruzetas), suportes, 3D e materiais
+    │   ├── unifilar.py          geometria e textos de cada circuito do diagrama unifilar
     │   ├── quantitativos.py     soma dos materiais: pontos, caixas, interruptores, eletrodutos, quadros
     │   ├── exportar.py          gravação de tabelas em CSV e XLSX só com a biblioteca padrão
     │   ├── quadro.py            componentes do quadro: disjuntores, DR, DPS, barramentos, módulos
@@ -190,7 +191,7 @@ Os comandos se encontram pelos objetos do documento, não por estado em Python:
 - **Circuitos montados:** `MontarCircuitos` soma os pontos por `Circuito`, dimensiona e grava uma linha por circuito na planilha de circuitos do quadro. Uma linha com o mesmo número é atualizada no lugar; as outras ficam como estão.
 - **Demanda:** `CalcDemanda` grava `potencia_instalada` e `potencia_demanda` (kW) na linha 3 do quadro, e o unifilar as mostra.
 - **Motores calculados:** `CalcPressurizacao` e `CalcRecalque` podem inserir um `Ponto` do tipo `ponto_forca` com a potência aparente, a tensão e a ligação do motor; ele entra em `MontarCircuitos` como qualquer ponto.
-- **Diagrama:** grupo com Label `diagrama_<quadro>` e propriedade `quadro_origem` com o nome da planilha, recriado a cada geração. Os diagramas são empilhados, um por quadro.
+- **Diagrama:** grupo com Label `diagrama_<quadro>` e propriedade `quadro_origem` com o nome da planilha, recriado a cada geração. Os diagramas são empilhados, um por quadro. Cada circuito é um Sketch com a geometria de `core.unifilar.geometria` (disjuntor com dois terminais e arco, DR como retângulo que interrompe a linha, traços de terra, neutro e fases, seta) e textos de `core.unifilar.textos` (proteção, fases, sensibilidade do DR, `#seção mm²`, potência, `C<n>` e descrição).
 - **Legenda:** grupo `Legenda_simbolos`, recriado a cada geração na posição em que estava, com os símbolos do catálogo usados e os tipos de interruptor usados (`core.simbolos.INTERRUPTORES`, desenho de `geometria_interruptor`).
 - **Luminotécnico:** `DistribuirLuminarias` usa o retângulo envolvente (plano XY) do objeto selecionado como ambiente e cria um `Ponto` de iluminação por posição da malha, com a propriedade `Ambiente` = nome desse objeto. Repetir o comando no mesmo objeto apaga os pontos com esse `Ambiente` e cria de novo.
 - **Notas:** planilha com a propriedade `notas_do_projeto`, uma nota por linha na coluna A, da linha 3 em diante. `GerarNotas` recria o grupo `Notas_projeto` com o título e as notas numeradas, na posição em que estava ou embaixo da legenda.

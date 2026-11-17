@@ -1,0 +1,193 @@
+# Plano das próximas etapas
+
+Atualizado em 17/11/2026. Substitui a seção "Próximos 10 passos" de
+[Revisao_e_Roadmap_Predial.md](Revisao_e_Roadmap_Predial.md), que fica como histórico.
+
+## Onde estamos
+
+A bancada já desenha a planta por pavimento (pontos, comandos, quadros, aterramento),
+monta a rede de eletrodutos e de bandejas, conta fios, verticais, conexões e suportes,
+monta os circuitos, gera a planilha e o unifilar de cada quadro e exporta quantitativos
+em CSV, XLSX e PDF.
+
+O que falta para virar um projeto completo, nesta ordem:
+
+1. **Confirmar no FreeCAD real** o que só tem teste com o FreeCAD simulado.
+2. **Fechar o unifilar** como folha de projeto: DR por grupo, quadro de cargas, balanço de fases.
+3. **Parâmetros do projeto** num lugar só, lidos por todos os cálculos.
+4. **Dimensionamento completo da NBR 5410**, usando o que a rede já sabe (comprimento, agrupamento, método).
+5. **Infraestrutura pela ocupação:** diâmetro do eletroduto e largura da bandeja.
+6. **Entrada de energia e alimentadores.**
+7. **Quadro de comando e proteção**, começando pelas bombas.
+8. **Folhas de projeto e memoriais.**
+
+Cada etapa tem entradas, o que sai, onde fica no código e como é testada. Uma etapa só
+começa quando a anterior passa no `smoke_gui.py`.
+
+---
+
+## Etapa 0: validar no FreeCAD real
+
+**Por quê:** a lista "Problemas conhecidos" do AGENTS.md tem muita coisa testada só com o
+FreeCAD simulado (níveis do BIM, pastas, bandejas, filtro de teclas, unifilar novo).
+Corrigir isso agora é mais barato que descobrir no meio de um projeto.
+
+- Rodar `tests/gui/smoke_gui.py` no FreeCAD 1.1 e guardar o retrato JSON como referência.
+- Corrigir o que falhar, com teste unitário que reproduza o erro.
+- Fazer um projeto pequeno à mão (casa térrea com 2 pavimentos): inserir pontos, circuitos,
+  quadro, unifilar, eletrodutos, bandeja, quantitativos.
+- Tirar de "Problemas conhecidos" o que foi confirmado.
+
+**Pronto quando:** `errors` vazio no JSON e o projeto de exemplo salvo em `docs/exemplos/`.
+
+---
+
+## Etapa 1: unifilar como folha de projeto
+
+O desenho de cada circuito já tem disjuntor com terminais e arco, DR, traços dos
+condutores, seção, potência, fases e descrição (`core/unifilar.py`). Falta:
+
+| Item | Entrada | Saída |
+|---|---|---|
+| DR geral ou DR por grupo de circuitos | Coluna `Grupo DR` na planilha de circuitos | Um DR desenhado antes de um sub-barramento com os circuitos do grupo; o DR por circuito continua possível |
+| Disjuntor geral com DR (IDR) | Dado do quadro | Símbolo de IDR na entrada |
+| Quadro de cargas ao lado do diagrama | Planilha de circuitos | Tabela: circuito, descrição, potência por fase (R, S, T), corrente, disjuntor, cabo; total e desequilíbrio |
+| Balanço de fases | Potência e número de fases de cada circuito | Sugestão de fases que minimiza o desequilíbrio, gravada na planilha só se o usuário aceitar |
+| Reserva | Número de circuitos | Linhas "Reserva" no diagrama e no quadro de cargas, pela regra de reserva que `core/quadro.py` já aplica |
+| Trifilar (opcional) | Mesmos dados | Diagrama com um traço por condutor |
+
+- **Código:** `core/unifilar.py` (geometria), `core/quadro.py` (balanço, reservas),
+  `services/unifilar.py`.
+- **Testes:** geometria do DR por grupo; balanço com casos conhecidos (ex.: 3 circuitos de
+  1500 W em 220/127 V); quadro de cargas somando por fase.
+
+---
+
+## Etapa 2: parâmetros do projeto
+
+Hoje cada cálculo tem os próprios valores fixos (127 V, PVC, 30 °C, método B1). Proposta:
+uma planilha **Parâmetros do projeto** (propriedade `parametros_do_projeto`), criada pelo
+**Novo projeto** e lida por `services/parametros.py`, com valores padrão quando faltar algo.
+
+| Grupo | Parâmetros |
+|---|---|
+| Fornecimento | Concessionária, tensão fase-neutro e fase-fase, sistema (monofásico, bifásico, trifásico), corrente de curto no ponto de entrega ou potência e impedância do transformador |
+| Aterramento | Esquema (TN-S, TN-C-S, TT), resistência de aterramento |
+| Condutores | Material (cobre, alumínio), isolação (PVC 70 °C, EPR ou XLPE 90 °C), temperatura ambiente e do solo |
+| Limites | Queda de tensão nos circuitos terminais (4 %) e total (7 %) |
+| Padrões | Curva dos disjuntores por tipo de circuito, sensibilidade do DR, reserva de circuitos |
+
+- O formulário segue as regras de `core/formularios.py` (até 4 campos básicos, o resto avançado).
+- **Testes:** leitura com campos faltando; todos os cálculos recebem os parâmetros pelo mesmo caminho.
+
+---
+
+## Etapa 3: dimensionamento completo pela NBR 5410
+
+Usar o que a rede já calcula para fechar os 6 critérios de cada circuito:
+
+| Critério | De onde vem o dado |
+|---|---|
+| Seção mínima (tabela 47) | Tipo do circuito (iluminação, força) |
+| Capacidade de condução com FCT e FCA (tabelas 36 a 45) | Método de instalação pelo trajeto: eletroduto embutido → B1, eletrocalha perfurada → E, leito → F; agrupamento = maior número de circuitos num trecho do trajeto; temperatura dos parâmetros |
+| Queda de tensão | Comprimento do trajeto na rede (`circuitos` de `core.rede.analisar`) |
+| Sobrecarga (Ib ≤ In ≤ Iz) | Já existe |
+| Curto-circuito (S ≥ I·√t / k) e capacidade de interrupção | Icc dos parâmetros, reduzida pela impedância do alimentador |
+| Contatos indiretos (Zs·Ia ≤ U0 no TN; DR no TT) | Esquema de aterramento e comprimento |
+
+- O resultado vai para a planilha de circuitos, com uma coluna "Critério determinante".
+- **Código:** `core/functions/Cabo/` (refazer `Cabo.py`, hoje com erros), `core/tables/NBR5410/`
+  (corrigir as tabelas com colunas desiguais e a temperatura que pula 30 °C), `core/circuitos.py`.
+- **Testes:** exemplos resolvidos de livro (Cotrim, Mamede) para cada critério; tirar o
+  `expectedFailure` de `test_queda_tensao.py`.
+
+---
+
+## Etapa 4: infraestrutura pela ocupação
+
+| Item | Regra | Saída |
+|---|---|---|
+| Diâmetro do eletroduto por trecho | Taxa de ocupação: 53 % com 1 cabo, 31 % com 2, 40 % com 3 ou mais | Propriedade `Diametro` sugerida em cada trecho, com aviso quando o desenhado é menor |
+| Largura da bandeja | Soma das seções externas dos cabos e taxa de ocupação | `Largura` sugerida e aviso |
+| Fios por trecho | Já calculado pela rede | Identificação na planta (`#2,5 F+N+T` no trecho) |
+
+- **Código:** `core/rede.py`, `core/bandejas.py`, `core/tables/eletrodutos.py` (diâmetro externo dos cabos).
+
+---
+
+## Etapa 5: entrada de energia e alimentadores
+
+- **Demanda do edifício:** diversidade entre unidades pela tabela da concessionária escolhida
+  nos parâmetros (começar por uma; as outras entram como tabela de dados).
+- **Categoria de atendimento e padrão de entrada:** disjuntor, ramal e medição pela demanda.
+- **Alimentadores:** do medidor ao QD e do QGBT aos QDs, dimensionados como na Etapa 3, com a
+  queda acumulada (7 % no total).
+- **Saída:** linha "Alimentador" na planilha do quadro e no unifilar.
+- **Pendência sua:** qual concessionária usar primeiro.
+
+---
+
+## Etapa 6: quadro de comando e proteção
+
+Começar pelas bombas, porque o recalque e a pressurização já calculam o motor.
+
+**Entradas** (planilha **Cargas do quadro de comando**, uma linha por motor):
+potência (cv ou kW), tensão, partida (direta, estrela-triângulo, soft-starter, inversor),
+regime, tensão de comando (24 Vcc ou 220 Vca), modo manual/automático, intertravamentos
+(boias, alternância entre bombas, detector de fumaça da pressurização), sinalizações.
+
+**Saídas:**
+
+1. **Dimensionamento por motor** (NBR IEC 60947-4-1): disjuntor-motor com a faixa de ajuste,
+   contator em AC-3, relé térmico e cabo. Estrela-triângulo: K1 e K2 com 0,58·In, K3 com
+   0,33·In, relé com 0,58·In. Soft-starter e inversor pela corrente e pelo regime.
+2. **Diagrama de força** multifilar.
+3. **Diagrama de comando** a partir de blocos prontos: liga/desliga com selo, boia, alternância,
+   falha de bomba, sinaleiros. Cada bloco é uma função pura que devolve a geometria, como em
+   `core/unifilar.py`.
+4. **Régua de bornes** numerada e identificação dos condutores e dispositivos (Q1, K1, F1, S1, H1).
+5. **Layout da placa e da porta:** trilho DIN, canaletas, tamanho do painel e soma das perdas
+   em W para escolher ventilação e grau de proteção (NBR IEC 61439).
+6. **Lista de materiais** do painel, que entra nos quantitativos.
+
+- **Código previsto:** `core/comando.py` (dimensionamento), `core/diagramas_comando.py`
+  (blocos), `services/quadro_comando.py`, comandos novos no grupo *Quadros*.
+- **Testes:** dimensionamento de um motor de 5 cv em 380 V nas quatro partidas; blocos de
+  comando sem linhas soltas (toda ponta ligada a um borne ou a outro elemento).
+- **Pendência sua:** fabricante de referência para as faixas de disjuntor-motor e contator
+  (até lá, tabela genérica marcada "conferir com o catálogo").
+
+---
+
+## Etapa 7: folhas de projeto e memoriais
+
+- Folhas do TechDraw em A1/A3 com carimbo: planta de cada pavimento, unifilares, quadro de
+  cargas, legenda, notas, detalhes de bandeja e de quadro de comando.
+- Memorial descritivo e memorial de cálculo em PDF, a partir dos mesmos dados (cada
+  critério da Etapa 3 com a conta mostrada).
+- Exportação em DXF e PDF.
+
+---
+
+## Ordem sugerida e tamanho
+
+| Etapa | Depende de | Tamanho |
+|---|---|---|
+| 0. Validação no FreeCAD | — | pequeno, mas precisa do FreeCAD na sua máquina |
+| 1. Unifilar como folha | 0 | médio |
+| 2. Parâmetros do projeto | 0 | pequeno |
+| 3. NBR 5410 completa | 2 | grande |
+| 4. Ocupação | 3 | médio |
+| 5. Entrada e alimentadores | 2, 3 | médio |
+| 6. Quadro de comando | 2 | grande |
+| 7. Folhas e memoriais | 1, 3 | médio |
+
+As etapas 1 e 2 podem andar juntas. A 6 é independente da 3 a 5 e pode ser antecipada se
+o quadro de comando for a prioridade.
+
+## Decisões que dependem de você
+
+1. Concessionária da Etapa 5.
+2. Fabricante de referência para disjuntores, DR, contatores e disjuntores-motores.
+3. Se o DR geral (IDR) deve ser o padrão nos quadros residenciais ou o DR por circuito.
+4. Formato e carimbo das folhas (A1 ou A3, logotipo, campos).

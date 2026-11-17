@@ -145,7 +145,7 @@ Cada quadro tem uma planilha de dados (tensão, fases, disjuntor geral, DPS) e u
 
 ### Unifilar e componentes
 
-- **Unifilar:** um diagrama por quadro, com medidor (quando a origem do quadro é uma medição), disjuntor geral, DPS, barramentos de fases, neutro e terra, e, em cada circuito, disjuntor, DR, fases, cabo e potência.
+- **Unifilar:** um diagrama por quadro, com medidor (quando a origem do quadro é uma medição), disjuntor geral, DPS, barramentos de fases, neutro e terra, e, em cada circuito, o disjuntor com os terminais e o arco, a proteção (`C16A`) e as fases, o DR com a sensibilidade, os traços de terra, neutro e fases, a seção (`#2,5 mm²`), a potência, o número e a descrição.
 - **Componentes:** disjuntor geral, DPS, disjuntores e DR dos circuitos, barramentos com o número de terminais e o tamanho da caixa em módulos DIN, com a reserva de circuitos da NBR 5410. A lista fica numa planilha `Componentes <quadro>`.
 
 ## Eletrodutos, fios e verticais
@@ -263,7 +263,7 @@ As barras *Desenho*, *Modificador*, *Snap* e *Arquitetura* trazem as ferramentas
 - **Símbolos:** convenção da bancada, não cópia de uma norma.
 - **Bandejas e leitos:** curvas verticais sempre de 90° e a altura de cada linha é única (para subir, divida em duas linhas); no 3D, reduções aparecem como o encontro de duas larguras, sem a peça desenhada. Vão dos suportes, parafusos e materiais por regras usuais de catálogo, não de um fabricante.
 
-A lista completa está em "Problemas conhecidos" do [AGENTS.md](AGENTS.md), e o plano de evolução em [docs/Revisao_e_Roadmap_Predial.md](docs/Revisao_e_Roadmap_Predial.md).
+A lista completa está em "Problemas conhecidos" do [AGENTS.md](AGENTS.md), e o plano das próximas etapas em [docs/Plano_proximas_etapas.md](docs/Plano_proximas_etapas.md).
 
 ## Desenvolvimento
 

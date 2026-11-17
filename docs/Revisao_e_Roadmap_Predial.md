@@ -201,6 +201,8 @@ Objetivo: parar de acumular dívida antes de construir em cima.
 
 ## 5. Próximos 10 passos
 
+> Substituído por [Plano_proximas_etapas.md](Plano_proximas_etapas.md). Mantido como histórico.
+
 Em ordem, cada um com teste:
 
 1. B1: `AddCircuito` com seleção do quadro de destino.
