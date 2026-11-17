@@ -1,34 +1,22 @@
-# Bancada Engenharia (Circuits) para FreeCAD
+# Circuits: bancada de projeto elétrico predial para o FreeCAD
 
-Bancada para projetos elétricos prediais no FreeCAD: desenho dos pontos em planta, montagem dos circuitos, quadro de cargas e diagrama unifilar, com geração 3D e relatório em PDF.
+Bancada **Engenharia** para o FreeCAD 1.1: do desenho dos pontos na planta até o quadro de cargas, o diagrama unifilar e a lista de materiais, sem sair do FreeCAD.
 
-O projeto está em desenvolvimento. A seção [Limitações](#limitações) diz o que ainda não deve ser usado em um projeto real sem conferência.
+- Planta elétrica com símbolos de tomadas, iluminação, interruptores, pontos de energia e quadros, organizados por pavimento.
+- Circuitos montados a partir dos pontos, com cabo, disjuntor, DR e equilíbrio de fases.
+- Planilha de circuitos por quadro, diagrama unifilar e lista de componentes do quadro.
+- Rede de eletrodutos ligada às caixas, com contagem de fios e lista de verticais.
+- Quantitativo de materiais em CSV, XLSX e PDF.
+- Cálculos prediais: demanda, luminotécnico, pressurização de escada e bomba de recalque.
+- Integração com os níveis da bancada BIM e geração 3D de caixas e eletrodutos.
 
-## O que a bancada faz
-
-- **Pavimentos:** cada pavimento é uma pasta, com subpastas de tomadas, energia, iluminação, interruptores e quadros; os símbolos novos entram sozinhos na pasta certa do pavimento ativo.
-- **Planta 2D:** botões separados para tomadas, pontos de energia, iluminação e interruptores. Cada ponto tem símbolo próprio e dados elétricos (potência, tensão, circuito) editáveis.
-- **Quadros na planta:** símbolos de quadro de distribuição, quadro de comando, quadro de medição e medição agrupada.
-- **Circuitos:** soma os pontos da planta por circuito, escolhe cabo e disjuntor, equilibra as fases e grava no quadro.
-- **Diagrama unifilar:** gerado a partir da planilha de cada quadro, com medidor, disjuntor geral, DPS, barramentos de fases, neutro e terra, e disjuntor, DR, fases, cabo e potência de cada circuito.
-- **Componentes do quadro:** lista de disjuntores, DR, DPS, barramentos e tamanho da caixa em módulos.
-- **Cálculos prediais:** demanda do quadro, pré-dimensionamento do ventilador de pressurização de escada e da bomba de recalque, com o motor elétrico de cada um.
-- **Luminotécnico:** calcula e distribui as luminárias dentro de um retângulo desenhado no ambiente.
-- **Legenda:** desenha ao lado da planta a legenda dos símbolos usados.
-- **Notas:** você escreve as notas do projeto numa planilha e um botão as desenha na planta.
-- **Fiação:** um botão desenha os traços de fase, neutro e terra em todas as tomadas e pontos.
-- **Escala dos símbolos:** cada símbolo tem uma escala, e um comando muda a de todos de uma vez.
-- **Infraestrutura:** eletrodutos em planta, encaixe nas caixas, lista de verticais e contagem dos fios de cada circuito pelo caminho dos eletrodutos.
-- **Modelo 3D:** caixas dos pontos e tubos dos eletrodutos gerados a partir da planta.
-- **Biblioteca:** componentes `.FCStd` inseridos como link, com busca e miniatura.
-- **Quantitativos:** um botão levanta os materiais do projeto e grava a lista em CSV, XLSX e PDF.
-- **Relatório PDF** e importação de condutores do **QElectroTech**.
+> **Estado do projeto:** em desenvolvimento. A lógica tem testes automáticos, mas boa parte das funções novas ainda não foi validada no FreeCAD por um usuário. Os dimensionamentos são simplificados: leia [Limitações](#limitações) antes de usar um resultado em projeto real.
 
 ## Instalação
 
-Requer FreeCAD 1.1 ou mais novo (Python 3.10+).
+Requer **FreeCAD 1.1** ou mais novo.
 
-Clone o repositório dentro da pasta `Mod` do FreeCAD, com o nome `Circuits`. No Windows, pelo Git Bash:
+Clone o repositório na pasta `Mod` do FreeCAD, com o nome `Circuits`. No Windows, pelo Git Bash:
 
 ```bash
 cd "$APPDATA/FreeCAD/v1-1/Mod"
@@ -38,9 +26,9 @@ cd "$APPDATA/FreeCAD/v1-1/Mod"
 git clone -b master https://github.com/llosinskas/Circuits-FreeCAD.git Circuits
 ```
 
-No Linux, a pasta é `~/.local/share/FreeCAD/v1-1/Mod`. Reinicie o FreeCAD e escolha a bancada **Engenharia**.
+No Linux, a pasta costuma ser `~/.local/share/FreeCAD/v1-1/Mod`. Reabra o FreeCAD e escolha a bancada **Engenharia**.
 
-Para atualizar uma instalação existente:
+Para atualizar:
 
 ```bash
 cd "$APPDATA/FreeCAD/v1-1/Mod/Circuits"
@@ -52,97 +40,51 @@ git pull origin master
 
 Depois use **Elétrica > Outros > Reiniciar Bancada** ou reabra o FreeCAD. Mantenha uma única cópia da bancada em `Mod`: duas cópias registram os mesmos comandos e uma substitui a outra.
 
-## Passo a passo de um projeto
+O relatório e o quantitativo em PDF usam a biblioteca `reportlab`, que já vem no Python do FreeCAD. O XLSX e o CSV não dependem de nada.
 
-1. **Novo projeto** (botão *Projeto*): cria os grupos do documento.
-2. **Insira os pontos** pelos botões *Tomadas*, *Energia*, *Iluminação* e *Interruptores*. Depois do clique, o próximo ponto do mesmo tipo já vem no cursor. Veja as teclas em [Inserir e alinhar símbolos](#inserir-e-alinhar-símbolos).
-3. **Defina os circuitos** (botão *Circuitos*): selecione os pontos de um circuito e use **Definir circuito**. Pontos de uso específico, como o chuveiro, precisam de circuito exclusivo. Veja [Circuitos e interruptores](#circuitos-e-interruptores).
-4. **Quadros** (barra *Quadros e documentos*): posicione na planta o quadro de distribuição, o de comando e a medição. Depois, com o símbolo do quadro selecionado, use **Dados do quadro > Planilha do quadro** e informe tensão, fases, disjuntor geral e DPS.
-5. **Montar circuitos:** grava na planilha de circuitos do quadro uma linha por circuito, com potência, corrente, cabo, disjuntor e fases. Para digitar ou corrigir circuitos, abra **Dados do quadro > Circuitos do quadro** (veja [Planilha de circuitos do quadro](#planilha-de-circuitos-do-quadro)).
-6. **Componentes:** lista o que vai dentro do quadro.
-7. **Unifilar:** gera o diagrama de cada quadro.
-8. **Demanda** (botão *Cálculos*): calcula a demanda do quadro e grava na planilha; gere o unifilar de novo para mostrá-la.
-9. **Legenda** e **Relatório PDF** (botão *Documentos*).
+## Um projeto do começo ao fim
 
-**Pressurização** e **Bomba de recalque** abrem um formulário (veja [Formulários de cálculo](#formulários-de-cálculo)), mostram o cálculo e, com o botão *Inserir motor na planta*, criam o ponto de força do motor para entrar nos circuitos.
+1. **Projeto > Novo projeto** cria a estrutura do documento e o pavimento *Térreo* (ou ativa o primeiro nível do BIM, se o projeto já tiver níveis).
+2. **Projeto > Pavimento** ou **Nível do BIM** escolhe ou cria o pavimento em que você vai desenhar.
+3. **Tomadas, Energia, Iluminação e Interruptores**: insira os pontos na planta. Cada símbolo vai sozinho para a pasta do tipo dele no pavimento ativo.
+4. **Iluminação > Luminotécnico**: com um retângulo do ambiente selecionado, calcula e distribui as luminárias.
+5. **Circuitos > Definir circuito** e **Ligar interruptor**: agrupe os pontos em circuitos e ligue cada interruptor às suas luminárias.
+6. **Quadros**: coloque na planta o quadro de distribuição, o de comando e a medição. Com o quadro selecionado, **Dados do quadro > Planilha do quadro** cria os dados dele e a planilha de circuitos.
+7. **Montar circuitos**: soma os pontos de cada circuito, escolhe cabo e disjuntor e grava na planilha de circuitos do quadro.
+8. **Eletrodutos > Eletroduto** e **Conectar às caixas**: desenhe a rede de eletrodutos e prenda-a nas caixas.
+9. **Componentes** e **Unifilar**: lista o que vai dentro de cada quadro e desenha o diagrama.
+10. **Cálculos > Demanda**: grava a demanda do quadro, que aparece no unifilar.
+11. **Documentos**: quantitativos, legenda, notas e relatório PDF.
 
-Ao repetir **Montar circuitos**, as linhas com o mesmo número são atualizadas e as demais ficam como estão.
+## Planta elétrica
 
-## Inserir e alinhar símbolos
+### Pontos e símbolos
+
+| Botão | Símbolos |
+|---|---|
+| Tomadas | Tomada baixa, média, alta, de piso, tomada TUG |
+| Energia | Chuveiro, ar-condicionado, ventilador, ponto de força |
+| Iluminação | Luz de teto, arandela, luminária tubular, luz embutida, luz de emergência |
+| Interruptores | Simples, paralelo, intermediário |
+| Quadros | Quadro de distribuição (QD), de comando (QC), de medição (QM), medição agrupada (CM) |
+
+Cada ponto já nasce com potência, tensão, ligação (F+N, F+F ou 3F), altura de montagem e circuito, editáveis no painel de propriedades. Os quadros guardam a sigla em `Descricao` e, na medição, a quantidade de medidores em `Medidores`; eles não entram na soma de carga.
 
 Enquanto um símbolo acompanha o cursor:
 
 | Tecla | Efeito |
 |---|---|
 | Clique | Fixa o símbolo e já traz o próximo do mesmo tipo |
-| **Espaço** | Alinha com o símbolo mais próximo: primeiro em um eixo, de novo no outro, de novo solta |
+| **Espaço** (ou A) | Alinha com o símbolo mais próximo: um eixo, o outro eixo, solta |
 | **R** | Gira 90° |
-| **L** | Liga ou desliga o alinhamento automático |
+| **L** | Liga ou desliga o alinhamento automático com os vizinhos |
 | **ESC** | Encerra |
 
-O alinhamento automático puxa o símbolo para a mesma vertical ou horizontal de um vizinho quando ele chega perto. A trava do Espaço vale para os próximos símbolos da sequência, o que facilita fazer uma fileira.
+Para símbolos já colocados, selecione-os e use **Alinhar**, **Distribuir** ou **Escala dos símbolos**, no fim da barra *Modificador*. Sem seleção, a escala vale para todos os símbolos e para os próximos.
 
-Para símbolos já colocados, selecione-os com Ctrl + clique e use **Alinhar** (coloca em linha com o primeiro selecionado) ou **Distribuir** (iguala o espaço entre eles), no fim da barra *Modificador* ou em **Elétrica > Alinhar símbolos**.
+### Pavimentos
 
-## Quadros e medição na planta
-
-O botão **Quadros** insere quatro símbolos, do mesmo jeito que os outros pontos:
-
-| Símbolo | Sigla inicial | Uso |
-|---|---|---|
-| Quadro distribuição | QD | Distribuição e proteção dos circuitos |
-| Quadro de comando | QC | Comando e proteção de motores: bombas, pressurização, portões |
-| Quadro de medição | QM | Caixa de medição individual |
-| Medição agrupada | CM | Centro de medição com vários medidores |
-
-Edite a sigla na propriedade `Descricao` (por exemplo QD1, QD2) e, na medição, a quantidade em `Medidores`. **Identificar pontos** escreve a sigla ao lado do símbolo, e **Caixas 3D** gera o volume de cada quadro. Os quadros não entram na soma de carga dos circuitos.
-
-**Ligação com a planilha:** selecione o símbolo do quadro antes de abrir **Planilha do quadro**. A identificação já vem preenchida com a sigla, e o símbolo passa a guardar o nome da planilha.
-
-**Medição no unifilar:** escreva no campo *Origem* do quadro a sigla da medição (QM ou CM, a mesma do símbolo). O unifilar desenha então o medidor na entrada.
-
-### Planilha de circuitos do quadro
-
-Cada quadro tem a sua planilha de circuitos, criada junto com ele e aberta por **Dados do quadro > Circuitos do quadro**. É um circuito por linha, a partir da linha 3:
-
-| Coluna | Conteúdo |
-|---|---|
-| Circuito | Número ou nome do circuito |
-| Descrição | O que o circuito alimenta |
-| Potência [W], Tensão [V] | Carga e tensão do circuito |
-| Fases (R, S, T) | As fases usadas, como `R`, `RS` ou `RST` |
-| Corrente [A], Cabo [mm²], Disjuntor [A], Curva | Podem ficar em branco |
-| DR (S/N), Sensibilidade do DR | `S` para circuito com DR; a sensibilidade vale 30mA se ficar em branco |
-| Neutro (S/N), Terra (S/N) | Condutores do circuito |
-
-Você pode preencher só circuito, descrição, potência, tensão e fases: o **Unifilar** e os **Componentes** leem a planilha e calculam a corrente, o cabo e o disjuntor que ficaram em branco. O que você digitar é respeitado; se digitar o disjuntor e deixar o cabo em branco, o cabo é escolhido para esse disjuntor. Os valores calculados aparecem no diagrama, mas não são gravados na planilha.
-
-**Montar circuitos** e o formulário **Circuito** gravam nesta mesma planilha. Projetos antigos, que guardavam os circuitos na planilha de dados do quadro, são convertidos na primeira vez que a planilha de circuitos é aberta ou gravada.
-
-### Componentes do quadro
-
-O botão **Componentes** lê a planilha do quadro e monta a lista do que vai dentro dele:
-
-- disjuntor geral (polos, corrente, curva e capacidade de interrupção);
-- DPS, um por fase mais um para o neutro;
-- disjuntores dos circuitos, agrupados por polos e corrente;
-- interruptores DR dos circuitos que têm DR, bipolares ou tetrapolares;
-- barramentos de fases, de neutro e de terra, com o número de terminais;
-- caixa do quadro em módulos DIN, com a reserva de circuitos da NBR 5410.
-
-A lista aparece na tela e fica gravada na planilha `Componentes <quadro>`. Os valores comerciais são gerais, não de um fabricante.
-
-## Circuitos e interruptores
-
-O botão **Circuitos** da barra *Planta elétrica* reúne três comandos:
-
-- **Definir circuito:** selecione os pontos (Ctrl + clique) e escolha o número do circuito, existente ou novo, e opcionalmente o quadro. O comando já sugere o próximo número livre.
-- **Ligar interruptor:** selecione um interruptor e os pontos de luz (ou ventilador) que ele comanda. Todos recebem a mesma letra de comando (a, b, c...) e o interruptor recebe o circuito da luz. Para interruptores paralelos, selecione os dois junto com as luzes.
-- **Identificar pontos:** escreve ao lado de cada símbolo o circuito, a letra do comando e a potência, por exemplo `C1 · a · 100 VA`. Depois de criada, a identificação se atualiza quando você usa os dois comandos acima. Se mudar uma propriedade à mão, clique em *Identificar pontos* de novo.
-
-## Pavimentos e pastas
-
-Cada pavimento é uma pasta do projeto, e dentro dela os símbolos ficam separados por tipo:
+Cada pavimento é uma pasta com os símbolos separados por tipo:
 
 ```
 Pontos_eletricos
@@ -151,103 +93,102 @@ Pontos_eletricos
 │   ├── Pontos de energia
 │   ├── Iluminação
 │   ├── Interruptores
-│   └── Quadros e medição
+│   ├── Quadros e medição
+│   └── Eletrodutos
 └── 1º Pavimento
     └── ...
 ```
 
-- **Níveis do BIM:** se o projeto já tem níveis da bancada BIM (Level, "Building Storey"), eles são os pavimentos: os símbolos entram nas pastas dentro do próprio nível, a cota vem do nível e o Térreo não é criado. A bancada não altera a cota nem a altura de um nível do BIM; para mudá-las, use o BIM.
-- **Novo projeto** ativa um nível do BIM, se houver, ou cria o *Térreo*. Todo símbolo que você inserir (tomadas, pontos, interruptores, luminárias do luminotécnico) vai sozinho para a pasta do tipo dele, dentro do pavimento ativo.
-- **Projeto > Pavimento** escolhe o pavimento ativo ou cria um novo, com a cota do piso e a altura de piso a piso. O programa sugere o próximo (1º Pavimento, na cota seguinte).
-- **Projeto > Nível do BIM** cria um nível da bancada BIM, com nome, cota e altura, e já o deixa ativo. Se o projeto tem um edifício do BIM, o nível entra nele.
-- **Projeto > Mover para pavimento** leva os símbolos selecionados para as pastas de outro pavimento.
-- Cada símbolo guarda o nome do pavimento na propriedade `Pavimento`, e as caixas 3D somam a cota do pavimento à altura de montagem.
+- **Níveis do BIM:** se o projeto tem níveis da bancada BIM, eles são os pavimentos, e as pastas ficam dentro do próprio nível. A cota vem do nível; a bancada não altera níveis do BIM.
+- **Projeto > Pavimento** escolhe o pavimento ativo ou cria um novo, com cota e altura de piso a piso, e sugere o próximo.
+- **Projeto > Nível do BIM** cria um nível da bancada BIM e o ativa.
+- **Projeto > Mover para pavimento** leva os símbolos selecionados para outro pavimento.
 
-Os símbolos já existentes no projeto não são movidos sozinhos: selecione-os e use *Mover para pavimento*. Eletrodutos, textos e outros desenhos não entram nas pastas.
+As caixas 3D somam a cota do pavimento à altura de montagem.
 
-## Sketches pretos
+### Circuitos e interruptores
 
-Os Sketches que a bancada cria (tomada TUG, fiação, unifilar) nascem com as linhas pretas, porque o branco padrão do FreeCAD some sobre o fundo claro. Para pintar os de um projeto antigo, use **Documentos > Sketches em preto**.
+- **Definir circuito:** dá o mesmo circuito (e, se quiser, o quadro) aos pontos selecionados; sugere o próximo número livre.
+- **Ligar interruptor:** dá a mesma letra de comando (a, b, c...) ao interruptor e às luminárias selecionadas. Para paralelos, selecione os dois interruptores junto.
+- **Identificar pontos:** escreve ao lado de cada símbolo o circuito, a letra e a potência, por exemplo `C1 · a · 100 VA`.
 
-## Fiação e escala dos símbolos
+## Quadros e unifilar
 
-**Fiação** (botão *Eletrodutos > Fiação*) desenha, ao lado de cada tomada, ponto de energia e ponto de iluminação, os traços dos condutores: terra, neutro e uma, duas ou três fases, conforme a propriedade `Ligacao` do ponto. Clicar de novo apaga a fiação anterior e redesenha, então use depois de mudar os pontos. Quadros e interruptores não recebem fiação.
+### Planilha de circuitos
 
-**Escala:** cada símbolo tem a propriedade `Escala` (1 = tamanho normal, 2 = dobro). Para mudar vários de uma vez, use **Escala dos símbolos**, no fim da barra *Modificador* ou em **Elétrica > Alinhar e escalar símbolos**:
+Cada quadro tem uma planilha de dados (tensão, fases, disjuntor geral, DPS) e uma planilha de circuitos, aberta por **Dados do quadro > Circuitos do quadro**, com um circuito por linha:
 
-- com símbolos selecionados, muda só eles;
-- sem nada selecionado, muda todos os símbolos da planta, e os próximos que você inserir já nascem na nova escala.
+| Coluna | Conteúdo |
+|---|---|
+| Circuito, Descrição | Identificação |
+| Potência [W], Tensão [V] | Carga do circuito |
+| Fases (R, S, T) | `R`, `RS` ou `RST` |
+| Corrente, Cabo, Disjuntor, Curva | Podem ficar em branco |
+| DR, Sensibilidade, Neutro, Terra | `S` ou `N` |
 
-A fiação e a identificação acompanham o tamanho do símbolo; gere-as de novo depois de mudar a escala.
+**Montar circuitos** preenche essa planilha a partir da planta, mas ela também pode ser preenchida à mão. O Unifilar e os Componentes calculam o que ficar em branco e respeitam o que foi digitado.
 
-## Luminotécnico
+### Unifilar e componentes
 
-1. Desenhe um retângulo no contorno do ambiente, com a ferramenta de retângulo da barra *Desenho*, e selecione-o.
-2. Abra **Iluminação > Luminotécnico** e responda quatro perguntas: tipo de ambiente, lâmpada ou luminária (de uma lista pronta), circuito e pé-direito. O resultado aparece na hora: número de luminárias, malha e iluminância resultante.
-3. **Distribuir luminárias** as coloca dentro do retângulo, com o mesmo espaçamento entre elas e metade até as paredes.
-
-Repetir o comando no mesmo retângulo troca as luminárias anteriores pelas novas. Em **Opções avançadas** dá para informar o fluxo luminoso e a potência de uma luminária fora da lista, a iluminância personalizada, a altura do plano de trabalho e o fator de utilização do catálogo.
-
-## Formulários de cálculo
-
-Luminotécnico, Pressurização e Bomba de recalque usam o mesmo tipo de formulário:
-
-- poucas perguntas à vista, com listas de opções prontas;
-- **Opções avançadas**, fechadas no início, para quem tem os dados do catálogo ou do projeto;
-- uma dica em cada campo, ao parar o mouse sobre ele;
-- o resultado é recalculado a cada mudança;
-- os valores usados ficam guardados e voltam na próxima vez; **Restaurar padrões** volta aos iniciais.
+- **Unifilar:** um diagrama por quadro, com medidor (quando a origem do quadro é uma medição), disjuntor geral, DPS, barramentos de fases, neutro e terra, e, em cada circuito, disjuntor, DR, fases, cabo e potência.
+- **Componentes:** disjuntor geral, DPS, disjuntores e DR dos circuitos, barramentos com o número de terminais e o tamanho da caixa em módulos DIN, com a reserva de circuitos da NBR 5410. A lista fica numa planilha `Componentes <quadro>`.
 
 ## Eletrodutos, fios e verticais
 
-1. Desenhe os eletrodutos com **Eletrodutos > Eletroduto**. Ao passar o cursor sobre um símbolo, o snap do Draft prende no ponto de inserção dele (a caixa).
-2. Selecione as linhas e clique em **Conectar às caixas**. As linhas viram eletrodutos (com diâmetro e altura, editáveis nas propriedades), vão para a pasta *Eletrodutos* do pavimento, e todo vértice ou trecho que passa a até 30 cm de uma caixa é puxado para cima dela. O comando lista os pontos com circuito que continuam sem eletroduto.
-3. **Lista de verticais** cria a planilha *Verticais*: para cada caixa, a altura do eletroduto, a altura da caixa, o comprimento da descida ou subida e o diâmetro.
-4. **Documentos > Quantitativos** passa a contar os fios: cada circuito sai do quadro e segue o caminho mais curto pelos eletrodutos até os seus pontos.
+1. Desenhe os eletrodutos com **Eletrodutos > Eletroduto**. O snap do Draft pode prender no ponto de inserção de cada símbolo (a caixa).
+2. Selecione as linhas e clique em **Conectar às caixas**. Elas viram eletrodutos (diâmetro e altura nas propriedades), vão para a pasta *Eletrodutos* do pavimento, e todo vértice ou trecho a até 30 cm de uma caixa é puxado para cima dela.
+3. **Lista de verticais** cria a planilha *Verticais*, com a descida ou subida de cada caixa: altura do eletroduto, altura da caixa, comprimento e diâmetro.
 
-Como os fios são contados:
+Os fios são contados pelo caminho mais curto na rede, do quadro até os pontos de cada circuito:
 
-- fase até os pontos e os interruptores do circuito; neutro (azul claro) e terra (verde e amarelo) até os pontos;
-- um retorno do interruptor até as luminárias da mesma letra de comando, e dois condutores a mais entre interruptores paralelos e intermediários;
-- seção e número de fases pela planilha de circuitos do quadro (ou, sem ela, 1,5 mm² para iluminação e 2,5 mm² para o resto);
-- 30 cm de folga em cada caixa, e as verticais da caixa e do quadro;
-- o quadro de cada ponto é o indicado na propriedade `Quadro` dele, ou o quadro mais próximo pela rede.
+- fase até pontos e interruptores; neutro e terra até os pontos;
+- retorno do interruptor até as luminárias da mesma letra, e dois condutores a mais entre interruptores paralelos e intermediários;
+- seção e fases pela planilha de circuitos do quadro;
+- verticais e 30 cm de folga em cada caixa.
 
-Uma caixa só entra na rede se houver um vértice de eletroduto sobre ela; por isso use **Conectar às caixas** depois de desenhar ou mexer nos eletrodutos.
+O botão **Fiação** desenha na planta os traços de fase, neutro e terra ao lado de cada ponto.
 
-## Quantitativos
+## Documentação
 
-**Documentos > Quantitativos** levanta os materiais direto do desenho e grava três arquivos com o mesmo nome, na pasta que você escolher (por padrão, a do projeto):
+### Quantitativos
 
-- `Quantitativo_<projeto>.csv`: separado por ponto e vírgula, abre no Excel com os acentos certos;
-- `Quantitativo_<projeto>.xlsx`: planilha com cabeçalho em negrito e números como números;
-- `Quantitativo_<projeto>.pdf`: uma tabela por grupo, pronta para anexar ao projeto.
+**Documentos > Quantitativos** levanta os materiais do desenho e grava, com o mesmo nome:
 
-O que entra, somado e separado em grupos:
+- `Quantitativo_<projeto>.csv`, separado por ponto e vírgula, abre no Excel com os acentos certos;
+- `Quantitativo_<projeto>.xlsx`, com as abas *Quantitativo*, *Verticais* e *Fiação por circuito*;
+- `Quantitativo_<projeto>.pdf`, com as mesmas tabelas e os avisos;
+- `_verticais.csv` e `_circuitos.csv`, com as duas tabelas auxiliares.
 
 | Grupo | Como é contado |
 |---|---|
-| Pontos | Cada tomada, ponto de energia e luminária, por tipo, tensão e potência |
-| Interruptores | Por tipo: simples, paralelo, intermediário |
-| Caixas | Uma por ponto: 4x2" na parede, octogonal 4x4" no teto, de piso na tomada de piso |
-| Eletrodutos | Comprimento desenhado e verticais de cada diâmetro, com 10 % de perdas |
-| Fios e cabos | Metros por seção e função (fase, neutro, terra, retorno), pela rede de eletrodutos |
-| Quadros | Os símbolos de quadro e os componentes de cada quadro: disjuntores, DR, DPS, barramentos e caixa |
+| Pontos | Por tipo, tensão e potência |
+| Interruptores | Simples, paralelo, intermediário |
+| Caixas | Uma por ponto: 4x2" na parede, octogonal 4x4" no teto, de piso |
+| Eletrodutos | Trechos horizontais e verticais por diâmetro, com 10 % de perdas |
+| Fios e cabos | Metros por seção e função: fase, neutro, terra, retorno |
+| Quadros | Símbolos de quadro e componentes de cada quadro |
 
-Além da lista principal, o XLSX tem as abas **Verticais** e **Fiação por circuito** (trajeto e metros de fio de cada circuito), que também saem em `_verticais.csv`, `_circuitos.csv` e no PDF, junto com os avisos (pontos sem eletroduto ou sem quadro).
+### Legenda, notas e relatório
 
-É uma estimativa: uma tomada e um interruptor no mesmo ponto contam duas caixas, e os eletrodutos só são contados depois de marcados por **Conectar às caixas** (ou Eletrodutos 3D). O Relatório PDF usa o mesmo levantamento na seção de materiais.
+- **Legenda:** desenha ao lado da planta os símbolos usados.
+- **Planilha de notas** e **Notas:** escreva as notas numa planilha, uma por linha; o botão as desenha numeradas embaixo da legenda.
+- **Sketches em preto:** os Sketches da bancada já nascem pretos; o botão repinta os de projetos antigos.
+- **Relatório PDF:** quadros, demandas, materiais e imagens dos diagramas.
 
-## Notas do projeto
+## Cálculos prediais
 
-1. **Documentos > Planilha de notas** abre a planilha `Notas`, criada na primeira vez com três exemplos. Escreva uma nota por linha na coluna A, a partir da linha 3.
-2. **Documentos > Notas** desenha na planta o quadro "NOTAS", com as notas numeradas, embaixo da legenda. Notas longas são quebradas em várias linhas.
+| Cálculo | O que faz |
+|---|---|
+| Demanda | Aplica fatores de demanda residenciais aos circuitos e grava no quadro |
+| Luminotécnico | Método dos lúmens: quantidade, malha e iluminância; distribui as luminárias no retângulo selecionado |
+| Pressurização | Vazão de ar da escada (portas fechadas e abertas), ventilador e motor |
+| Bomba de recalque | Vazão, tubo, altura manométrica e motor |
 
-Depois de editar a planilha, clique em **Notas** de novo para atualizar. O quadro fica onde você o deixou, se tiver movido.
+Os formulários mostram poucas perguntas, com listas de opções prontas; o resto fica em **Opções avançadas**. O resultado é recalculado a cada mudança, e os valores usados voltam na próxima vez. Pressurização e bomba podem inserir o ponto de força do motor na planta, para entrar nos circuitos.
 
 ## Barras de ferramentas
 
-As barras da bancada têm poucos botões. Os que têm uma seta (▾) abrem uma lista: o botão mostra o último item usado, e a seta mostra os outros.
+Os botões com seta (▾) abrem uma lista; o botão mostra o último item usado.
 
 | Barra | Botões |
 |---|---|
@@ -255,43 +196,19 @@ As barras da bancada têm poucos botões. Os que têm uma seta (▾) abrem uma l
 | Quadros e documentos | Quadros ▾, Dados do quadro ▾, Montar circuitos, Componentes, Unifilar, Cálculos ▾, Documentos ▾ |
 | Modelo e biblioteca | Modelo 3D ▾, Biblioteca ▾ |
 
-| Botão com lista | Itens |
-|---|---|
-| Projeto | Novo projeto, Pavimento, Nível do BIM, Mover para pavimento, Planilha de circuitos, Importar QET |
-| Tomadas | Tomada baixa, média, alta, de piso, Tomada TUG |
-| Energia | Chuveiro, Ar-condicionado, Ventilador, Ponto de força |
-| Iluminação | Luz de teto, Arandela, Luminária tubular, Luz embutida, Luz de emergência, Luminotécnico |
-| Interruptores | Simples, paralelo, intermediário |
-| Quadros | Quadro distribuição, Quadro de comando, Quadro de medição, Medição agrupada |
-| Dados do quadro | Planilha do quadro, Circuitos do quadro, Circuito |
-| Circuitos | Definir circuito, Ligar interruptor, Identificar pontos |
-| Eletrodutos | Eletroduto, Conectar às caixas, Dividir trecho, Lista de verticais, Fiação |
-| Cálculos | Demanda, Pressurização, Bomba de recalque |
-| Documentos | Quantitativos, Legenda, Planilha de notas, Notas, Sketches em preto, Relatório PDF |
-| Modelo 3D | Caixas 3D, Eletrodutos 3D, Tomadas 3D |
-| Biblioteca | Equipamento, Componente, Criar modelo, Importar modelo |
-
-As barras *Desenho*, *Modificador*, *Snap* e *Arquitetura* trazem só as ferramentas do FreeCAD mais usadas em planta. Tudo continua nos menus: **Elétrica** tem todos os comandos da bancada (os antigos e o *Reiniciar Bancada* em *Outros*), e **Desenho 2D** tem todas as ferramentas nativas.
-
-O texto embaixo de cada ícone pode ser desligado pela preferência `LegendaBotoes` em `BaseApp/Preferences/Mod/Circuits` (Ferramentas > Editar parâmetros).
+As barras *Desenho*, *Modificador*, *Snap* e *Arquitetura* trazem as ferramentas do FreeCAD mais usadas em planta. Todos os comandos estão nos menus **Elétrica** e **Desenho 2D**. O texto embaixo dos ícones pode ser desligado pela preferência `LegendaBotoes` em `BaseApp/Preferences/Mod/Circuits`.
 
 ## Limitações
 
-- **Dimensionamento simplificado.** *Montar circuitos* verifica só a capacidade de condução (cabo de cobre com PVC, em eletroduto embutido) e a coordenação com o disjuntor. Não calcula queda de tensão, agrupamento, temperatura nem curto-circuito. Confira o resultado antes de usar.
-- **Demanda:** usa fatores de guias de instalações residenciais, não conferidos com a fonte. Cada concessionária tem tabela própria, e a demanda do edifício inteiro (vários apartamentos) não é calculada.
-- **Pressurização de escada e bomba de recalque:** são pré-dimensionamentos para estimar a carga elétrica. Os parâmetros precisam ser conferidos com a NBR 14880, o Corpo de Bombeiros e o projeto hidráulico. O disjuntor do motor não considera a corrente de partida.
-- **Luminotécnico:** usa um fator de utilização genérico e iluminâncias usuais por ambiente, não conferidos com a NBR ISO/CIE 8995-1 nem com catálogo. Vale para ambientes retangulares; um retângulo girado é tratado pelo retângulo reto que o contém.
-- **DR** é marcado em todos os circuitos de tomadas e de uso específico, mais do que a NBR 5410 exige.
-- **Tensão padrão** dos pontos é 127 V (220 V para chuveiro, ar-condicionado e ponto de força). Ajuste em cada ponto se a sua rede for diferente.
-- **Símbolos** são convenção da bancada, não cópia de uma norma.
-- **Fiação automática e eletrocalhas** ainda não existem: os botões só exibem um aviso.
-- **Tabelas e cálculos** de `core/functions` e `core/tables` ainda não são usados pela interface, e alguns têm erros conhecidos.
+- **Dimensionamento simplificado:** cabo e disjuntor só pela capacidade de condução (cobre, PVC, eletroduto embutido) e pela coordenação com o disjuntor. Queda de tensão, agrupamento, temperatura e curto-circuito não são verificados.
+- **Fios e verticais:** dependem de a rede de eletrodutos estar conectada às caixas. Prumadas entre pavimentos ainda não entram.
+- **Demanda:** fatores de guias residenciais, não conferidos com a fonte; cada concessionária tem a sua tabela, e a demanda do edifício inteiro não é calculada.
+- **Pressurização, recalque e luminotécnico:** pré-dimensionamentos com parâmetros genéricos, a conferir com as normas, o Corpo de Bombeiros, o projeto hidráulico e os catálogos.
+- **Padrões:** pontos em 127 V (220 V para chuveiro, ar-condicionado e ponto de força); DR marcado em todos os circuitos de tomadas e de uso específico.
+- **Símbolos:** convenção da bancada, não cópia de uma norma.
+- **Eletrocalhas:** ainda não implementadas.
 
-A lista completa está em "Problemas conhecidos" do [AGENTS.md](AGENTS.md). O plano de evolução está em [docs/Revisao_e_Roadmap_Predial.md](docs/Revisao_e_Roadmap_Predial.md).
-
-## Biblioteca de componentes
-
-Os modelos ficam em `freecad/Circuits/Componentes/Eletrica/`. Para acrescentar um, use o botão **Criar modelo** ou salve um `.FCStd` nessa pasta. Não renomeie a pasta: os projetos guardam links para os arquivos dela.
+A lista completa está em "Problemas conhecidos" do [AGENTS.md](AGENTS.md), e o plano de evolução em [docs/Revisao_e_Roadmap_Predial.md](docs/Revisao_e_Roadmap_Predial.md).
 
 ## Desenvolvimento
 
@@ -308,8 +225,8 @@ Circuits/
     ├── UI/                diálogos
     ├── services/          operações no documento
     ├── objects/           objetos paramétricos
-    ├── core/              regras, símbolos e tabelas, sem FreeCAD
-    ├── Componentes/       biblioteca .FCStd
+    ├── core/              regras, cálculos e tabelas, sem FreeCAD
+    ├── Componentes/       biblioteca de modelos .FCStd
     └── Resources/         ícones e dados
 ```
 
@@ -319,7 +236,9 @@ Testes unitários, a partir da raiz do repositório:
 python -B -m unittest discover -s tests/unit -t .
 ```
 
-O [AGENTS.md](AGENTS.md) explica as camadas, como criar um comando ou um símbolo novo e como rodar a regressão no FreeCAD real.
+O [AGENTS.md](AGENTS.md) explica as camadas, como criar um comando, um símbolo ou um cálculo novo, e como rodar a regressão no FreeCAD real.
+
+Os modelos da biblioteca ficam em `freecad/Circuits/Componentes/Eletrica/`. Não renomeie essa pasta: os projetos guardam links para os arquivos dela.
 
 ## Licença e autor
 
