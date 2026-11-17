@@ -123,10 +123,19 @@ class TestDetalhes(unittest.TestCase):
         g = verticais.geometria_detalhe(detalhe, pe_direito=3000.0)
         horizontais = {round(l[1]) for l in g["linhas"] if l[1] == l[3] and abs(l[2] - l[0]) >= 1500}
         self.assertEqual(horizontais, {0, 3000})  # piso e laje
-        paredes = sorted((round(l[0], 2), round(min(l[1], l[3])), round(max(l[1], l[3])))
+        d = 26.9  # diâmetro externo do 3/4"
+        raio = verticais.RAIO_CURVA_ELETRODUTO_FATOR * d
+        centro_y = 2800 - d / 2 - raio
+        # curva no alto em arco: duas paredes, de raio R ± d/2, no quarto de cima à esquerda do centro
+        self.assertEqual(sorted((round(a[0], 2), round(a[1], 2), round(a[2], 2), a[3], a[4]) for a in g["arcos"]),
+                         [(round(raio, 2), round(centro_y, 2), round(raio - d / 2, 2), 90.0, 90.0),
+                          (round(raio, 2), round(centro_y, 2), round(raio + d / 2, 2), 90.0, 90.0)])
+        paredes = sorted((round(l[0], 2), round(min(l[1], l[3])), round(max(l[1], l[3]), 2))
                          for l in g["linhas"] if l[0] == l[2] and abs(l[0]) < 20)
-        # parede de fora até o alto do eletroduto; a de dentro para onde começa o trecho horizontal
-        self.assertEqual(paredes, [(-13.45, 300, 2800), (13.45, 300, 2773)])
+        # as duas paredes vão da caixa até onde o arco começa
+        self.assertEqual(paredes, [(-13.45, 300, round(centro_y, 2)), (13.45, 300, round(centro_y, 2))])
+        inicio_do_trecho = min(min(l[0], l[2]) for l in g["linhas"] if l[1] == l[3] and 2700 < l[1] <= 2800)
+        self.assertAlmostEqual(inicio_do_trecho, raio)  # o trecho horizontal sai de onde o arco termina
         textos = [t[2] for t in g["textos"]]
         self.assertTrue(any(t.startswith("V1") and "1 un" in t for t in textos))
         self.assertIn("+2,80", textos)
@@ -138,10 +147,13 @@ class TestDetalhes(unittest.TestCase):
     def test_geometria_do_detalhe_de_eletrocalha(self):
         (detalhe,) = verticais.detalhes(verticais.itens_de_eletrocalha([BANDEJA]))
         g = verticais.geometria_detalhe(detalhe, pe_direito=3000.0)
-        # vista lateral: a vertical aparece na espessura da aba (50 mm), com as quinas fechadas
+        # vista lateral na espessura da aba (50 mm); curvas em arco de raio = largura (200 mm) no alto e embaixo
+        arcos = sorted((round(a[0]), round(a[1]), round(a[2]), a[3]) for a in g["arcos"])
+        self.assertEqual(arcos, [(-200, 2525, 175, 270.0), (-200, 2525, 225, 270.0),
+                                 (200, 2575, 175, 90.0), (200, 2575, 225, 90.0)])
         paredes = sorted((round(l[0]), round(min(l[1], l[3])), round(max(l[1], l[3])))
                          for l in g["linhas"] if l[0] == l[2] and abs(l[0]) < 100)
-        self.assertEqual(paredes, [(-25, 2350, 2800), (25, 2300, 2750)])
+        self.assertEqual(paredes, [(-25, 2525, 2575), (25, 2525, 2575)])  # só o reto entre as duas curvas
         self.assertTrue(any("CVE" in t[2] for t in g["textos"]))
         self.assertTrue(any("CVI" in t[2] for t in g["textos"]))
 
@@ -260,8 +272,12 @@ class TestServico(unittest.TestCase):
         with mock.patch.object(self.servico, "coletar", return_value=itens), \
                 mock.patch.object(self.servico.legenda, "_canto_livre", return_value=Vetor((5000.0, 0.0, 0.0))), \
                 mock.patch.object(self.servico.bandejas, "pe_direito", return_value=3000.0):
+            part = sys.modules["Part"]
+            part.ArcOfCircle.reset_mock()
             self.assertEqual(self.servico.desenhar_detalhes(doc), 1)
             self.assertEqual([o.Name for o in doc.Objects if o.Name.startswith("Detalhe_V")], ["Detalhe_V1"])
+            esperado = verticais.geometria_detalhe(verticais.detalhes(itens)[0], 3000.0)
+            self.assertEqual(part.ArcOfCircle.call_count, len(esperado["arcos"]))  # curvas em arco
             grupo = doc.getObject(self.servico.GRUPO_DETALHES)
             grupo.Group[0].Placement = types.SimpleNamespace(Base=Vetor((123.0, 456.0, 0.0)))  # o usuário moveu
             fc.Placement.reset_mock()

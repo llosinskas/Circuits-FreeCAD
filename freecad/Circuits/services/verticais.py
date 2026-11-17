@@ -7,6 +7,8 @@
 - ``desenhar_detalhes``: grupo ``Detalhes_verticais`` com um detalhe em
   elevação por tipo de vertical (V1, V2...), recriado na posição em que estava.
 """
+import math
+
 import Draft
 import FreeCAD as App
 import Part
@@ -127,8 +129,12 @@ def desenhar_detalhes(doc):
                                                                             ESPACO_ENTRE_DETALHES),
                                       -(pe_direito + 800.0), 0)
         desenho = doc.addObject("Part::Feature", f"Detalhe_{detalhe['id']}")
-        desenho.Shape = Part.makeCompound([Part.makeLine(origem + App.Vector(x1, y1, 0), origem + App.Vector(x2, y2, 0))
-                                           for x1, y1, x2, y2 in g["linhas"]])
+        arestas = [Part.makeLine(origem + App.Vector(x1, y1, 0), origem + App.Vector(x2, y2, 0))
+                   for x1, y1, x2, y2 in g["linhas"]]
+        for cx, cy, raio, inicio, varredura in g["arcos"]:
+            circulo = Part.Circle(origem + App.Vector(cx, cy, 0), App.Vector(0, 0, 1), raio)
+            arestas.append(Part.ArcOfCircle(circulo, math.radians(inicio), math.radians(inicio + varredura)).toShape())
+        desenho.Shape = Part.makeCompound(arestas)
         desenho.Label = f"Detalhe {detalhe['id']}"
         grupo.addObject(desenho)
         for x, y, conteudo, altura in g["textos"]:

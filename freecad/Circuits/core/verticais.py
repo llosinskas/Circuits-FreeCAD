@@ -21,6 +21,7 @@ Unidades: mm; comprimentos nos textos em m.
 """
 import math
 
+from freecad.Circuits.core import bandejas
 from freecad.Circuits.core.tables.eletrodutos import DIAMETRO_PADRAO, DIAMETROS_EXTERNOS
 
 SIGLA_BANDEJA = {"eletrocalha_perfurada": "EL", "eletrocalha_lisa": "EL", "leito": "LT"}
@@ -28,6 +29,7 @@ SENTIDOS = {"sobe": "sobe", "desce": "desce", "sobe_desce": "sobe/desce"}
 TAMANHO_PADRAO = 300.0  # comprimento da seta do símbolo [mm]
 LARGURA_DETALHE = 2000.0  # espaço de cada detalhe, lado a lado
 CAIXA_DETALHE = 100.0  # caixa 4x2" vista de frente, simplificada
+RAIO_CURVA_ELETRODUTO_FATOR = 6.0  # raio da curva do eletroduto, em diâmetros externos
 
 
 def _numero(valor):
@@ -165,13 +167,15 @@ def geometria_detalhe(detalhe, pe_direito=3000.0):
     """Desenho em elevação de um detalhe, com o piso em y = 0 e o eixo da vertical em x = 0.
 
     Vista lateral: a vertical e os trechos horizontais na mesma espessura (o
-    diâmetro do eletroduto ou a aba da eletrocalha), com as quinas fechadas.
+    diâmetro do eletroduto ou a aba da eletrocalha), ligados por curvas em arco
+    (raio na linha de centro: 6 diâmetros no eletroduto, a largura na eletrocalha).
     No alto, o trecho segue para a direita; embaixo, para a esquerda; quando a
     vertical vai até uma caixa, a caixa toma o lugar do trecho. Na eletrocalha,
     as curvas verticais (CVE no alto, CVI embaixo). Cotas depois do fim do trecho.
 
     Returns:
-        {'linhas': [(x1, y1, x2, y2)], 'textos': [(x, y, texto, altura)]} [mm].
+        {'linhas': [(x1, y1, x2, y2)], 'arcos': [(cx, cy, raio, ângulo inicial, varredura)],
+        'textos': [(x, y, texto, altura)]} [mm, graus].
     """
     de, ate, pe_direito = float(detalhe["de"]), float(detalhe["ate"]), float(pe_direito)
     linhas = [(-LARGURA_DETALHE / 2, 0.0, LARGURA_DETALHE / 2, 0.0),
@@ -196,13 +200,27 @@ def geometria_detalhe(detalhe, pe_direito=3000.0):
         caixa_embaixo = caixa_em_cima = False
     meia = espessura / 2
     vira_no_alto, vira_embaixo = not caixa_em_cima, not caixa_embaixo
-    fora_de = de + espessura if vira_embaixo else de  # parede de fora (x < 0)
-    dentro_ate = ate - espessura if vira_no_alto else ate  # parede de dentro (x > 0)
-    linhas += [(-meia, fora_de, -meia, ate), (meia, de, meia, dentro_ate)]
-    if vira_no_alto:  # segue para a direita no alto
-        linhas += [(-meia, ate, meia + horizontal, ate), (meia, ate - espessura, meia + horizontal, ate - espessura)]
-    if vira_embaixo:  # segue para a esquerda embaixo
-        linhas += [(meia, de, -meia - horizontal, de), (-meia, de + espessura, -meia - horizontal, de + espessura)]
+    if detalhe["tipo"] == "eletroduto":
+        raio = RAIO_CURVA_ELETRODUTO_FATOR * espessura
+    else:
+        raio = bandejas.RAIO_CURVA_FATOR * detalhe["largura"]
+    # vertical curta demais para as curvas inteiras: o raio diminui até elas se tocarem
+    curvas = int(vira_no_alto) + int(vira_embaixo)
+    if curvas:
+        raio = max(meia, min(raio, (ate - de - curvas * meia) / curvas))
+    arcos = []
+    topo, base = ate, de  # onde as paredes retas da vertical terminam
+    if vira_no_alto:  # curva para a direita no alto: centro à direita, quarto de cima à esquerda
+        cx, cy = raio, ate - meia - raio
+        arcos += [(cx, cy, raio + meia, 90.0, 90.0), (cx, cy, raio - meia, 90.0, 90.0)]
+        linhas += [(cx, ate, meia + horizontal, ate), (cx, ate - espessura, meia + horizontal, ate - espessura)]
+        topo = cy
+    if vira_embaixo:  # curva para a esquerda embaixo: centro à esquerda, quarto de baixo à direita
+        cx, cy = -raio, de + meia + raio
+        arcos += [(cx, cy, raio + meia, 270.0, 90.0), (cx, cy, raio - meia, 270.0, 90.0)]
+        linhas += [(cx, de, -meia - horizontal, de), (cx, de + espessura, -meia - horizontal, de + espessura)]
+        base = cy
+    linhas += [(-meia, base, -meia, topo), (meia, base, meia, topo)]
     if caixa_embaixo or caixa_em_cima:
         y = de - CAIXA_DETALHE if caixa_embaixo else ate
         m = CAIXA_DETALHE / 2
@@ -218,4 +236,4 @@ def geometria_detalhe(detalhe, pe_direito=3000.0):
     if detalhe.get("locais"):
         locais = ", ".join(detalhe["locais"][:6]) + (" ..." if len(detalhe["locais"]) > 6 else "")
         textos.append((-LARGURA_DETALHE / 2, -250.0, locais, altura_texto * 0.7))
-    return {"linhas": [tuple(float(v) for v in linha) for linha in linhas], "textos": textos}
+    return {"linhas": [tuple(float(v) for v in linha) for linha in linhas], "arcos": arcos, "textos": textos}

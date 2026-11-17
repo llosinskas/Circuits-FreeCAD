@@ -198,7 +198,7 @@ O botão **Fiação** desenha na planta os traços de fase, neutro e terra ao la
   - eletrocalha e leito: a seção da bandeja com a diagonal e a seta.
   
   Entram as descidas até as caixas, os encontros de eletrodutos em alturas diferentes e os trechos verticais das bandejas. Para não desenhar o símbolo em toda caixa, mude *Símbolo de descida em cada caixa* para `N` em **Projeto > Parâmetros**.
-- **Infraestrutura > Detalhar verticais** desenha ao lado da planta um detalhe em elevação por tipo de vertical (V1, V2...): piso, laje, cotas de altura, trecho horizontal, caixa ou curvas verticais (CVE e CVI), a quantidade e onde ficam. Verticais iguais (mesmo diâmetro ou seção, sentido e alturas) dividem o mesmo detalhe.
+- **Infraestrutura > Detalhar verticais** desenha ao lado da planta um detalhe em elevação por tipo de vertical (V1, V2...): piso, laje, cotas de altura, trecho horizontal, caixa ou curvas verticais em arco (CVE e CVI; raio de 6 diâmetros no eletroduto e igual à largura na eletrocalha), a quantidade e onde ficam. Verticais iguais (mesmo diâmetro ou seção, sentido e alturas) dividem o mesmo detalhe.
 
 O encontro de dois eletrodutos em alturas diferentes entra nos quantitativos como eletroduto vertical.
 
