@@ -205,7 +205,7 @@ O botão **Fiação** desenha na planta os traços de fase, neutro e terra ao la
 | T | Tê horizontal | três trechos no mesmo nó, ou a ponta de um ramal sobre outra bandeja |
 | X | Cruzeta horizontal | quatro trechos no mesmo nó |
 | TF | Terminal de fechamento | ponta solta |
-| R | Redução | trecho mais estreito que a bandeja principal do nó (a mais larga) |
+| R | Redução | trecho de seção menor que a bandeja principal do nó: mais estreito ou, na mesma largura, com aba mais baixa. Numa emenda ou depois de uma curva, é uma peça de 30 cm com as bordas inclinadas, na planta e no 3D; num tê, a boca do tê já sai na largura do ramal |
 | CVE + CVI | Curvas verticais externa e interna 90°, com o trecho vertical entre elas | trecho em outra altura de instalação |
 
 Para subir ou descer, desenhe os trechos com alturas diferentes e com as pontas no mesmo ponto: a bancada conta as duas curvas verticais, o trecho vertical (que entra nos metros e no 3D) e os suportes de parede dele. As siglas de um mesmo ponto aparecem juntas, por exemplo `T + R` ou `C90 + CVE + CVI`.
@@ -291,7 +291,7 @@ As barras *Desenho*, *Modificador*, *Snap* e *Arquitetura* trazem as ferramentas
 - **Pressurização, recalque e luminotécnico:** pré-dimensionamentos com parâmetros genéricos, a conferir com as normas, o Corpo de Bombeiros, o projeto hidráulico e os catálogos.
 - **Padrões:** pontos em 127 V (220 V para chuveiro, ar-condicionado e ponto de força); DR marcado em todos os circuitos de tomadas e de uso específico.
 - **Símbolos:** convenção da bancada, não cópia de uma norma.
-- **Bandejas e leitos:** curvas verticais sempre de 90° e a altura de cada linha é única (para subir, divida em duas linhas); no 3D, reduções aparecem como o encontro de duas larguras, sem a peça desenhada, e o tê é um quadrado na largura da principal, não o desenho do catálogo; o raio da curva é a largura da bandeja. Vão dos suportes, parafusos e materiais por regras usuais de catálogo, não de um fabricante.
+- **Bandejas e leitos:** curvas verticais sempre de 90° e a altura de cada linha é única (para subir, divida em duas linhas); a redução tem sempre 30 cm e é concêntrica, e o tê é um quadrado na largura da principal, não o desenho do catálogo; o raio da curva é a largura da bandeja. Vão dos suportes, parafusos e materiais por regras usuais de catálogo, não de um fabricante.
 
 A lista completa está em "Problemas conhecidos" do [AGENTS.md](AGENTS.md), e o plano das próximas etapas em [docs/Plano_proximas_etapas.md](docs/Plano_proximas_etapas.md).
 

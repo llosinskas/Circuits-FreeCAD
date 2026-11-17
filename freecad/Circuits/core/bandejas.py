@@ -45,6 +45,7 @@ DISTANCIA_SUPORTE_CONEXAO = 500.0
 TOLERANCIA_MM = 50.0
 TOLERANCIA_JUNCAO_MM = 300.0  # ponta solta até esta distância de outra bandeja é encaixada nela
 RAIO_CURVA_FATOR = 1.0  # raio da linha de centro da curva, em larguras da bandeja
+COMPRIMENTO_REDUCAO_MM = 300.0  # comprimento usual de catálogo da redução
 FOLGA_PERFILADO_MM = 100.0  # o perfilado passa 5 cm de cada lado da bandeja
 PERDA_BANDEJA = 0.05
 
@@ -259,7 +260,7 @@ def _pecas_do_no(rede, indice):
     for trecho in ligados:
         if trecho is principal:
             continue
-        if float(trecho["largura"] or 0) < float(principal["largura"] or 0) - 1e-6:
+        if _secao_de(trecho) < _secao_de(principal):  # mais estreito, ou com aba mais baixa
             pecas.append(peca(REDUCAO, principal, para_largura=trecho["largura"], para_aba=trecho["aba"]))
         diferenca = float(trecho["altura"] or 0) - altura_principal
         if abs(diferenca) > TOLERANCIA_ALTURA_MM:
@@ -373,6 +374,30 @@ def _peca_horizontal(rede, indice):
                                         "aberturas": aberturas}}
 
 
+def _trapezio_da_reducao(rede, indice, recorte):
+    """Redução entre dois trechos de seções diferentes: (trecho estreito, trapézio), ou None.
+
+    Só nos nós de dois trechos (emenda ou curva): a peça fica no começo do
+    trecho estreito, logo depois da curva (``recorte``) ou do nó. Nos tês e nas
+    cruzetas a boca da peça já sai na largura do ramal.
+    """
+    ligados = rede.ligados(indice)
+    if len(ligados) != 2:
+        return None
+    principal = max(ligados, key=lambda t: (_secao_de(t), -ligados.index(t)))
+    estreito = next(t for t in ligados if t is not principal)
+    if _secao_de(estreito) >= _secao_de(principal):
+        return None
+    angulo = rede.direcao(estreito, indice)
+    ux, uy = _unitario(angulo)
+    x, y = rede.nos[indice]
+    return estreito, {
+        "x": x + ux * recorte, "y": y + uy * recorte, "angulo": angulo, "comprimento": COMPRIMENTO_REDUCAO_MM,
+        "largura_de": float(principal["largura"]), "largura_para": float(estreito["largura"]),
+        "aba_de": float(principal["aba"]), "aba_para": float(estreito["aba"]),
+    }
+
+
 def analisar(caminhos, tolerancia=TOLERANCIA_MM):
     """Conexões, trechos, verticais e suportes das bandejas de um pavimento.
 
@@ -395,13 +420,18 @@ def analisar(caminhos, tolerancia=TOLERANCIA_MM):
     rede.dividir_derivacoes()
     rede.dividir_cruzamentos()
 
-    conexoes, verticais, recortes = [], [], {}
+    conexoes, verticais, recortes, reducoes = [], [], {}, {}
     for indice in range(len(rede.nos)):
         pecas, do_no = _pecas_do_no(rede, indice)
         recortes[indice], extras = _peca_horizontal(rede, indice)
         for peca in pecas:
             if peca["peca"].startswith(CURVA) or peca["peca"] in (TE, CRUZETA, DERIVACAO):
                 peca.update(extras)
+        reducao = _trapezio_da_reducao(rede, indice, recortes[indice])
+        if reducao is not None:
+            estreito, trapezio = reducao
+            reducoes[(indice, id(estreito))] = trapezio["comprimento"]
+            next(p for p in pecas if p["peca"] == REDUCAO)["trapezio"] = trapezio
         conexoes += pecas
         verticais += do_no
 
@@ -410,7 +440,8 @@ def analisar(caminhos, tolerancia=TOLERANCIA_MM):
         (x1, y1), (x2, y2) = rede.nos[trecho["a"]], rede.nos[trecho["b"]]
         comprimento = rede.comprimento(trecho)
         angulo = math.degrees(math.atan2(y2 - y1, x2 - x1))
-        inicio, fim = recortes[trecho["a"]], recortes[trecho["b"]]
+        inicio = recortes[trecho["a"]] + reducoes.get((trecho["a"], id(trecho)), 0.0)
+        fim = recortes[trecho["b"]] + reducoes.get((trecho["b"], id(trecho)), 0.0)
         if inicio + fim > comprimento > 0:  # trecho curto demais para as duas peças: divide o que há
             inicio, fim = comprimento * inicio / (inicio + fim), comprimento * fim / (inicio + fim)
         trechos.append({
@@ -475,7 +506,7 @@ def materiais(resultado, pe_direito_mm=3000.0, com_suportes=True):
         secao = medida(conexao["largura"], conexao["aba"])
         especificacao = f"{nome_do_tipo(conexao['tipo'])} {secao}"
         if conexao["peca"] == REDUCAO:
-            especificacao += f" para {float(conexao['para_largura']):g} mm"
+            especificacao += f" para {medida(conexao['para_largura'], conexao['para_aba'])}"
         somar(GRUPO, conexao["peca"], especificacao, "un", 1)
         lados = _lados(conexao["peca"])
         if lados:
@@ -579,6 +610,13 @@ def contorno_2d(resultado):
         elif "arco" in c:
             cx, cy, raio, inicio, varredura = c["arco"]
             arcos += [(cx, cy, raio - meia, inicio, varredura), (cx, cy, raio + meia, inicio, varredura)]
+        if "trapezio" in c:
+            t = c["trapezio"]
+            ux, uy = _unitario(t["angulo"])
+            ex, ey = t["x"] + ux * t["comprimento"], t["y"] + uy * t["comprimento"]
+            for lado in (1, -1):
+                linhas.append((t["x"] - lado * uy * t["largura_de"] / 2, t["y"] + lado * ux * t["largura_de"] / 2,
+                               ex - lado * uy * t["largura_para"] / 2, ey + lado * ux * t["largura_para"] / 2))
         elif "quadrado" in c:
             quadrado = c["quadrado"]
             lados = [(normal, 0.0) for normal in quadrado["fechados"]] + list(quadrado.get("aberturas", {}).items())
@@ -590,6 +628,30 @@ def contorno_2d(resultado):
                 for de, ate in trechos_do_lado:
                     linhas.append((mx + tx * de, my + ty * de, mx + tx * ate, my + ty * ate))
     return {"linhas": [tuple(round(v, 6) for v in linha) for linha in linhas], "arcos": arcos}
+
+
+def faces_da_reducao(trapezio):
+    """Faces do 3D da redução no sistema local (x ao longo do trecho estreito, y centrado, z da base).
+
+    Fundo em trapézio da largura maior para a menor e duas abas inclinadas, da
+    aba maior para a menor. Cada face é extrudada pela ``espessura`` (vetor).
+
+    Returns:
+        Lista de {'pontos': [(x, y, z)], 'espessura': (dx, dy, dz)}: o fundo e as duas abas.
+    """
+    comprimento, e = float(trapezio["comprimento"]), ESPESSURA_MM
+    de, para = float(trapezio["largura_de"]) / 2, float(trapezio["largura_para"]) / 2
+    aba_de, aba_para = float(trapezio["aba_de"]), float(trapezio["aba_para"])
+    faces = [{"pontos": [(0.0, -de, 0.0), (comprimento, -para, 0.0), (comprimento, para, 0.0), (0.0, de, 0.0)],
+              "espessura": (0.0, 0.0, e)}]
+    for lado in (-1, 1):
+        dx, dy = comprimento, lado * (para - de)
+        norma = math.hypot(dx, dy)
+        para_dentro = (dy / norma * lado * e, -dx / norma * lado * e, 0.0)  # perpendicular à aba, para o eixo
+        faces.append({"pontos": [(0.0, lado * de, 0.0), (comprimento, lado * para, 0.0),
+                                 (comprimento, lado * para, aba_para), (0.0, lado * de, aba_de)],
+                      "espessura": para_dentro})
+    return faces
 
 
 def blocos_da_derivacao(quadrado, aba):

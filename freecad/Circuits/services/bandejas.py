@@ -195,12 +195,25 @@ def _derivacao_3d(conexao, cota):
     return _solido(blocos, conexao["x"], conexao["y"], cota, conexao["quadrado"]["angulo"])
 
 
+def _reducao_3d(conexao, cota):
+    """Redução: fundo em trapézio e abas inclinadas, de ``core.bandejas.faces_da_reducao``."""
+    trapezio = conexao["trapezio"]
+    giro = App.Rotation(App.Vector(0, 0, 1), trapezio["angulo"])
+    origem = App.Vector(trapezio["x"], trapezio["y"], cota)
+    solidos = []
+    for face in regras.faces_da_reducao(trapezio):
+        pontos = [origem + giro.multVec(App.Vector(*p)) for p in face["pontos"]]
+        poligono = Part.makePolygon(pontos + pontos[:1])
+        solidos.append(Part.Face(poligono).extrude(giro.multVec(App.Vector(*face["espessura"]))))
+    return solidos
+
+
 def gerar_3d(doc, objetos=None):
     """Recria o modelo 3D das bandejas e das peças, na cota do piso + ``AlturaBandeja``.
 
     Cada bandeja vira ``<nome>_3D`` com os trechos retos já recortados nos nós,
-    e os trechos verticais que chegam nela. As curvas (em arco), os tês e as
-    cruzetas de cada pavimento ficam num objeto só, com a propriedade
+    e os trechos verticais que chegam nela. As curvas (em arco), as reduções,
+    os tês e as cruzetas de cada pavimento ficam num objeto só, com a propriedade
     ``conexoes_3d_de``, recriado a cada uso.
 
     Returns:
@@ -249,6 +262,8 @@ def gerar_3d(doc, objetos=None):
         solidos = []
         for conexao in resultado["conexoes"]:
             cota = piso + float(conexao["altura"] or 0)
+            if "trapezio" in conexao:
+                solidos += _reducao_3d(conexao, cota)
             if "arco" in conexao:
                 solidos += _curva_3d(conexao, cota)
             elif "quadrado" in conexao:

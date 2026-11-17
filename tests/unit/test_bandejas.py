@@ -81,6 +81,16 @@ class TestConexoes(unittest.TestCase):
         self.assertEqual(pecas(te).count(regras.REDUCAO), 1)
         self.assertIn(regras.TE, pecas(te))
 
+    def test_reducao_quando_muda_so_a_aba(self):
+        r = regras.analisar([caminho([(0, 0), (3000, 0)], aba=100, nome="A"),
+                             caminho([(3000, 0), (6000, 0)], aba=50, nome="B")])
+        reducao = next(c for c in r["conexoes"] if c["peca"] == regras.REDUCAO)
+        self.assertEqual((reducao["aba"], reducao["para_aba"]), (100, 50))
+
+    def test_mesma_secao_nao_tem_reducao(self):
+        r = regras.analisar([caminho([(0, 0), (3000, 0)], nome="A"), caminho([(3000, 0), (6000, 0)], nome="B")])
+        self.assertNotIn(regras.REDUCAO, pecas(r))
+
     def test_curvas_verticais_quando_a_altura_muda(self):
         resultado = regras.analisar([caminho([(0, 0), (3000, 0)], altura=2800.0, nome="A"),
                                      caminho([(3000, 0), (3000, 3000)], altura=2300.0, nome="B")])
@@ -175,6 +185,57 @@ class TestPecasNosNos(unittest.TestCase):
         self.assertEqual(no_ponto(reta, 3000, 0), [0.0, 0.0])  # emenda
 
 
+class TestPecaDeReducao(unittest.TestCase):
+    """A redução é uma peça de COMPRIMENTO_REDUCAO_MM no começo do trecho mais estreito."""
+
+    def reta(self, **mais):
+        return regras.analisar([caminho([(0, 0), (3000, 0)], largura=300, nome="A", **mais),
+                                caminho([(3000, 0), (6000, 0)], largura=200, nome="B")])
+
+    def test_emenda_com_reducao_recorta_so_o_trecho_estreito(self):
+        r = self.reta()
+        recortes = {t["nome"]: (round(t["recuo_inicio"]), round(t["recuo_fim"])) for t in r["trechos"]}
+        self.assertEqual(recortes, {"A": (0, 0), "B": (regras.COMPRIMENTO_REDUCAO_MM, 0)})
+        trapezio = next(c for c in r["conexoes"] if c["peca"] == regras.REDUCAO)["trapezio"]
+        self.assertEqual((trapezio["x"], trapezio["y"], round(trapezio["angulo"])), (3000.0, 0.0, 0))
+        self.assertEqual((trapezio["comprimento"], trapezio["largura_de"], trapezio["largura_para"]),
+                         (regras.COMPRIMENTO_REDUCAO_MM, 300.0, 200.0))
+        self.assertEqual((trapezio["aba_de"], trapezio["aba_para"]), (50.0, 50.0))
+
+    def test_reducao_depois_da_curva_comeca_no_fim_do_arco(self):
+        r = regras.analisar([caminho([(0, 0), (3000, 0)], largura=300, nome="A"),
+                             caminho([(3000, 0), (3000, 3000)], largura=200, nome="B")])
+        estreito = next(t for t in r["trechos"] if t["nome"] == "B")
+        self.assertEqual(round(estreito["recuo_inicio"]), 300 + regras.COMPRIMENTO_REDUCAO_MM)  # raio 300 + redução
+        trapezio = next(c for c in r["conexoes"] if c["peca"] == regras.REDUCAO)["trapezio"]
+        self.assertEqual((round(trapezio["x"]), round(trapezio["y"]), round(trapezio["angulo"])), (3000, 300, 90))
+        curva = next(c for c in r["conexoes"] if c["peca"].startswith(regras.CURVA))
+        self.assertEqual(curva["largura"], 300)  # a curva é da seção maior
+
+    def test_te_com_ramal_estreito_nao_tem_peca_separada(self):
+        r = regras.analisar([caminho([(0, 0), (6000, 0)], largura=300), caminho([(3000, 0), (3000, 2000)], largura=100)])
+        reducao = next(c for c in r["conexoes"] if c["peca"] == regras.REDUCAO)
+        self.assertNotIn("trapezio", reducao)  # a boca do tê já sai na largura do ramal
+
+    def test_contorno_tem_as_bordas_inclinadas(self):
+        c = regras.contorno_2d(self.reta())
+        inclinadas = sorted(l for l in c["linhas"] if l[0] != l[2] and l[1] != l[3])
+        self.assertEqual(inclinadas, [(3000.0, -150.0, 3300.0, -100.0), (3000.0, 150.0, 3300.0, 100.0)])
+        bordas_estreitas = [l for l in c["linhas"] if l[1] == l[3] == 100.0]
+        self.assertEqual([min(l[0], l[2]) for l in bordas_estreitas], [3300.0])
+
+    def test_blocos_3d_da_reducao(self):
+        trapezio = next(c for c in self.reta()["conexoes"] if c["peca"] == regras.REDUCAO)["trapezio"]
+        fundo, *abas = regras.faces_da_reducao(trapezio)
+        self.assertEqual(fundo["pontos"], [(0.0, -150.0, 0.0), (300.0, -100.0, 0.0), (300.0, 100.0, 0.0),
+                                           (0.0, 150.0, 0.0)])
+        self.assertEqual(fundo["espessura"], (0.0, 0.0, regras.ESPESSURA_MM))
+        self.assertEqual(len(abas), 2)
+        self.assertEqual(sorted(p[2] for p in abas[0]["pontos"]), [0.0, 0.0, 50.0, 50.0])
+        self.assertGreater(abas[0]["espessura"][1], 0)  # aba do lado -y engrossa para dentro (+y)
+        self.assertLess(abas[1]["espessura"][1], 0)
+
+
 class TestContorno(unittest.TestCase):
     """Bandeja na planta em linha dupla, com as curvas em arco e os tês fechados."""
 
@@ -262,7 +323,7 @@ class TestMateriais(unittest.TestCase):
         resultado = regras.analisar([caminho([(0, 0), (3000, 0)], largura=300, altura=2800.0, nome="A"),
                                      caminho([(3000, 0), (6000, 0)], largura=200, altura=2300.0, nome="B")])
         itens = {(i["grupo"], i["item"], i["especificacao"]): i["quantidade"] for i in regras.materiais(resultado)}
-        self.assertEqual(itens[("Bandejas e leitos", "Redução", "Eletrocalha perfurada 300x50 mm para 200 mm")], 1)
+        self.assertEqual(itens[("Bandejas e leitos", "Redução", "Eletrocalha perfurada 300x50 mm para 200x50 mm")], 1)
         self.assertEqual(itens[("Bandejas e leitos", regras.CURVA_VERTICAL_EXTERNA, "Eletrocalha perfurada 200x50 mm")], 1)
         # 3 m + 0,5 m de vertical na seção 200x50, com 5 % de perdas
         self.assertEqual(itens[("Bandejas e leitos", "Eletrocalha perfurada",
@@ -415,6 +476,15 @@ class TestServicoJuncoes(TestServico):
         reta = DocumentoFalso(self.bandeja("R", [(0, 0), (3000, 0)]))
         self.servico.gerar_3d(reta)
         self.assertEqual([o for o in reta.Objects if hasattr(o, "conexoes_3d_de")], [])
+
+    def test_reducao_entra_nas_pecas_3d(self):
+        doc = DocumentoFalso(self.bandeja("A", [(0, 0), (3000, 0)], largura=300.0),
+                             self.bandeja("B", [(3000, 0), (6000, 0)], largura=200.0))
+        part = sys.modules["Part"]
+        part.makePolygon.reset_mock()
+        self.servico.gerar_3d(doc)
+        self.assertEqual(len([o for o in doc.Objects if hasattr(o, "conexoes_3d_de")]), 1)
+        self.assertEqual(part.makePolygon.call_count, 3)  # fundo e duas abas
 
     def test_contorno_tem_uma_aresta_por_linha_e_por_arco(self):
         part = sys.modules["Part"]
