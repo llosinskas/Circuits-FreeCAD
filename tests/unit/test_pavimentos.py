@@ -268,6 +268,27 @@ class TestServico(unittest.TestCase):
         self.assertEqual(self.servico.sugestao_novo(self.doc), ("1º Pavimento", 8500.0, 2500.0))
         self.assertTrue(cobertura.Ativo)
 
+    def test_criar_nivel_do_bim(self):
+        edificio = self.adicionar(Objeto("Building", IfcType="Building"))
+        criado = nivel_bim("BuildingPart", 0.0)
+        criado.Placement.Base.x = criado.Placement.Base.y = 0.0
+        arch = sys.modules["Arch"] = mock.MagicMock()
+        arch.makeBuildingPart.side_effect = lambda: self.adicionar(criado)
+        sys.modules["FreeCAD"].Vector = lambda x, y, z: types.SimpleNamespace(x=x, y=y, z=z)
+        try:
+            nivel = self.servico.criar_nivel_bim(self.doc, " 1º Pavimento ", 3000.0, 2900.0)
+            self.assertIs(nivel, criado)
+            self.assertEqual((nivel.Label, nivel.IfcType, nivel.Placement.Base.z, nivel.Height, nivel.Ativo),
+                             ("1º Pavimento", "Building Storey", 3000.0, 2900.0, True))
+            self.assertEqual(edificio.Group, [nivel])  # entra no edifício do BIM
+            self.assertTrue(self.servico.eh_nivel_bim(nivel))
+            # pedir de novo o mesmo nome só ativa: não cria outro
+            self.assertIs(self.servico.criar_nivel_bim(self.doc, "1º Pavimento", 0.0, 0.0), nivel)
+            arch.makeBuildingPart.assert_called_once()
+            self.assertEqual(nivel.Placement.Base.z, 3000.0)
+        finally:
+            sys.modules.pop("Arch", None)
+
     def test_rotulo_repetido_cai_no_nome_com_o_pavimento(self):
         class GrupoUnico(Objeto):
             """Imita o FreeCAD sem DuplicateLabels: recusa um Label que já existe."""

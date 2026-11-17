@@ -262,6 +262,11 @@ def scenario(doc):
     run("MontarCircuitos")
     run("MontarCircuitos")  # segunda execução: atualiza as linhas, não duplica
     result["steps"]["montar_circuitos"] = avisos
+    run("CircuitosQuadro")
+    result["steps"]["planilha_circuitos"] = [
+        {c: clean(o.getContents(c)) for c in sorted(o.getUsedCells())}
+        for o in doc.Objects if hasattr(o, "circuitos_de")
+    ]
     run("ComponentesQuadro")
     result["steps"]["componentes"] = avisos[-1]
     run("CalcDemanda")

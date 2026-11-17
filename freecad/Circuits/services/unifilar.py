@@ -5,7 +5,6 @@ import Part
 
 from freecad.Circuits.core import quadro as regras_quadro
 from freecad.Circuits.core import simbolos
-from freecad.Circuits.core.planilha import PRIMEIRA_LINHA_CIRCUITOS
 from freecad.Circuits.services import planilhas
 from freecad.Circuits.services.cabos import desenhar_cabo_unifilar
 from freecad.Circuits.services.estilo import pintar_sketch
@@ -215,45 +214,26 @@ def desenhar_circuito(doc, potencia, dr, bitola, posicao, corrente, comprimento,
         add_texto(f"{potencia}W", posicao.Base + App.Vector(tamanho - comprimento * 2, y_texto, 0), 0, altura, grupo)
 
 
-def _celula(quadro, endereco):
-    """Texto da célula; vazia ou inexistente devolve ''."""
-    try:
-        valor = quadro.get(endereco)
-    except Exception:
-        return ""
-    if isinstance(valor, float) and valor.is_integer():
-        valor = int(valor)
-    return str(valor).strip()
-
-
 def _desenhar_circuitos(doc, h, grupo, quadro):
-    """Lê os circuitos da planilha e os desenha descendo pelo barramento.
+    """Lê os circuitos da planilha de circuitos do quadro e os desenha descendo pelo barramento.
+
+    O que estiver em branco na planilha (corrente, cabo, disjuntor) é calculado.
 
     Returns:
         Quantidade de circuitos desenhados.
     """
-    ultima = planilhas.ultima_linha(quadro)
-    if ultima < PRIMEIRA_LINHA_CIRCUITOS:
-        return 0
-
     desenhados = 0
     espacamento = ESPACAMENTO_CIRCUITOS * h
-    for linha in range(PRIMEIRA_LINHA_CIRCUITOS, ultima + 1):
-        numero = _celula(quadro, f"A{linha}")
-        if not numero:
-            continue
-
-        destino = _celula(quadro, f"B{linha}")
-        potencia = _celula(quadro, f"C{linha}")
-        corrente = _celula(quadro, f"H{linha}")
-        bitola = _celula(quadro, f"J{linha}")
-        disjuntor = _celula(quadro, f"N{linha}")
-        curva = _celula(quadro, f"O{linha}")
-        dr = _celula(quadro, f"U{linha}").lower() == "true"
-        protecao = f"{curva}{disjuntor}A" if disjuntor else ""
-        fases = "".join(
-            fase for fase, coluna in zip("RST", "PQR") if _celula(quadro, f"{coluna}{linha}").lower() == "true"
-        )
+    for circuito in planilhas.ler_circuitos_completos(quadro):
+        numero = circuito["N_circuito"]
+        destino = circuito["Destino"]
+        potencia = circuito["Potencia"]
+        corrente = circuito["Corrente"]
+        bitola = circuito["Cabo"]
+        disjuntor = circuito["Disjuntor"]
+        dr = circuito["DR"].lower() == "true"
+        protecao = f"{circuito['Curva']}{disjuntor}A" if disjuntor else ""
+        fases = "".join(fase for fase in "RST" if circuito[f"Fase_{fase}"].lower() == "true")
 
         posicao = App.Vector(18 * h, 5 / 2 * h - desenhados * espacamento, 0)
         if desenhados > 0:

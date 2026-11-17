@@ -2,6 +2,7 @@
 import Spreadsheet  # noqa: F401  (registra o tipo Spreadsheet::Sheet)
 
 from freecad.Circuits.core import planilha as layout
+from freecad.Circuits.core import quadro as regras_quadro
 
 
 def criar_planilha_circuitos(doc):
@@ -61,14 +62,83 @@ def ler_quadro(planilha):
     return {alias: _texto(planilha, alias) for alias in layout.CABECALHO_QUADRO}
 
 
-def ler_circuitos(planilha):
-    """Circuitos gravados no quadro, em texto, pelas chaves de ``COLUNAS_CIRCUITO``."""
+def _circuitos_no_quadro(quadro):
+    """Circuitos no formato antigo: gravados na própria planilha do quadro, da linha 6 em diante."""
     circuitos = []
-    for linha in range(layout.PRIMEIRA_LINHA_CIRCUITOS, ultima_linha(planilha) + 1):
-        if not _texto(planilha, f"A{linha}"):
+    for linha in range(layout.PRIMEIRA_LINHA_CIRCUITOS, ultima_linha(quadro) + 1):
+        if not _texto(quadro, f"A{linha}"):
             continue
-        circuitos.append({chave: _texto(planilha, f"{coluna}{linha}") for coluna, chave in layout.COLUNAS_CIRCUITO.items()})
+        circuitos.append({chave: _texto(quadro, f"{coluna}{linha}") for coluna, chave in layout.COLUNAS_CIRCUITO.items()})
     return circuitos
+
+
+def _limpar_circuitos_do_quadro(quadro):
+    """Apaga da planilha do quadro as linhas de circuito do formato antigo (linha 5 em diante)."""
+    for celula in list(quadro.getUsedCells()):
+        if layout.ultima_linha([celula]) >= layout.LINHA_CABECALHO_CIRCUITOS:
+            quadro.clear(celula)
+
+
+def planilha_de_circuitos(quadro, criar=True):
+    """Planilha de circuitos ligada ao quadro pela propriedade ``circuitos_de``.
+
+    Com ``criar``, é criada com os títulos das colunas se não existir. Os
+    circuitos que estavam na planilha do quadro (formato antigo) são levados
+    para ela.
+    """
+    doc = quadro.Document
+    for obj in doc.Objects:
+        if getattr(obj, "circuitos_de", None) == quadro.Name:
+            return obj
+    if not criar:
+        return None
+
+    planilha = doc.addObject("Spreadsheet::Sheet", f"Circuitos_{quadro.Name}")
+    planilha.Label = f"Circuitos {quadro.Label}"
+    planilha.addProperty("App::PropertyString", "circuitos_de", "Quadro", "Planilha do quadro a que estes circuitos pertencem")
+    planilha.circuitos_de = quadro.Name
+    planilha.set(f"A{layout.LINHA_TITULO_CIRCUITOS}", f"'Circuitos do quadro {quadro.Label}")
+    planilha.set(f"C{layout.LINHA_TITULO_CIRCUITOS}", f"'{layout.AJUDA_CIRCUITOS}")
+    for coluna, _, titulo in layout.PLANILHA_CIRCUITOS:
+        planilha.set(f"{coluna}{layout.LINHA_TITULOS_COLUNAS}", f"'{titulo}")
+
+    antigos = _circuitos_no_quadro(quadro)
+    for indice, circuito in enumerate(antigos):
+        _gravar_linha(planilha, layout.PRIMEIRA_LINHA_PLANILHA_CIRCUITOS + indice, circuito)
+    if antigos:
+        _limpar_circuitos_do_quadro(quadro)
+    doc.recompute()
+    return planilha
+
+
+def _gravar_linha(planilha, linha, circuito):
+    for coluna, texto in layout.circuito_para_linha(circuito).items():
+        planilha.set(f"{coluna}{linha}", f"'{texto}")
+
+
+def _linhas_da_planilha(planilha):
+    """(número da linha, textos por chave) de cada linha preenchida da planilha de circuitos."""
+    for linha in range(layout.PRIMEIRA_LINHA_PLANILHA_CIRCUITOS, ultima_linha(planilha) + 1):
+        celulas = {chave: _texto(planilha, f"{coluna}{linha}") for coluna, chave, _ in layout.PLANILHA_CIRCUITOS}
+        if celulas["N_circuito"]:
+            yield linha, celulas
+
+
+def ler_circuitos(quadro):
+    """Circuitos do quadro, em texto, pelas chaves de ``COLUNAS_CIRCUITO``.
+
+    Lê a planilha de circuitos ligada ao quadro; se ela ainda não existe, lê as
+    linhas do formato antigo na própria planilha do quadro.
+    """
+    planilha = planilha_de_circuitos(quadro, criar=False)
+    if planilha is None:
+        return _circuitos_no_quadro(quadro)
+    return [layout.linha_para_circuito(celulas) for _, celulas in _linhas_da_planilha(planilha)]
+
+
+def ler_circuitos_completos(quadro):
+    """Circuitos do quadro com corrente, cabo e disjuntor calculados onde ficaram em branco."""
+    return [regras_quadro.completar(circuito) for circuito in ler_circuitos(quadro)]
 
 
 def gravar_componentes(doc, quadro, itens):
@@ -91,28 +161,31 @@ def gravar_componentes(doc, quadro, itens):
     return planilha
 
 
-def linha_do_circuito(planilha, numero):
-    """Linha onde o circuito ``numero`` está gravado, ou None."""
-    for linha in range(layout.PRIMEIRA_LINHA_CIRCUITOS, ultima_linha(planilha) + 1):
-        if _texto(planilha, f"A{linha}") == str(numero).strip():
+def linha_do_circuito(quadro, numero):
+    """Linha da planilha de circuitos onde o circuito ``numero`` está, ou None."""
+    planilha = planilha_de_circuitos(quadro, criar=False)
+    if planilha is None:
+        return None
+    for linha, celulas in _linhas_da_planilha(planilha):
+        if celulas["N_circuito"] == str(numero).strip():
             return linha
     return None
 
 
-def adicionar_circuito(planilha, dados):
-    """Grava o cabeçalho de circuitos e a linha do circuito.
+def adicionar_circuito(quadro, dados):
+    """Grava o circuito na planilha de circuitos do quadro, criando-a se preciso.
 
     Um circuito com o mesmo número é atualizado no lugar; um novo entra depois
     da última linha usada.
-    """
-    for indice, titulo in enumerate(layout.CABECALHO_CIRCUITO_QUADRO):
-        planilha.set(f"{layout.coluna(indice)}{layout.LINHA_CABECALHO_CIRCUITOS}", titulo)
 
-    linha = linha_do_circuito(planilha, dados["N_circuito"])
+    Returns:
+        A linha em que o circuito ficou.
+    """
+    planilha = planilha_de_circuitos(quadro)
+    linha = linha_do_circuito(quadro, dados["N_circuito"])
     if linha is None:
-        linha = max(ultima_linha(planilha) + 1, layout.PRIMEIRA_LINHA_CIRCUITOS)
-    for coluna, chave in layout.COLUNAS_CIRCUITO.items():
-        planilha.set(f"{coluna}{linha}", f"'{dados[chave]}")
+        linha = max(ultima_linha(planilha) + 1, layout.PRIMEIRA_LINHA_PLANILHA_CIRCUITOS)
+    _gravar_linha(planilha, linha, dados)
     return linha
 
 

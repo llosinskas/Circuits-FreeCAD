@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64">
+  <!-- Circuitos do quadro: grade da planilha com os ramais de um quadro -->
+  <path d="M6 10H40V54H6ZM6 21H40M6 32H40M6 43H40M17 10V54 M46 16H58M46 27H58M46 38H58M46 49H58M46 12V53" fill="none" stroke-linecap="round" stroke-linejoin="round" stroke="#ffffff" stroke-width="7" stroke-opacity="0.85"/>
+  <path d="M6 10H40V54H6ZM6 21H40M6 32H40M6 43H40M17 10V54" fill="none" stroke-linecap="round" stroke-linejoin="round" stroke="#5f6368" stroke-width="3"/>
+  <path d="M46 16H58M46 27H58M46 38H58M46 49H58M46 12V53" fill="none" stroke-linecap="round" stroke-linejoin="round" stroke="#1a73e8" stroke-width="3"/>
+</svg>

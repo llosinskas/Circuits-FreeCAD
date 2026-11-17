@@ -114,6 +114,46 @@ def definir(doc, nome, elevacao_mm=0.0, altura_mm=regras.ALTURA_PADRAO_MM):
     return pav
 
 
+def criar_nivel_bim(doc, nome, elevacao_mm=0.0, altura_mm=regras.ALTURA_PADRAO_MM):
+    """Cria um nível da bancada BIM (ou ativa o de mesmo nome) e o torna o pavimento ativo.
+
+    O nível entra no edifício do BIM (objeto do tipo Building), se o projeto tiver um.
+
+    Raises:
+        RuntimeError: se a bancada BIM não estiver disponível neste FreeCAD.
+    """
+    nome = regras.nome_do_pavimento(nome)
+    existente = por_nome(doc, nome)
+    if existente is not None:
+        ativar(doc, existente)
+        return existente
+    try:
+        import Arch
+    except ImportError as erro:
+        raise RuntimeError("A bancada BIM não está disponível neste FreeCAD.") from erro
+
+    doc.openTransaction("Adicionar nível do BIM")
+    try:
+        nivel = Arch.makeBuildingPart()
+        nivel.IfcType = "Building Storey"
+        nivel.Label = nome
+        posicao = nivel.Placement
+        posicao.Base = App.Vector(posicao.Base.x, posicao.Base.y, float(elevacao_mm))
+        nivel.Placement = posicao
+        if hasattr(nivel, "Height"):
+            nivel.Height = float(altura_mm)
+        edificio = next((obj for obj in doc.Objects if getattr(obj, "IfcType", "") == "Building"), None)
+        if edificio is not None and hasattr(edificio, "addObject"):
+            edificio.addObject(nivel)
+        ativar(doc, nivel)
+        doc.commitTransaction()
+    except Exception:
+        doc.abortTransaction()
+        raise
+    doc.recompute()
+    return nivel
+
+
 def garantir_ativo(doc):
     """Pavimento ativo; sem nenhum ativo, ativa o mais baixo, e sem pavimentos cria o Térreo.
 

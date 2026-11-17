@@ -57,7 +57,7 @@ Depois use **Elétrica > Outros > Reiniciar Bancada** ou reabra o FreeCAD. Mante
 2. **Insira os pontos** pelos botões *Tomadas*, *Energia*, *Iluminação* e *Interruptores*. Depois do clique, o próximo ponto do mesmo tipo já vem no cursor. Veja as teclas em [Inserir e alinhar símbolos](#inserir-e-alinhar-símbolos).
 3. **Defina os circuitos** (botão *Circuitos*): selecione os pontos de um circuito e use **Definir circuito**. Pontos de uso específico, como o chuveiro, precisam de circuito exclusivo. Veja [Circuitos e interruptores](#circuitos-e-interruptores).
 4. **Quadros** (barra *Quadros e documentos*): posicione na planta o quadro de distribuição, o de comando e a medição. Depois, com o símbolo do quadro selecionado, use **Dados do quadro > Planilha do quadro** e informe tensão, fases, disjuntor geral e DPS.
-5. **Montar circuitos:** grava no quadro uma linha por circuito, com potência, corrente, cabo, disjuntor e fases. Use **Dados do quadro > Circuito** para acrescentar ou corrigir uma linha à mão.
+5. **Montar circuitos:** grava na planilha de circuitos do quadro uma linha por circuito, com potência, corrente, cabo, disjuntor e fases. Para digitar ou corrigir circuitos, abra **Dados do quadro > Circuitos do quadro** (veja [Planilha de circuitos do quadro](#planilha-de-circuitos-do-quadro)).
 6. **Componentes:** lista o que vai dentro do quadro.
 7. **Unifilar:** gera o diagrama de cada quadro.
 8. **Demanda** (botão *Cálculos*): calcula a demanda do quadro e grava na planilha; gere o unifilar de novo para mostrá-la.
@@ -100,6 +100,24 @@ Edite a sigla na propriedade `Descricao` (por exemplo QD1, QD2) e, na medição,
 
 **Medição no unifilar:** escreva no campo *Origem* do quadro a sigla da medição (QM ou CM, a mesma do símbolo). O unifilar desenha então o medidor na entrada.
 
+### Planilha de circuitos do quadro
+
+Cada quadro tem a sua planilha de circuitos, criada junto com ele e aberta por **Dados do quadro > Circuitos do quadro**. É um circuito por linha, a partir da linha 3:
+
+| Coluna | Conteúdo |
+|---|---|
+| Circuito | Número ou nome do circuito |
+| Descrição | O que o circuito alimenta |
+| Potência [W], Tensão [V] | Carga e tensão do circuito |
+| Fases (R, S, T) | As fases usadas, como `R`, `RS` ou `RST` |
+| Corrente [A], Cabo [mm²], Disjuntor [A], Curva | Podem ficar em branco |
+| DR (S/N), Sensibilidade do DR | `S` para circuito com DR; a sensibilidade vale 30mA se ficar em branco |
+| Neutro (S/N), Terra (S/N) | Condutores do circuito |
+
+Você pode preencher só circuito, descrição, potência, tensão e fases: o **Unifilar** e os **Componentes** leem a planilha e calculam a corrente, o cabo e o disjuntor que ficaram em branco. O que você digitar é respeitado; se digitar o disjuntor e deixar o cabo em branco, o cabo é escolhido para esse disjuntor. Os valores calculados aparecem no diagrama, mas não são gravados na planilha.
+
+**Montar circuitos** e o formulário **Circuito** gravam nesta mesma planilha. Projetos antigos, que guardavam os circuitos na planilha de dados do quadro, são convertidos na primeira vez que a planilha de circuitos é aberta ou gravada.
+
 ### Componentes do quadro
 
 O botão **Componentes** lê a planilha do quadro e monta a lista do que vai dentro dele:
@@ -140,6 +158,7 @@ Pontos_eletricos
 - **Níveis do BIM:** se o projeto já tem níveis da bancada BIM (Level, "Building Storey"), eles são os pavimentos: os símbolos entram nas pastas dentro do próprio nível, a cota vem do nível e o Térreo não é criado. A bancada não altera a cota nem a altura de um nível do BIM; para mudá-las, use o BIM.
 - **Novo projeto** ativa um nível do BIM, se houver, ou cria o *Térreo*. Todo símbolo que você inserir (tomadas, pontos, interruptores, luminárias do luminotécnico) vai sozinho para a pasta do tipo dele, dentro do pavimento ativo.
 - **Projeto > Pavimento** escolhe o pavimento ativo ou cria um novo, com a cota do piso e a altura de piso a piso. O programa sugere o próximo (1º Pavimento, na cota seguinte).
+- **Projeto > Nível do BIM** cria um nível da bancada BIM, com nome, cota e altura, e já o deixa ativo. Se o projeto tem um edifício do BIM, o nível entra nele.
 - **Projeto > Mover para pavimento** leva os símbolos selecionados para as pastas de outro pavimento.
 - Cada símbolo guarda o nome do pavimento na propriedade `Pavimento`, e as caixas 3D somam a cota do pavimento à altura de montagem.
 
@@ -197,13 +216,13 @@ As barras da bancada têm poucos botões. Os que têm uma seta (▾) abrem uma l
 
 | Botão com lista | Itens |
 |---|---|
-| Projeto | Novo projeto, Pavimento, Mover para pavimento, Planilha de circuitos, Importar QET |
+| Projeto | Novo projeto, Pavimento, Nível do BIM, Mover para pavimento, Planilha de circuitos, Importar QET |
 | Tomadas | Tomada baixa, média, alta, de piso, Tomada TUG |
 | Energia | Chuveiro, Ar-condicionado, Ventilador, Ponto de força |
 | Iluminação | Luz de teto, Arandela, Luminária tubular, Luz embutida, Luz de emergência, Luminotécnico |
 | Interruptores | Simples, paralelo, intermediário |
 | Quadros | Quadro distribuição, Quadro de comando, Quadro de medição, Medição agrupada |
-| Dados do quadro | Planilha do quadro, Circuito |
+| Dados do quadro | Planilha do quadro, Circuitos do quadro, Circuito |
 | Circuitos | Definir circuito, Ligar interruptor, Identificar pontos |
 | Eletrodutos | Eletroduto, Dividir trecho, Fiação |
 | Cálculos | Demanda, Pressurização, Bomba de recalque |

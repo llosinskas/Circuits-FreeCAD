@@ -28,6 +28,7 @@ def _criar_quadro(doc):
         QtWidgets.QMessageBox.warning(None, "Planilha do quadro", "Informe a identificação do quadro.")
         return None
     planilha = planilhas.criar_planilha_quadro(doc, dados)
+    planilhas.planilha_de_circuitos(planilha)  # a estrutura de circuitos já nasce junto com o quadro
     if simbolo is not None:
         identificacao.vincular_planilha(doc, simbolo, planilha, nome)
     doc.recompute()
@@ -67,6 +68,33 @@ class GerarPlanilha:
             "quadro_novo.svg",
             "Planilha do quadro",
             "Cria a planilha de dados de um quadro; com um símbolo de quadro selecionado, liga os dois",
+        )
+
+
+class CircuitosQuadro:
+    """Abre a planilha de circuitos de um quadro, criando a estrutura se preciso."""
+
+    def Activated(self):
+        doc = documento_ou_aviso()
+        if not doc:
+            return
+        quadro = _escolher_quadro(doc, "Circuitos do quadro")
+        if quadro is None:
+            return
+        planilha = planilhas.planilha_de_circuitos(quadro)
+        try:
+            planilha.ViewObject.doubleClicked()  # abre a planilha para edição
+        except Exception:
+            App.Console.PrintMessage(f"Abra a planilha '{planilha.Label}' na árvore do projeto para editar.\n")
+
+    def IsActive(self):
+        return True
+
+    def GetResources(self):
+        return recursos(
+            "circuitos_quadro.svg",
+            "Circuitos do quadro",
+            "Abre a planilha de circuitos do quadro: um circuito por linha, lida pelo unifilar",
         )
 
 
@@ -123,7 +151,7 @@ class ComponentesQuadro:
         if quadro is None:
             return
         try:
-            itens = regras_quadro.componentes(planilhas.ler_quadro(quadro), planilhas.ler_circuitos(quadro))
+            itens = regras_quadro.componentes(planilhas.ler_quadro(quadro), planilhas.ler_circuitos_completos(quadro))
         except ValueError as erro:
             QtWidgets.QMessageBox.warning(None, "Componentes do quadro", str(erro))
             return
@@ -188,6 +216,7 @@ class AddCircuito:
 
 
 Gui.addCommand("AddCircuito", AddCircuito())
+Gui.addCommand("CircuitosQuadro", CircuitosQuadro())
 Gui.addCommand("MontarCircuitos", MontarCircuitos())
 Gui.addCommand("ComponentesQuadro", ComponentesQuadro())
 Gui.addCommand("GerarUnifilar", GerarUnifilar())

@@ -49,6 +49,40 @@ class TestRegras(unittest.TestCase):
         self.assertEqual(quadro.fases_do_circuito({}), 1)
 
 
+class TestCompletar(unittest.TestCase):
+    def base(self, **extra):
+        dados = {"N_circuito": "1", "Destino": "Tomadas", "Potencia": "1200", "Tensao": "127", "Corrente": "",
+                 "Cabo": "", "Disjuntor": "", "Curva": "", "Fase_R": "True", "Fase_S": "False", "Fase_T": "False"}
+        dados.update(extra)
+        return dados
+
+    def test_preenche_o_que_esta_em_branco(self):
+        c = quadro.completar(self.base())  # 1200 / 127 = 9,45 A
+        self.assertEqual((c["Corrente"], c["Disjuntor"], c["Cabo"], c["Curva"]), ("9.45", "10", "2.5", "C"))
+
+    def test_iluminacao_usa_a_secao_minima_de_iluminacao(self):
+        self.assertEqual(quadro.completar(self.base(Destino="Iluminação sala", Potencia="400"))["Cabo"], "1.5")
+
+    def test_valores_digitados_nao_mudam(self):
+        c = quadro.completar(self.base(Cabo="6", Disjuntor="20", Curva="B", Corrente="9"))
+        self.assertEqual((c["Cabo"], c["Disjuntor"], c["Curva"], c["Corrente"]), ("6", "20", "B", "9"))
+
+    def test_cabo_em_branco_acompanha_o_disjuntor_digitado(self):
+        self.assertEqual(quadro.completar(self.base(Disjuntor="40"))["Cabo"], "6")  # 6 mm² conduz 41 A
+        self.assertEqual(quadro.completar(self.base(Disjuntor="500"))["Cabo"], "")  # acima da tabela
+
+    def test_sem_potencia_ou_tensao_fica_como_esta(self):
+        c = quadro.completar(self.base(Potencia=""))
+        self.assertEqual((c["Corrente"], c["Cabo"], c["Disjuntor"], c["Curva"]), ("", "", "", "C"))
+        c = quadro.completar(self.base(Potencia="900000"))  # acima do maior disjuntor
+        self.assertEqual((c["Cabo"], c["Disjuntor"]), ("", ""))
+
+    def test_nao_altera_o_dicionario_recebido(self):
+        dados = self.base()
+        quadro.completar(dados)
+        self.assertEqual(dados["Cabo"], "")
+
+
 class TestComponentes(unittest.TestCase):
     def setUp(self):
         self.circuitos = [

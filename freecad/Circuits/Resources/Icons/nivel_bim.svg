@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64">
+  <!-- Nível do BIM: piso com o sinal de mais -->
+  <path d="M6 40L28 32L50 40L28 48Z M6 40V52L28 60L50 52V40 M46 8V28M36 18H56" fill="none" stroke-linecap="round" stroke-linejoin="round" stroke="#ffffff" stroke-width="7" stroke-opacity="0.85"/>
+  <path d="M6 40L28 32L50 40L28 48Z M6 40V52L28 60L50 52V40" fill="none" stroke-linecap="round" stroke-linejoin="round" stroke="#5f6368" stroke-width="3"/>
+  <path d="M46 8V28M36 18H56" fill="none" stroke-linecap="round" stroke-linejoin="round" stroke="#1a73e8" stroke-width="3"/>
+</svg>

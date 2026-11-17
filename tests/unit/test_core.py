@@ -47,6 +47,31 @@ class TestPlanilha(unittest.TestCase):
         self.assertEqual(ultima_linha(["A1", "A9", "A12", "AB10"]), 12)
 
 
+class TestPlanilhaDeCircuitos(unittest.TestCase):
+    def test_colunas_sem_repeticao_e_com_as_chaves_dos_circuitos(self):
+        from freecad.Circuits.core import planilha as layout
+        colunas = [coluna for coluna, _, _ in layout.PLANILHA_CIRCUITOS]
+        chaves = {chave for _, chave, _ in layout.PLANILHA_CIRCUITOS}
+        self.assertEqual(colunas, sorted(set(colunas)))
+        esperadas = {c for c in layout.COLUNAS_CIRCUITO.values() if not c.startswith("Fase_")} | {"Fases"}
+        self.assertEqual(chaves, esperadas)
+
+    def test_sim_ou_nao(self):
+        from freecad.Circuits.core.planilha import sim_ou_nao
+        self.assertEqual([sim_ou_nao(t) for t in ("S", "sim", "True", "x", "1", " s ")], [True] * 6)
+        self.assertEqual([sim_ou_nao(t) for t in ("N", "não", "False", "", "0")], [False] * 5)
+
+    def test_ida_e_volta_de_um_circuito(self):
+        from freecad.Circuits.core import planilha as layout
+        circuito = {"N_circuito": "3", "Destino": "Chuveiro", "Potencia": "5500", "Tensao": "220", "Corrente": "25",
+                    "Cabo": "4", "Disjuntor": "25", "Curva": "C", "Fase_R": "True", "Fase_S": "True", "Fase_T": "False",
+                    "Neutro": "False", "Terra": "True", "DR": "True", "Corrente_DR": "30mA"}
+        linha = layout.circuito_para_linha(circuito)
+        self.assertEqual((linha["E"], linha["J"], linha["L"], linha["M"]), ("RS", "S", "N", "S"))
+        por_chave = {chave: linha[coluna] for coluna, chave, _ in layout.PLANILHA_CIRCUITOS}
+        self.assertEqual(layout.linha_para_circuito(por_chave), circuito)
+
+
 class TestQet(unittest.TestCase):
     def linhas(self, xml):
         return extrair_linhas(ET.fromstring(f"<project>{xml}</project>"))

@@ -17,6 +17,9 @@ Unidades: correntes em A, tensões em V.
 """
 import math
 
+from freecad.Circuits.core import circuitos as calculo
+from freecad.Circuits.core.simbolos import ILUM, TUG
+
 CORRENTES_DR = [25, 40, 63, 80, 100, 125]
 CORRENTES_BARRAMENTO = [50, 63, 80, 100, 125, 150, 200, 225, 250, 400, 630]
 MODULOS_QUADRO = [6, 8, 12, 16, 18, 24, 28, 34, 36, 44, 48, 56, 70, 96]
@@ -73,6 +76,43 @@ def fases_do_circuito(circuito):
     """Número de fases marcadas no circuito (colunas Fase R, S e T). No mínimo 1."""
     marcadas = sum(verdadeiro(circuito.get(chave, "")) for chave in ("Fase_R", "Fase_S", "Fase_T"))
     return max(1, marcadas)
+
+
+def completar(circuito):
+    """Preenche corrente, cabo, disjuntor e curva que ficaram em branco na planilha.
+
+    O cálculo é o de ``core.circuitos.dimensionar``, com a potência em W tratada
+    como VA. Circuitos cuja descrição começa com "Ilum" usam a seção mínima de
+    iluminação; os demais, a de tomadas. Sem potência ou tensão, ou com corrente
+    acima das tabelas, o circuito volta como está. Com o disjuntor digitado e o
+    cabo em branco, o cabo é escolhido para suportar esse disjuntor.
+    """
+    completo = dict(circuito)
+    if not str(completo.get("Curva", "")).strip():
+        completo["Curva"] = "C"
+    potencia, tensao = numero(completo.get("Potencia")), numero(completo.get("Tensao"))
+    em_branco = [chave for chave in ("Corrente", "Cabo", "Disjuntor") if not str(completo.get(chave, "")).strip()]
+    if not em_branco or potencia <= 0 or tensao <= 0:
+        return completo
+    tipo = ILUM if str(completo.get("Destino", "")).strip().lower().startswith("ilum") else TUG
+    try:
+        calculado = calculo.dimensionar(potencia, tensao, fases_do_circuito(completo), tipo)
+    except ValueError:
+        return completo
+    valores = {"Corrente": calculado["corrente"], "Cabo": calculado["cabo"], "Disjuntor": calculado["disjuntor"]}
+    digitado = numero(completo.get("Disjuntor"))
+    if "Cabo" in em_branco and digitado > 0:
+        # O cabo precisa suportar o disjuntor que o usuário escolheu, não o calculado.
+        tabela = calculo.CAPACIDADE_B1_PVC[3 if fases_do_circuito(completo) == 3 else 2]
+        minima = calculo.SECAO_MINIMA.get(tipo, 2.5)
+        cabo = next((secao for secao, capacidade in tabela.items() if secao >= minima and capacidade >= digitado), None)
+        if cabo is None:
+            em_branco.remove("Cabo")  # acima da tabela: fica em branco para o usuário decidir
+        else:
+            valores["Cabo"] = cabo
+    for chave in em_branco:
+        completo[chave] = _formatar(valores[chave])
+    return completo
 
 
 def _item(item, especificacao, quantidade, unidade="un"):

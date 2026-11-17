@@ -10,11 +10,13 @@ class DefinirPavimentoDialog(QtWidgets.QDialog):
         pavimentos: lista de dicionários com ``nome``, ``elevacao_mm``, ``altura_mm``, ``ativo`` e ``bim``
             (níveis do BIM têm cota e altura só para leitura).
         sugestao: dicionário com ``nome``, ``elevacao_mm`` e ``altura_mm`` do próximo pavimento.
+        titulo: título da janela.
+        selecionar_sugestao: abre com o pavimento novo sugerido, em vez do ativo.
     """
 
-    def __init__(self, pavimentos, sugestao):
+    def __init__(self, pavimentos, sugestao, titulo="Pavimento", selecionar_sugestao=False):
         super().__init__()
-        self.setWindowTitle("Pavimento")
+        self.setWindowTitle(titulo)
         self.setMinimumWidth(380)
         self._valores = {p["nome"]: p for p in pavimentos}
         self._valores.setdefault(sugestao["nome"], sugestao)
@@ -61,6 +63,8 @@ class DefinirPavimentoDialog(QtWidgets.QDialog):
         self.setLayout(layout)
 
         ativo = next((p["nome"] for p in pavimentos if p["ativo"]), sugestao["nome"])
+        if selecionar_sugestao:
+            ativo = sugestao["nome"]
         self.nome.setCurrentIndex(max(0, self.nome.findText(ativo)))
         self._preencher(ativo)
         self.nome.currentTextChanged.connect(self._preencher)

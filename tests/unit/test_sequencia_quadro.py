@@ -17,12 +17,29 @@ SERVICOS = ("freecad.Circuits.services.circuitos", "freecad.Circuits.services.pl
             "freecad.Circuits.objects.ponto")
 
 
-class PlanilhaFalsa:
-    Label = Name = "QD1"
+class DocumentoDePlanilhas:
+    """Documento que guarda as planilhas: a do quadro e as criadas a partir dela."""
 
-    def __init__(self, fases="3"):
-        self.celulas = {"G3": fases}
+    def __init__(self):
+        self.Objects = []
+
+    def addObject(self, tipo, nome):
+        return PlanilhaFalsa(documento=self, nome=nome, vazia=True)
+
+    def recompute(self):
+        pass
+
+
+class PlanilhaFalsa:
+    def __init__(self, fases="3", documento=None, nome="QD1", vazia=False):
+        self.Name = self.Label = nome
+        self.Document = documento or DocumentoDePlanilhas()
+        self.Document.Objects.append(self)
+        self.celulas = {} if vazia else {"G3": fases}
         self.aliases = {"numero_fases": "G3", "potencia_instalada": "M3"}
+
+    def addProperty(self, tipo, nome, grupo="", dica=""):
+        setattr(self, nome, "")
 
     def set(self, celula, valor):
         self.celulas[celula] = valor[1:] if valor.startswith("'") else valor
@@ -32,6 +49,9 @@ class PlanilhaFalsa:
         if celula not in self.celulas:
             raise ValueError(celula)
         return self.celulas[celula]
+
+    def clear(self, celula):
+        self.celulas.pop(celula, None)
 
     def getUsedCells(self):
         return list(self.celulas)
@@ -77,11 +97,18 @@ class TestSequenciaQuadro(unittest.TestCase):
 
         self.assertEqual([c["numero"] for c in gravados], ["1", "2", "3"])
         self.assertEqual(avisos, [])
-        self.assertEqual([quadro.get(f"A{linha}") for linha in (6, 7, 8)], ["1", "2", "3"])
-        self.assertEqual((quadro.get("C6"), quadro.get("J6"), quadro.get("N6")), ("200", "1.5", "6"))
-        self.assertEqual((quadro.get("J8"), quadro.get("N8"), quadro.get("U8")), ("4", "25", "True"))
+        planilha = self.planilhas.planilha_de_circuitos(quadro, criar=False)
+        self.assertEqual((planilha.circuitos_de, planilha.Label), ("QD1", "Circuitos QD1"))
+        self.assertEqual((planilha.get("A2"), planilha.get("B2"), planilha.get("E2")),
+                         ("Circuito", "Descrição", "Fases (R, S, T)"))
+        self.assertEqual([planilha.get(f"A{linha}") for linha in (3, 4, 5)], ["1", "2", "3"])
+        self.assertEqual((planilha.get("C3"), planilha.get("G3"), planilha.get("H3"), planilha.get("J3")),
+                         ("200", "1.5", "6", "N"))
+        self.assertEqual((planilha.get("E5"), planilha.get("G5"), planilha.get("H5"), planilha.get("J5")),
+                         ("RS", "4", "25", "S"))
         self.assertEqual(quadro.get("potencia_instalada"), "6.3")
-        self.assertNotIn("A9", quadro.celulas)
+        self.assertNotIn("A6", planilha.celulas)
+        self.assertNotIn("A6", quadro.celulas)  # nada de circuito na planilha de dados do quadro
 
     def test_repetir_atualiza_no_lugar_e_preserva_circuito_manual(self):
         quadro = PlanilhaFalsa()
@@ -90,19 +117,64 @@ class TestSequenciaQuadro(unittest.TestCase):
         self.circuitos.montar_circuitos(doc, quadro)
         manual = dict.fromkeys(self.planilhas.layout.COLUNAS_CIRCUITO.values(), "x")
         manual["N_circuito"] = "20"
-        self.assertEqual(self.planilhas.adicionar_circuito(quadro, manual), 7)
+        self.assertEqual(self.planilhas.adicionar_circuito(quadro, manual), 4)
 
         luz.Potencia = 300
         self.circuitos.montar_circuitos(doc, quadro)
-        self.assertEqual(quadro.get("C6"), "300")
-        self.assertEqual(quadro.get("A7"), "20")
-        self.assertEqual(self.planilhas.ultima_linha(quadro), 7)
+        planilha = self.planilhas.planilha_de_circuitos(quadro, criar=False)
+        self.assertEqual(planilha.get("C3"), "300")
+        self.assertEqual(planilha.get("A4"), "20")
+        self.assertEqual(self.planilhas.ultima_linha(planilha), 4)
 
     def test_mais_de_quatro_circuitos_nao_se_sobrescrevem(self):
         quadro = PlanilhaFalsa()
         doc = self.documento(*(objeto_ponto("tomada_baixa", str(n), 100) for n in range(1, 13)))
         self.circuitos.montar_circuitos(doc, quadro)
-        self.assertEqual([quadro.get(f"A{linha}") for linha in range(6, 18)], [str(n) for n in range(1, 13)])
+        planilha = self.planilhas.planilha_de_circuitos(quadro, criar=False)
+        self.assertEqual([planilha.get(f"A{linha}") for linha in range(3, 15)], [str(n) for n in range(1, 13)])
+        self.assertEqual(len(self.planilhas.ler_circuitos(quadro)), 12)
+
+    def test_planilha_preenchida_a_mao_e_completada_na_leitura(self):
+        quadro = PlanilhaFalsa()
+        planilha = self.planilhas.planilha_de_circuitos(quadro)
+        for celula, texto in {
+            "A3": "1", "B3": "Iluminação social", "C3": 600.0, "D3": 127.0, "E3": "r",
+            "A4": "2", "B4": "Tomadas cozinha", "C4": 2400.0, "D4": 127.0, "E4": "S", "J4": "sim", "L4": "S", "M4": "x",
+            "A6": "5", "B6": "Chuveiro", "C6": 5500.0, "D6": 220.0, "E6": "ST", "H6": 32.0, "J6": "S",
+            "B8": "linha sem número é ignorada",
+        }.items():
+            planilha.celulas[celula] = texto
+
+        lidos = self.planilhas.ler_circuitos(quadro)
+        self.assertEqual([c["N_circuito"] for c in lidos], ["1", "2", "5"])
+        self.assertEqual((lidos[0]["Fase_R"], lidos[0]["Fase_S"], lidos[0]["Cabo"], lidos[0]["DR"]), ("True", "False", "", "False"))
+        self.assertEqual((lidos[1]["DR"], lidos[1]["Neutro"], lidos[1]["Terra"]), ("True", "True", "True"))
+        self.assertEqual((lidos[2]["Fase_S"], lidos[2]["Fase_T"], lidos[2]["Disjuntor"]), ("True", "True", "32"))
+
+        completos = self.planilhas.ler_circuitos_completos(quadro)
+        # iluminação: 600 W / 127 V = 4,72 A -> disjuntor 6 A, cabo 1,5 mm²
+        self.assertEqual((completos[0]["Corrente"], completos[0]["Disjuntor"], completos[0]["Cabo"], completos[0]["Curva"]),
+                         ("4.72", "6", "1.5", "C"))
+        # tomadas: 2400 W / 127 V = 18,9 A -> disjuntor 20 A, cabo 2,5 mm²
+        self.assertEqual((completos[1]["Disjuntor"], completos[1]["Cabo"]), ("20", "2.5"))
+        # chuveiro: o disjuntor de 32 A digitado é mantido; só o que estava em branco é calculado
+        self.assertEqual((completos[2]["Disjuntor"], completos[2]["Corrente"], completos[2]["Cabo"]), ("32", "25", "4"))
+
+    def test_circuitos_do_formato_antigo_sao_levados_para_a_planilha_nova(self):
+        quadro = PlanilhaFalsa()
+        antigo = {"A5": "N_circuito", "A6": "1", "B6": "Tomadas", "C6": "1500", "D6": "220", "H6": "8.5", "J6": "2.5",
+                  "N6": "16", "O6": "C", "P6": "True", "Q6": "False", "R6": "False", "S6": "True", "T6": "True",
+                  "U6": "True", "V6": "30mA"}
+        quadro.celulas.update(antigo)
+        antes = self.planilhas.ler_circuitos(quadro)  # sem planilha nova, lê o formato antigo
+        self.assertEqual((antes[0]["Cabo"], antes[0]["Fase_R"], antes[0]["DR"]), ("2.5", "True", "True"))
+
+        planilha = self.planilhas.planilha_de_circuitos(quadro)
+        self.assertEqual((planilha.get("A3"), planilha.get("E3"), planilha.get("G3"), planilha.get("J3"), planilha.get("K3")),
+                         ("1", "R", "2.5", "S", "30mA"))
+        self.assertEqual(self.planilhas.ler_circuitos(quadro), antes)
+        self.assertEqual(sorted(quadro.celulas), ["G3"])  # as linhas antigas saíram da planilha do quadro
+        self.assertIs(self.planilhas.planilha_de_circuitos(quadro), planilha)  # não cria outra
 
     def test_componentes_lidos_da_planilha(self):
         from freecad.Circuits.core import quadro as regras

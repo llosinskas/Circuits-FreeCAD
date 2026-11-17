@@ -35,6 +35,39 @@ class DefinirPavimento:
         )
 
 
+class AdicionarNivelBIM:
+    """Cria um nível da bancada BIM e o torna o pavimento ativo."""
+
+    def Activated(self):
+        doc = documento_ou_aviso()
+        if not doc:
+            return
+        nome, elevacao, altura = servico.sugestao_novo(doc)
+        sugestao = {"nome": nome, "elevacao_mm": elevacao, "altura_mm": altura}
+        dialog = DefinirPavimentoDialog(
+            servico.resumo(doc), sugestao, titulo="Adicionar nível do BIM", selecionar_sugestao=True
+        )
+        if not dialog.exec_():
+            return
+        dados = dialog.get_dados()
+        try:
+            nivel = servico.criar_nivel_bim(doc, dados["nome"], dados["elevacao_mm"], dados["altura_mm"])
+        except Exception as erro:
+            QtWidgets.QMessageBox.warning(None, "Adicionar nível do BIM", f"Não foi possível criar o nível: {erro}")
+            return
+        App.Console.PrintMessage(f"Nível do BIM ativo: {nivel.Label}. Os próximos símbolos entram nele.\n")
+
+    def IsActive(self):
+        return True
+
+    def GetResources(self):
+        return recursos(
+            "nivel_bim.svg",
+            "Nível do BIM",
+            "Cria um nível da bancada BIM, com nome, cota e altura, e o torna o pavimento ativo",
+        )
+
+
 class MoverParaPavimento:
     """Move os símbolos selecionados para as pastas de outro pavimento."""
 
@@ -75,4 +108,5 @@ class MoverParaPavimento:
 
 
 Gui.addCommand("DefinirPavimento", DefinirPavimento())
+Gui.addCommand("AdicionarNivelBIM", AdicionarNivelBIM())
 Gui.addCommand("MoverParaPavimento", MoverParaPavimento())
