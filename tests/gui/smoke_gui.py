@@ -338,6 +338,13 @@ def scenario(doc):
                      if hasattr(o, "conexoes_3d_de")],
         "contorno": [(o.Label, len(o.Shape.Edges)) for o in doc.Objects if hasattr(o, "contorno_bandejas_de")],
     }
+    run("SimbolosVerticais")
+    run("SimbolosVerticais")  # segunda execução: precisa substituir, não duplicar
+    run("DetalharVerticais")
+    run("DetalharVerticais")
+    result["steps"]["verticais_simbolos"] = sorted(o.Label for o in doc.Objects if hasattr(o, "simbolo_vertical")
+                                                   and o.TypeId == "Part::Feature")
+    result["steps"]["verticais_detalhes"] = [o.Label for o in doc.Objects if o.Name.startswith("Detalhe_V")]
 
     run("ImportQET")
     result["steps"]["qet"] = [o for o in snapshot(doc) if "circuits_smoke_sample" in o["name"]]

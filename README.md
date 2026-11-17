@@ -191,6 +191,17 @@ Os fios são contados pelo caminho mais curto na rede, do quadro até os pontos 
 
 O botão **Fiação** desenha na planta os traços de fase, neutro e terra ao lado de cada ponto.
 
+### Subidas, descidas e detalhes das verticais
+
+- **Infraestrutura > Subidas e descidas** desenha na planta o símbolo de cada vertical, com o texto ao lado (`Ø3/4" desce 2,50 m`, `EL 200x50 sobe 0,50 m`):
+  - eletroduto: círculo com seta; a seta aponta para o círculo quando desce, para fora quando sobe, e para os dois lados onde um eletroduto do teto encontra um do piso;
+  - eletrocalha e leito: a seção da bandeja com a diagonal e a seta.
+  
+  Entram as descidas até as caixas, os encontros de eletrodutos em alturas diferentes e os trechos verticais das bandejas. Para não desenhar o símbolo em toda caixa, mude *Símbolo de descida em cada caixa* para `N` em **Projeto > Parâmetros**.
+- **Infraestrutura > Detalhar verticais** desenha ao lado da planta um detalhe em elevação por tipo de vertical (V1, V2...): piso, laje, cotas de altura, trecho horizontal, caixa ou curvas verticais (CVE e CVI), a quantidade e onde ficam. Verticais iguais (mesmo diâmetro ou seção, sentido e alturas) dividem o mesmo detalhe.
+
+O encontro de dois eletrodutos em alturas diferentes entra nos quantitativos como eletroduto vertical.
+
 ## Bandejas e leitos
 
 1. Desenhe o trajeto com linhas (o botão **Bandeja/leito** sem nada selecionado abre a ferramenta de linha). Um ramal que sai do meio de outra bandeja é desenhado com a ponta sobre ela.

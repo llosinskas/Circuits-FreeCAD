@@ -197,7 +197,7 @@ def levantar_por_pavimento(doc, fiacao=None):
         de(pavimento)["componentes"].append(_conector(quantidade))
     for pavimento, fios in fiacao.get("fios_por_pavimento", {}).items():
         de(pavimento)["fios"] = fios
-    for vertical in fiacao["verticais"]:
+    for vertical in fiacao["verticais"] + fiacao.get("transicoes", []):  # e as mudanças de altura entre eletrodutos
         de(vertical.get("pavimento", ""))["verticais"].append(vertical)
 
     resultado = []
@@ -225,7 +225,7 @@ def levantar(doc):
     componentes = componentes + [item for _, itens in _bandejas(doc) for item in itens]
     linhas = regras.montar(
         coletar_pontos(doc), coletar_eletrodutos(doc), componentes,
-        fios=fiacao["fios"], verticais=fiacao["verticais"], aterramento=condutores,
+        fios=fiacao["fios"], verticais=fiacao["verticais"] + fiacao.get("transicoes", []), aterramento=condutores,
     )
     return linhas, fiacao
 

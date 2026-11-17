@@ -4,7 +4,7 @@ import FreeCADGui as Gui
 
 from freecad.Circuits.commands._base import documento_ou_aviso, recursos
 from freecad.Circuits.qt import QtWidgets
-from freecad.Circuits.services import rede
+from freecad.Circuits.services import rede, verticais
 
 
 class ConectarEletrodutos:
@@ -75,5 +75,61 @@ class ListaVerticais:
         )
 
 
+class SimbolosVerticais:
+    """Desenha na planta os símbolos de subida e descida de eletrodutos e eletrocalhas."""
+
+    def Activated(self):
+        doc = documento_ou_aviso()
+        if not doc:
+            return
+        quantidade = verticais.desenhar_simbolos(doc)
+        if not quantidade:
+            QtWidgets.QMessageBox.information(
+                None, "Subidas e descidas",
+                "Nenhuma vertical encontrada: conecte os eletrodutos às caixas, desenhe eletrodutos em alturas "
+                "diferentes que se encontram ou eletrocalhas em alturas diferentes.",
+            )
+            return
+        App.Console.PrintMessage(f"{quantidade} símbolo(s) de subida e descida desenhado(s) na planta.\n")
+
+    def IsActive(self):
+        return True
+
+    def GetResources(self):
+        return recursos(
+            "subidas_descidas.svg",
+            "Subidas e descidas",
+            "Símbolos de subida e descida na planta: eletroduto até as caixas, entre alturas diferentes "
+            "(teto e piso) e eletrocalhas verticais, com diâmetro ou seção e comprimento",
+        )
+
+
+class DetalharVerticais:
+    """Desenha um detalhe em elevação de cada tipo de vertical (V1, V2...)."""
+
+    def Activated(self):
+        doc = documento_ou_aviso()
+        if not doc:
+            return
+        quantidade = verticais.desenhar_detalhes(doc)
+        if not quantidade:
+            QtWidgets.QMessageBox.information(None, "Detalhar verticais", "Nenhuma vertical de eletroduto ou eletrocalha.")
+            return
+        App.Console.PrintMessage(f"{quantidade} detalhe(s) de verticais desenhado(s) ao lado da planta.\n")
+
+    def IsActive(self):
+        return True
+
+    def GetResources(self):
+        return recursos(
+            "detalhe_verticais.svg",
+            "Detalhar verticais",
+            "Detalhe em elevação de cada tipo de vertical de eletroduto e eletrocalha: piso, laje, alturas, "
+            "curvas, caixa e quantidade",
+        )
+
+
 Gui.addCommand("ConectarEletrodutos", ConectarEletrodutos())
 Gui.addCommand("ListaVerticais", ListaVerticais())
+Gui.addCommand("SimbolosVerticais", SimbolosVerticais())
+Gui.addCommand("DetalharVerticais", DetalharVerticais())

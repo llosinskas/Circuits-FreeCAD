@@ -114,7 +114,8 @@ GROUNDING_TOOLS = [
 BOARD_SYMBOL_TOOLS = ["Ponto_quadro_distribuicao", "Ponto_quadro_comando", "Ponto_quadro_medicao", "Ponto_medicao_agrupada"]
 CIRCUIT_TOOLS = ["DefinirCircuito", "LigarInterruptor", "IdentificarPontos"]
 INFRA_TOOLS = [
-    "InsertConduit", "Ponto_caixa_passagem", "ConectarEletrodutos", "Add_Node", "ListaVerticais", "Cabo",
+    "InsertConduit", "Ponto_caixa_passagem", "ConectarEletrodutos", "Add_Node", "ListaVerticais",
+    "SimbolosVerticais", "DetalharVerticais", "Cabo",
     "InsertCableTray", "GerarSuportes",
 ]
 BOARD_DATA_TOOLS = ["GerarPlanilha", "CircuitosQuadro", "AddCircuito"]

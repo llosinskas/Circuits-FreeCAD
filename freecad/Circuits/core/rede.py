@@ -19,6 +19,10 @@ Como a fiação é estimada:
 import heapq
 import math
 
+from freecad.Circuits.core.tables.eletrodutos import DIAMETROS_EXTERNOS
+
+TOLERANCIA_ALTURA_MM = 10.0
+
 TOLERANCIA_CONEXAO_MM = 50.0
 TOLERANCIA_ENCAIXE_MM = 300.0
 FOLGA_PONTA_MM = 300.0
@@ -95,6 +99,7 @@ class Rede:
         self.altura = []
         self.diametro = []
         self.vizinhos = []
+        self.chegando = []  # (altura, diâmetro) de cada eletroduto com vértice no nó
 
     @classmethod
     def construir(cls, caminhos, tolerancia=TOLERANCIA_CONEXAO_MM):
@@ -114,12 +119,31 @@ class Rede:
     def _no(self, ponto, altura, diametro):
         for indice, existente in enumerate(self.nos):
             if distancia(ponto, existente) <= self.tolerancia:
+                self.chegando[indice].append((float(altura), str(diametro)))
                 return indice
         self.nos.append(tuple(ponto))
         self.altura.append(float(altura))
         self.diametro.append(str(diametro))
         self.vizinhos.append({})
+        self.chegando.append([(float(altura), str(diametro))])
         return len(self.nos) - 1
+
+    def transicoes(self):
+        """Nós onde chegam eletrodutos de alturas diferentes (ex.: do teto para o piso).
+
+        Returns:
+            Lista de {'x', 'y', 'de', 'ate' [mm], 'comprimento' [m], 'diametro'}: a
+            vertical entre a menor e a maior altura, no maior diâmetro que chega.
+        """
+        resultado = []
+        for (x, y), chegando in zip(self.nos, self.chegando):
+            alturas = [altura for altura, _ in chegando]
+            if max(alturas) - min(alturas) <= TOLERANCIA_ALTURA_MM:
+                continue
+            diametro = max((d for _, d in chegando), key=lambda d: DIAMETROS_EXTERNOS.get(d, 0.0))
+            resultado.append({"x": float(x), "y": float(y), "de": min(alturas), "ate": max(alturas),
+                              "comprimento": round((max(alturas) - min(alturas)) / 1000.0, 2), "diametro": diametro})
+        return resultado
 
     def _ligar_trecho(self, a, b):
         """Liga A a B passando pelos nós que caem sobre o trecho (derivações em T)."""
@@ -219,6 +243,8 @@ def analisar(caminhos, caixas, info_circuito, folga=FOLGA_PONTA_MM, tolerancia=T
             verticais.append({
                 "pavimento": caixa.get("pavimento", ""),
                 "caixa": caixa["nome"],
+                "x": caixa["x"],
+                "y": caixa["y"],
                 "circuito": str(caixa.get("circuito", "")),
                 "altura_eletroduto": rede.altura[no],
                 "altura_caixa": float(caixa["altura"]),
@@ -328,7 +354,8 @@ def analisar(caminhos, caixas, info_circuito, folga=FOLGA_PONTA_MM, tolerancia=T
             entre, _, _ = lance(interruptores[0], interruptores[1:])
             somar(secao, "retorno", 2 * entre)
 
-    return {"fios": fios, "circuitos": circuitos, "verticais": verticais, "avisos": avisos}
+    return {"fios": fios, "circuitos": circuitos, "verticais": verticais, "avisos": avisos,
+            "transicoes": rede.transicoes()}
 
 
 def juntar(resultados):
@@ -337,7 +364,7 @@ def juntar(resultados):
     ``fios_por_pavimento`` guarda os fios de cada um, pela chave ``pavimento``
     do resultado ('' quando não informada).
     """
-    total = {"fios": {}, "circuitos": [], "verticais": [], "avisos": [], "fios_por_pavimento": {}}
+    total = {"fios": {}, "circuitos": [], "verticais": [], "avisos": [], "fios_por_pavimento": {}, "transicoes": []}
     for resultado in resultados:
         pavimento = resultado.get("pavimento", "")
         do_pav = total["fios_por_pavimento"].setdefault(pavimento, {})
@@ -347,4 +374,5 @@ def juntar(resultados):
             total["fios"][chave] = total["fios"].get(chave, 0.0) + metros
         for campo in ("circuitos", "verticais", "avisos"):
             total[campo] += resultado[campo]
+        total["transicoes"] += [dict(t, pavimento=pavimento) for t in resultado.get("transicoes", [])]
     return total

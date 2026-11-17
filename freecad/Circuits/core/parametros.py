@@ -32,6 +32,9 @@ CAMPOS = {
     "sensibilidade_dr": (30.0, "Sensibilidade do DR [mA]", "30 mA para proteção de pessoas"),
     "curva_iluminacao": ("B", "Curva dos disjuntores de iluminação", "B ou C"),
     "curva_tomadas": ("C", "Curva dos disjuntores de tomadas e uso específico", "B, C ou D"),
+    "simbolos_descida_caixas": ("S", "Símbolo de descida em cada caixa",
+                                "S: símbolo de subida/descida em toda caixa fora da altura do eletroduto; "
+                                "N: só nas mudanças de altura entre eletrodutos e nas eletrocalhas"),
 }
 PADROES = {nome: dados[0] for nome, dados in CAMPOS.items()}
 _ESCOLHAS = {
@@ -40,6 +43,7 @@ _ESCOLHAS = {
     "material": MATERIAIS,
     "curva_iluminacao": ("B", "C", "D"),
     "curva_tomadas": ("B", "C", "D"),
+    "simbolos_descida_caixas": ("S", "N"),
 }
 
 

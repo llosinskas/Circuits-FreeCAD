@@ -248,6 +248,19 @@ class TestServico(unittest.TestCase):
         with mock.patch.object(self.servico.pavimentos, "listar", return_value=pavs):
             self.assertEqual(self.servico._ordem_dos_pavimentos(None, {"", "Térreo", "Superior"}), ["Superior", "Térreo", ""])
 
+    def test_mudanca_de_altura_entre_eletrodutos_entra_como_vertical(self):
+        fiacao = {"fios": {}, "verticais": [], "circuitos": [], "avisos": [],
+                  "transicoes": [{"diametro": "1", "comprimento": 2.9, "pavimento": ""}]}
+        doc = types.SimpleNamespace(Label="Casa", FileName="", Objects=[])
+        with mock.patch.object(self.servico, "coletar_componentes_quadros", return_value=[]), \
+                mock.patch.object(self.servico, "_componentes_por_quadro", return_value=[]), \
+                mock.patch.object(self.servico.rede, "analisar", return_value=fiacao):
+            linhas = self.servico.calcular(doc)
+            por_pav = dict(self.servico.levantar_por_pavimento(doc, fiacao))
+        esperado = ("Eletroduto", "1\" verticais (inclui 10% de perdas)")
+        self.assertEqual({(l["item"], l["especificacao"]): l["quantidade"] for l in linhas}[esperado], 3.19)
+        self.assertEqual({(l["item"], l["especificacao"]): l["quantidade"] for l in por_pav[""]}[esperado], 3.19)
+
     def test_componentes_dos_quadros(self):
         quadro = object()
         with mock.patch.object(self.servico.planilhas, "listar_quadros", return_value=[quadro, quadro]), \
