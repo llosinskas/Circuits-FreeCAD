@@ -8,11 +8,16 @@ posiciona os suportes ao longo dos trechos retos:
 - dois trechos com mudança de direção: curva horizontal (90°, 45° ou o ângulo medido);
 - dois trechos alinhados: emenda;
 - três trechos: tê horizontal; quatro: cruzeta horizontal;
-- ponta de um trecho sobre o meio de outro: o outro é dividido e vira tê.
+- ponta de um trecho sobre o meio de outro: o outro é dividido e vira tê;
+- trecho mais estreito que a bandeja principal do nó: redução;
+- trecho em outra altura: curvas verticais externa e interna e o trecho
+  vertical entre as duas alturas.
 
 Suportes: um a ``DISTANCIA_SUPORTE_CONEXAO`` de cada nó e os intermediários
 com vão de no máximo ``VAO_SUPORTE``. Cada suporte é um trapézio suspenso
-(perfilado sob a bandeja e dois tirantes até a laje).
+(perfilado sob a bandeja e dois tirantes até a laje); nos trechos verticais,
+suportes de parede. A fixação soma os parafusos das emendas e dos terminais
+e os grampos da bandeja no perfilado.
 
 Regras de catálogo usuais, não de um fabricante: confira o vão com o
 fabricante e o peso dos cabos.
@@ -46,8 +51,16 @@ CURVA = "Curva horizontal"
 TE = "Tê horizontal"
 CRUZETA = "Cruzeta horizontal"
 DERIVACAO = "Derivação especial"
+REDUCAO = "Redução"
+CURVA_VERTICAL_EXTERNA = "Curva vertical externa 90°"
+CURVA_VERTICAL_INTERNA = "Curva vertical interna 90°"
 GRUPO = "Bandejas e leitos"
 GRUPO_SUPORTES = "Suportes"
+GRUPO_FIXACAO = "Fixação"
+PARAFUSO = "Parafuso cabeça lentilha 1/4\" x 5/8\" com porca e arruela"
+PARAFUSOS_POR_EMENDA = 8  # 4 em cada tala
+PARAFUSOS_POR_TERMINAL = 4
+TOLERANCIA_ALTURA_MM = 10.0
 
 
 def nome_do_tipo(tipo):
@@ -167,17 +180,68 @@ def _suportes_do_trecho(comprimento, vao, distancia_no=DISTANCIA_SUPORTE_CONEXAO
     return [primeiro + passo * i for i in range(intervalos + 1)]
 
 
+def _secao_de(trecho):
+    return float(trecho["largura"] or 0), float(trecho["aba"] or 0)
+
+
+def _pecas_do_no(rede, indice):
+    """Peças do nó: a horizontal (terminal, curva, tê, cruzeta), as reduções e as curvas verticais.
+
+    A bandeja principal do nó é a mais larga; a peça horizontal tem a seção
+    dela. Cada trecho mais estreito leva uma redução (da principal para ele), e
+    cada trecho em outra altura leva um par de curvas verticais (externa no
+    alto, interna embaixo) e o trecho vertical entre as duas alturas.
+
+    Returns:
+        (peças, verticais): listas de dicionários.
+    """
+    ligados = rede.ligados(indice)
+    if not ligados:
+        return [], []
+    x, y = rede.nos[indice]
+    principal = max(ligados, key=lambda t: (_secao_de(t), -ligados.index(t)))
+
+    def peca(nome, trecho, **extra):
+        return dict({"x": x, "y": y, "no": indice, "peca": nome, "tipo": trecho["tipo"], "largura": trecho["largura"],
+                     "aba": trecho["aba"], "altura": trecho["altura"], "angulo": rede.direcao(trecho, indice)}, **extra)
+
+    pecas, verticais = [], []
+    horizontal = conexao_do_no(rede, indice)
+    if horizontal != EMENDA:
+        pecas.append(peca(horizontal, principal))
+    altura_principal = float(principal["altura"] or 0)
+    for trecho in ligados:
+        if trecho is principal:
+            continue
+        if float(trecho["largura"] or 0) < float(principal["largura"] or 0) - 1e-6:
+            pecas.append(peca(REDUCAO, principal, para_largura=trecho["largura"], para_aba=trecho["aba"]))
+        diferenca = float(trecho["altura"] or 0) - altura_principal
+        if abs(diferenca) > TOLERANCIA_ALTURA_MM:
+            pecas.append(peca(CURVA_VERTICAL_EXTERNA, trecho))
+            pecas.append(peca(CURVA_VERTICAL_INTERNA, trecho))
+            verticais.append({
+                "x": x, "y": y, "tipo": trecho["tipo"], "largura": trecho["largura"], "aba": trecho["aba"],
+                "de": min(altura_principal, float(trecho["altura"])), "ate": max(altura_principal, float(trecho["altura"])),
+                "comprimento": abs(diferenca), "angulo": rede.direcao(trecho, indice), "nome": trecho["nome"],
+                "sentido": "sobe" if diferenca > 0 else "desce",
+            })
+    return pecas, verticais
+
+
 def analisar(caminhos, tolerancia=TOLERANCIA_MM):
-    """Conexões, trechos e suportes das bandejas de um pavimento.
+    """Conexões, trechos, verticais e suportes das bandejas de um pavimento.
 
     Args:
         caminhos: dicionários com ``pontos`` [(x, y) mm], ``tipo`` (chave de
             ``TIPOS``), ``largura`` e ``aba`` [mm], ``altura`` (do piso à base,
             mm), ``tampa`` (bool) e ``nome``.
     Returns:
-        Dicionário com ``conexoes`` (x, y, peca, tipo, largura, aba, angulo),
-        ``trechos`` (tipo, largura, aba, tampa, comprimento mm, x1, y1, x2, y2,
-        altura) e ``suportes`` (x, y, angulo, tipo, largura, altura).
+        Dicionário com ``conexoes`` (x, y, no, peca, tipo, largura, aba, angulo;
+        nas reduções também para_largura e para_aba), ``trechos`` (tipo, largura,
+        aba, tampa, comprimento mm, x1, y1, x2, y2, altura), ``verticais`` (x, y,
+        tipo, largura, aba, de, ate, comprimento mm, angulo, nome, sentido) e
+        ``suportes`` (x, y, angulo, tipo, largura, altura; nos verticais,
+        ``vertical`` = True).
     """
     rede = Rede(tolerancia)
     for caminho in caminhos:
@@ -185,17 +249,11 @@ def analisar(caminhos, tolerancia=TOLERANCIA_MM):
         rede.adicionar(caminho["pontos"], dados)
     rede.dividir_derivacoes()
 
-    conexoes = []
-    for indice, (x, y) in enumerate(rede.nos):
-        peca = conexao_do_no(rede, indice)
-        if peca is None or peca == EMENDA:
-            continue
-        ligados = rede.ligados(indice)
-        principal = max(ligados, key=lambda t: float(t["largura"] or 0))
-        conexoes.append({
-            "x": x, "y": y, "peca": peca, "tipo": principal["tipo"], "largura": principal["largura"],
-            "aba": principal["aba"], "altura": principal["altura"], "angulo": rede.direcao(principal, indice),
-        })
+    conexoes, verticais = [], []
+    for indice in range(len(rede.nos)):
+        pecas, do_no = _pecas_do_no(rede, indice)
+        conexoes += pecas
+        verticais += do_no
 
     trechos, suportes = [], []
     for trecho in rede.trechos:
@@ -214,16 +272,33 @@ def analisar(caminhos, tolerancia=TOLERANCIA_MM):
                 "x": x1 + (x2 - x1) * t, "y": y1 + (y2 - y1) * t, "angulo": angulo, "tipo": trecho["tipo"],
                 "largura": trecho["largura"], "altura": trecho["altura"], "nome": trecho["nome"],
             })
-    return {"conexoes": conexoes, "trechos": trechos, "suportes": suportes}
+    for vertical in verticais:
+        vao = VAO_SUPORTE.get(vertical["tipo"], VAO_SUPORTE[TIPO_PADRAO])
+        for _ in range(max(1, math.ceil(vertical["comprimento"] / vao - 1e-9))):
+            suportes.append({"x": vertical["x"], "y": vertical["y"], "angulo": vertical["angulo"],
+                             "tipo": vertical["tipo"], "largura": vertical["largura"], "altura": vertical["de"],
+                             "nome": vertical["nome"], "vertical": True})
+    return {"conexoes": conexoes, "trechos": trechos, "verticais": verticais, "suportes": suportes}
+
+
+def _lados(peca):
+    """Quantos lados da peça são ligados a um trecho por uma emenda."""
+    if peca == TERMINAL:
+        return 0
+    return {TE: 3, CRUZETA: 4}.get(peca, 2)
 
 
 def materiais(resultado, pe_direito_mm=3000.0, com_suportes=True):
     """Itens do quantitativo das bandejas, no formato dos componentes de ``core.quantitativos.montar``.
 
+    Grupos: "Bandejas e leitos" (metros, peças, emendas, tampa), "Suportes"
+    (suspensos e de parede, perfilado, tirantes, chumbadores) e "Fixação"
+    (parafusos das emendas e das peças, grampos da bandeja no perfilado).
+
     Args:
         resultado: saída de ``analisar``.
         pe_direito_mm: do piso à laje de cima; o tirante vai da laje à base da bandeja.
-        com_suportes: inclui os materiais dos suportes.
+        com_suportes: inclui os materiais dos suportes e da fixação deles.
     """
     somas = {}
 
@@ -231,32 +306,49 @@ def materiais(resultado, pe_direito_mm=3000.0, com_suportes=True):
         chave = (grupo, item, especificacao, unidade)
         somas[chave] = somas.get(chave, 0) + quantidade
 
-    for trecho in resultado["trechos"]:
+    emendas = 0
+    for trecho in resultado["trechos"] + resultado.get("verticais", []):
         secao = medida(trecho["largura"], trecho["aba"])
         metros = trecho["comprimento"] / 1000.0 * (1 + PERDA_BANDEJA)
         somar(GRUPO, nome_do_tipo(trecho["tipo"]), f"{secao}, barras de 3 m (inclui {PERDA_BANDEJA:.0%} de perdas)",
               "m", metros)
-        emendas = max(0, math.ceil(trecho["comprimento"] / COMPRIMENTO_BARRA_MM - 1e-9) - 1)
-        if emendas:
-            somar(GRUPO, "Emenda (par de talas)", secao, "un", emendas)
-        if trecho["tampa"]:
+        no_meio = max(0, math.ceil(trecho["comprimento"] / COMPRIMENTO_BARRA_MM - 1e-9) - 1)
+        if no_meio:
+            somar(GRUPO, "Emenda (par de talas)", secao, "un", no_meio)
+            emendas += no_meio
+        if trecho.get("tampa"):
             somar(GRUPO, "Tampa de encaixe", f"largura {float(trecho['largura']):g} mm", "m", metros)
     for conexao in resultado["conexoes"]:
         secao = medida(conexao["largura"], conexao["aba"])
-        somar(GRUPO, conexao["peca"], f"{nome_do_tipo(conexao['tipo'])} {secao}", "un", 1)
-        if conexao["peca"] != TERMINAL:  # cada lado da peça é ligado ao trecho por um par de talas
-            lados = {TE: 3, CRUZETA: 4}.get(conexao["peca"], 2)
+        especificacao = f"{nome_do_tipo(conexao['tipo'])} {secao}"
+        if conexao["peca"] == REDUCAO:
+            especificacao += f" para {float(conexao['para_largura']):g} mm"
+        somar(GRUPO, conexao["peca"], especificacao, "un", 1)
+        lados = _lados(conexao["peca"])
+        if lados:
             somar(GRUPO, "Emenda (par de talas)", secao, "un", lados)
+            emendas += lados
+        else:  # o terminal é parafusado na ponta da bandeja
+            somar(GRUPO_FIXACAO, PARAFUSO, "no terminal de fechamento", "un", PARAFUSOS_POR_TERMINAL)
+    if emendas:
+        somar(GRUPO_FIXACAO, PARAFUSO, "nas emendas", "un", emendas * PARAFUSOS_POR_EMENDA)
 
     if com_suportes:
         for suporte in resultado["suportes"]:
+            largura = float(suporte["largura"])
+            if suporte.get("vertical"):
+                somar(GRUPO_SUPORTES, "Suporte de parede para trecho vertical", f"para largura {largura:g} mm", "un", 1)
+                somar(GRUPO_SUPORTES, "Chumbador 3/8\"", "na parede", "un", 2)
+                somar(GRUPO_FIXACAO, PARAFUSO, "bandeja no suporte de parede", "un", 2)
+                continue
             tirante = max(0.0, pe_direito_mm - float(suporte["altura"])) / 1000.0
-            perfilado = (float(suporte["largura"]) + FOLGA_PERFILADO_MM) / 1000.0
-            somar(GRUPO_SUPORTES, "Suporte suspenso (trapézio)", f"para largura {float(suporte['largura']):g} mm", "un", 1)
+            perfilado = (largura + FOLGA_PERFILADO_MM) / 1000.0
+            somar(GRUPO_SUPORTES, "Suporte suspenso (trapézio)", f"para largura {largura:g} mm", "un", 1)
             somar(GRUPO_SUPORTES, "Perfilado 38x38 mm", "", "m", perfilado)
             somar(GRUPO_SUPORTES, "Vergalhão roscado 3/8\"", "tirante até a laje", "m", 2 * tirante)
             somar(GRUPO_SUPORTES, "Chumbador 3/8\"", "na laje", "un", 2)
             somar(GRUPO_SUPORTES, "Porca e arruela 3/8\"", "", "un", 4)
+            somar(GRUPO_FIXACAO, "Grampo de fixação da bandeja no perfilado", "com parafuso e porca", "un", 2)
 
     return [
         {"grupo": grupo, "item": item, "especificacao": especificacao, "unidade": unidade,
@@ -266,10 +358,38 @@ def materiais(resultado, pe_direito_mm=3000.0, com_suportes=True):
 
 
 def rotulo_da_conexao(peca):
-    """Sigla da peça para o texto na planta: C90, C45, T, X, TF."""
+    """Sigla da peça para o texto na planta: C90, C45, T, X, TF, R, CVE, CVI."""
     if peca.startswith(CURVA):
         return "C" + peca[len(CURVA):].strip().rstrip("°")
-    return {TE: "T", CRUZETA: "X", TERMINAL: "TF", DERIVACAO: "D"}.get(peca, peca)
+    return {TE: "T", CRUZETA: "X", TERMINAL: "TF", DERIVACAO: "D", REDUCAO: "R",
+            CURVA_VERTICAL_EXTERNA: "CVE", CURVA_VERTICAL_INTERNA: "CVI"}.get(peca, peca)
+
+
+def rotulos_por_no(conexoes):
+    """{(x, y): 'C90 + R'}: as siglas de todas as peças de cada nó, juntas."""
+    por_no = {}
+    for conexao in conexoes:
+        siglas = por_no.setdefault((conexao["x"], conexao["y"]), [])
+        sigla = rotulo_da_conexao(conexao["peca"])
+        if sigla not in siglas:
+            siglas.append(sigla)
+    return {posicao: " + ".join(siglas) for posicao, siglas in por_no.items()}
+
+
+def blocos_da_vertical(largura, aba, de, ate):
+    """Blocos do trecho vertical no sistema local (x para o lado do trecho que sai do nó, y centrado, z do piso).
+
+    Fundo vertical e duas abas, de ``de`` até ``ate`` (mm, do piso).
+    """
+    largura, aba, e = float(largura), float(aba), ESPESSURA_MM
+    altura = float(ate) - float(de)
+    if altura <= 0:
+        return []
+    return [
+        (-e, -largura / 2.0, float(de), e, largura, altura + e),
+        (0.0, -largura / 2.0, float(de), aba, e, altura),
+        (0.0, largura / 2.0 - e, float(de), aba, e, altura),
+    ]
 
 
 ESPESSURA_MM = 3.0

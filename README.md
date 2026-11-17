@@ -82,7 +82,7 @@ Enquanto um símbolo acompanha o cursor:
 |---|---|
 | Clique | Fixa o símbolo e já traz o próximo do mesmo tipo |
 | **Espaço** (ou A) | Alinha com o símbolo mais próximo: um eixo, o outro eixo, solta |
-| **R** | Gira 90° |
+| **R** | Gira 90° (**Shift+R**, 45°); os próximos símbolos da sequência já vêm girados |
 | **L** | Liga ou desliga o alinhamento automático com os vizinhos |
 | **ESC** | Encerra |
 
@@ -175,10 +175,18 @@ O botão **Fiação** desenha na planta os traços de fase, neutro e terra ao la
 | T | Tê horizontal | três trechos no mesmo nó, ou a ponta de um ramal sobre outra bandeja |
 | X | Cruzeta horizontal | quatro trechos no mesmo nó |
 | TF | Terminal de fechamento | ponta solta |
+| R | Redução | trecho mais estreito que a bandeja principal do nó (a mais larga) |
+| CVE + CVI | Curvas verticais externa e interna 90°, com o trecho vertical entre elas | trecho em outra altura de instalação |
+
+Para subir ou descer, desenhe os trechos com alturas diferentes e com as pontas no mesmo ponto: a bancada conta as duas curvas verticais, o trecho vertical (que entra nos metros e no 3D) e os suportes de parede dele. As siglas de um mesmo ponto aparecem juntas, por exemplo `T + R` ou `C90 + CVE + CVI`.
 
 **Infraestrutura > Suportes** coloca um suporte suspenso a 50 cm de cada conexão e os intermediários com vão de até 1,5 m (eletrocalha) ou 2,0 m (leito). Cada suporte é um perfilado 38x38 sob a bandeja e dois tirantes de 3/8" até a laje (altura de piso a piso do pavimento); aparece como um traço na planta e no modelo 3D. Repetir o comando refaz os suportes.
 
-Nos quantitativos, os grupos *Bandejas e leitos* (metros por tipo e seção com 5 % de perdas, curvas, tês, cruzetas, terminais, emendas e tampa) e *Suportes* (suportes, perfilado, vergalhão roscado, chumbadores, porcas e arruelas) entram no total e em cada pavimento.
+Nos quantitativos, entram no total e em cada pavimento:
+
+- *Bandejas e leitos*: metros por tipo e seção com 5 % de perdas (inclusive os verticais), curvas horizontais e verticais, tês, cruzetas, reduções, terminais, emendas e tampa;
+- *Suportes*: suportes suspensos, perfilado, vergalhão roscado, chumbadores, porcas e arruelas, e os suportes de parede dos trechos verticais;
+- *Fixação*: parafusos cabeça lentilha 1/4" x 5/8" com porca e arruela (8 por emenda, 4 por terminal, 2 por suporte de parede) e 2 grampos da bandeja no perfilado por suporte.
 
 ## Documentação
 
@@ -253,7 +261,7 @@ As barras *Desenho*, *Modificador*, *Snap* e *Arquitetura* trazem as ferramentas
 - **Pressurização, recalque e luminotécnico:** pré-dimensionamentos com parâmetros genéricos, a conferir com as normas, o Corpo de Bombeiros, o projeto hidráulico e os catálogos.
 - **Padrões:** pontos em 127 V (220 V para chuveiro, ar-condicionado e ponto de força); DR marcado em todos os circuitos de tomadas e de uso específico.
 - **Símbolos:** convenção da bancada, não cópia de uma norma.
-- **Bandejas e leitos:** só conexões horizontais; mudanças de altura (curvas verticais) e reduções de largura não são identificadas. Vão dos suportes e materiais por regras usuais de catálogo, não de um fabricante.
+- **Bandejas e leitos:** curvas verticais sempre de 90° e a altura de cada linha é única (para subir, divida em duas linhas); no 3D, reduções aparecem como o encontro de duas larguras, sem a peça desenhada. Vão dos suportes, parafusos e materiais por regras usuais de catálogo, não de um fabricante.
 
 A lista completa está em "Problemas conhecidos" do [AGENTS.md](AGENTS.md), e o plano de evolução em [docs/Revisao_e_Roadmap_Predial.md](docs/Revisao_e_Roadmap_Predial.md).
 

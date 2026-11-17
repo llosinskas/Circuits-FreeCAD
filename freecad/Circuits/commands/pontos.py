@@ -61,7 +61,7 @@ class InserirPonto:
 
     def GetResources(self):
         dados = CATALOGO[self.simbolo]
-        dica = f"{dados['dica']}. Clique fixa e repete; R gira; Espaço alinha com o vizinho; ESC encerra"
+        dica = f"{dados['dica']}. Clique fixa e repete; R gira 90° (Shift+R 45°); Espaço alinha com o vizinho; ESC encerra"
         return recursos(f"simbologia/{self.simbolo}.svg", dados["legenda"], dica)
 
 

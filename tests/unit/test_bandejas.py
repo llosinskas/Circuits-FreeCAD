@@ -62,6 +62,40 @@ class TestConexoes(unittest.TestCase):
         self.assertIn(regras.CRUZETA, pecas(resultado))
         self.assertEqual(pecas(resultado).count(regras.TERMINAL), 4)
 
+    def test_reducao_quando_a_largura_muda(self):
+        reta = regras.analisar([caminho([(0, 0), (3000, 0)], largura=300, nome="A"),
+                                caminho([(3000, 0), (6000, 0)], largura=200, nome="B")])
+        self.assertEqual(pecas(reta), [regras.REDUCAO, regras.TERMINAL, regras.TERMINAL])
+        reducao = next(c for c in reta["conexoes"] if c["peca"] == regras.REDUCAO)
+        self.assertEqual((reducao["largura"], reducao["para_largura"]), (300, 200))
+        # ramal mais estreito num tê: tê da principal e redução para o ramal
+        te = regras.analisar([caminho([(0, 0), (6000, 0)], largura=300), caminho([(3000, 0), (3000, 2000)], largura=100)])
+        self.assertEqual(pecas(te).count(regras.REDUCAO), 1)
+        self.assertIn(regras.TE, pecas(te))
+
+    def test_curvas_verticais_quando_a_altura_muda(self):
+        resultado = regras.analisar([caminho([(0, 0), (3000, 0)], altura=2800.0, nome="A"),
+                                     caminho([(3000, 0), (3000, 3000)], altura=2300.0, nome="B")])
+        nomes = pecas(resultado)
+        self.assertIn("Curva horizontal 90°", nomes)
+        self.assertIn(regras.CURVA_VERTICAL_EXTERNA, nomes)
+        self.assertIn(regras.CURVA_VERTICAL_INTERNA, nomes)
+        (vertical,) = resultado["verticais"]
+        self.assertEqual((vertical["de"], vertical["ate"], vertical["comprimento"], vertical["sentido"], vertical["nome"]),
+                         (2300.0, 2800.0, 500.0, "desce", "B"))
+        self.assertEqual(len([s for s in resultado["suportes"] if s.get("vertical")]), 1)
+        rotulos = regras.rotulos_por_no(resultado["conexoes"])
+        self.assertEqual(rotulos[(3000.0, 0.0)], "C90 + CVE + CVI")
+        # diferença pequena (até 1 cm) não é curva vertical
+        self.assertEqual(regras.analisar([caminho([(0, 0), (3000, 0)], altura=2800.0),
+                                          caminho([(3000, 0), (6000, 0)], altura=2805.0)])["verticais"], [])
+
+    def test_bloco_da_vertical(self):
+        blocos = regras.blocos_da_vertical(200, 50, 2300, 2800)
+        self.assertEqual(len(blocos), 3)
+        self.assertEqual(blocos[1][2] + blocos[1][5], 2800.0)
+        self.assertEqual(regras.blocos_da_vertical(200, 50, 2800, 2800), [])
+
     def test_rotulos(self):
         self.assertEqual(regras.rotulo_da_conexao("Curva horizontal 90°"), "C90")
         self.assertEqual([regras.rotulo_da_conexao(p) for p in (regras.TE, regras.CRUZETA, regras.TERMINAL)],
@@ -103,12 +137,31 @@ class TestMateriais(unittest.TestCase):
         self.assertEqual(itens[("Suportes", "Vergalhão roscado 3/8\"", "tirante até a laje")], round(suportes * 0.4, 2))
         self.assertEqual(itens[("Suportes", "Chumbador 3/8\"", "na laje")], 2 * suportes)
 
+    def test_fixacao_vertical_e_reducao(self):
+        resultado = regras.analisar([caminho([(0, 0), (3000, 0)], largura=300, altura=2800.0, nome="A"),
+                                     caminho([(3000, 0), (6000, 0)], largura=200, altura=2300.0, nome="B")])
+        itens = {(i["grupo"], i["item"], i["especificacao"]): i["quantidade"] for i in regras.materiais(resultado)}
+        self.assertEqual(itens[("Bandejas e leitos", "Redução", "Eletrocalha perfurada 300x50 mm para 200 mm")], 1)
+        self.assertEqual(itens[("Bandejas e leitos", regras.CURVA_VERTICAL_EXTERNA, "Eletrocalha perfurada 200x50 mm")], 1)
+        # 3 m + 0,5 m de vertical na seção 200x50, com 5 % de perdas
+        self.assertEqual(itens[("Bandejas e leitos", "Eletrocalha perfurada",
+                                "200x50 mm, barras de 3 m (inclui 5% de perdas)")], 3.68)
+        emendas = sum(q for (g, i, _), q in itens.items() if i == "Emenda (par de talas)")
+        self.assertEqual(emendas, 6)  # redução e as duas curvas verticais, dois lados cada
+        self.assertEqual(itens[("Fixação", regras.PARAFUSO, "nas emendas")], 6 * regras.PARAFUSOS_POR_EMENDA)
+        self.assertEqual(itens[("Fixação", regras.PARAFUSO, "no terminal de fechamento")], 2 * regras.PARAFUSOS_POR_TERMINAL)
+        suspensos = len([s for s in resultado["suportes"] if not s.get("vertical")])
+        self.assertEqual(itens[("Fixação", "Grampo de fixação da bandeja no perfilado", "com parafuso e porca")],
+                         2 * suspensos)
+        self.assertEqual(itens[("Suportes", "Suporte de parede para trecho vertical", "para largura 200 mm")], 1)
+
     def test_entram_no_quantitativo_em_ordem(self):
         itens = regras.materiais(regras.analisar([caminho([(0, 0), (3000, 0)])]))
         linhas = quantitativos.montar([], [("3/4", 1000.0)], itens)
         grupos = [l["grupo"] for l in linhas]
         self.assertLess(grupos.index("Eletrodutos"), grupos.index("Bandejas e leitos"))
         self.assertLess(grupos.index("Bandejas e leitos"), grupos.index("Suportes"))
+        self.assertLess(grupos.index("Suportes"), grupos.index("Fixação"))
 
 
 class TestBlocos(unittest.TestCase):

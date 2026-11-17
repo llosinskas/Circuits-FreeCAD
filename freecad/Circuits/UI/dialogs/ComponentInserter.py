@@ -325,12 +325,47 @@ class ComponentInserter:
         return count
 
 
+def _criar_filtro_de_teclas(modo):
+    """Filtro do Qt que entrega R, Shift+R, Espaço, A, L e ESC ao modo de inserção.
+
+    Sem ele, o Qt trata essas teclas como início de um atalho (o Draft usa
+    "R, O" e "R, E", a bancada "A, L", o FreeCAD Espaço para mostrar/ocultar) e
+    elas nunca chegam à vista 3D. Enquanto um campo de texto tem o foco, as
+    teclas seguem para ele normalmente.
+    """
+    Qt, QEvent = QtCore.Qt, QtCore.QEvent
+    teclas = {Qt.Key_R: "R", Qt.Key_A: "A", Qt.Key_L: "L", Qt.Key_Space: "SPACE", Qt.Key_Escape: "ESCAPE"}
+    campos = tuple(getattr(QtWidgets, nome) for nome in ("QLineEdit", "QAbstractSpinBox", "QTextEdit", "QPlainTextEdit")
+                   if hasattr(QtWidgets, nome))
+
+    class FiltroDeTeclas(QtCore.QObject):
+        def eventFilter(self, alvo, evento):
+            try:
+                tipo = evento.type()
+                if tipo not in (QEvent.ShortcutOverride, QEvent.KeyPress) or not modo.is_active:
+                    return False
+                nome = teclas.get(evento.key())
+                if nome is None or isinstance(QtWidgets.QApplication.focusWidget(), campos):
+                    return False
+                if tipo == QEvent.ShortcutOverride:
+                    evento.accept()  # impede o atalho; o KeyPress vem em seguida
+                    return True
+                if not evento.isAutoRepeat():
+                    modo.tratar_tecla(nome, bool(evento.modifiers() & Qt.ShiftModifier))
+                return True
+            except Exception:
+                return False
+
+    return FiltroDeTeclas()
+
+
 class ComponentInsertionMode:
     """Modo interativo para posicionar um objeto com o cursor do mouse.
 
     Teclas durante a inserção:
         clique   fixa o objeto
-        R        gira 90° em torno de Z
+        R        gira 90° em torno de Z (Shift+R gira 45°); a rotação vale
+                 para os próximos objetos da mesma sequência
         Espaço   alinha com o símbolo mais próximo: trava em um eixo, depois no
                  outro, depois solta (a tecla A faz o mesmo)
         L        liga ou desliga o alinhamento automático com os símbolos vizinhos
@@ -339,6 +374,7 @@ class ComponentInsertionMode:
 
     _active_instance = None  # Mantém a referência viva contra o Garbage Collector do Python
     _trava_da_sequencia = None  # trava herdada pelo próximo objeto de uma inserção em sequência
+    _rotacao_da_sequencia = None  # rotação herdada pelo próximo objeto de uma inserção em sequência
     TOLERANCIA_PIXELS = 10  # alcance do alinhamento automático, em pixels da tela
 
     def __init__(self, obj, ao_fixar=None, plano_z0=False, referencias=None, cota=None):
@@ -367,6 +403,28 @@ class ComponentInsertionMode:
         self.cb_mouse = None
         self.cb_move = None
         self.cb_key = None
+        self._filtro = None
+        rotacao = ComponentInsertionMode._rotacao_da_sequencia if ao_fixar else None
+        if rotacao is not None and hasattr(obj, "Placement"):
+            posicao = obj.Placement
+            posicao.Rotation = rotacao
+            obj.Placement = posicao
+
+    def _instalar_filtro(self):
+        try:
+            self._filtro = _criar_filtro_de_teclas(self)
+            QtWidgets.QApplication.instance().installEventFilter(self._filtro)
+        except Exception:
+            self._filtro = None  # sem Qt (testes): as teclas chegam pela vista 3D
+
+    def _remover_filtro(self):
+        if self._filtro is None:
+            return
+        try:
+            QtWidgets.QApplication.instance().removeEventFilter(self._filtro)
+        except Exception:
+            pass
+        self._filtro = None
 
     def start(self):
         if not self.view:
@@ -386,13 +444,16 @@ class ComponentInsertionMode:
         self.cb_mouse = self.view.addEventCallback("SoMouseButtonEvent", self.on_mouse)
         self.cb_move = self.view.addEventCallback("SoLocation2Event", self.on_move)
         self.cb_key = self.view.addEventCallback("SoKeyboardEvent", self.on_key)
+        self._instalar_filtro()
 
         self._avisar(
-            "Clique fixa | R gira | Espaço alinha com o símbolo vizinho | L alinhamento automático | ESC encerra"
+            "Clique fixa | R gira 90° (Shift+R 45°) | Espaço alinha com o símbolo vizinho | "
+            "L alinhamento automático | ESC encerra"
         )
 
     def stop(self):
         self.is_active = False
+        self._remover_filtro()
         if self.view:
             if self.cb_mouse:
                 self.view.removeEventCallback("SoMouseButtonEvent", self.cb_mouse)
@@ -462,6 +523,7 @@ class ComponentInsertionMode:
             App.ActiveDocument.recompute()
             if self.ao_fixar:
                 ComponentInsertionMode._trava_da_sequencia = self.trava
+                ComponentInsertionMode._rotacao_da_sequencia = getattr(self.obj.Placement, "Rotation", None)
                 self.ao_fixar()
 
     def _alternar_trava(self):
@@ -485,15 +547,27 @@ class ComponentInsertionMode:
             self._posicionar(*self._ultima_tela)
 
     def on_key(self, info):
-        """Teclas da inserção: R gira, Espaço/A alinha, L alterna o automático, ESC cancela."""
+        """Teclas pela vista 3D (quando o filtro do Qt não as pegou antes)."""
         if info["State"] != "DOWN":
             return
-        tecla = str(info["Key"]).upper()
-        if tecla == "R" and self.obj:
-            pl = self.obj.Placement
-            pl.Rotation = App.Rotation(App.Vector(0, 0, 1), 90).multiply(pl.Rotation)
-            self.obj.Placement = pl
-            self.view.redraw()
+        self.tratar_tecla(str(info["Key"]).upper(), bool(info.get("ShiftDown", False)))
+
+    def girar(self, graus=90.0):
+        """Gira o objeto em torno de Z, no ponto de inserção."""
+        if not self.obj or not hasattr(self.obj, "Placement"):
+            return
+        pl = self.obj.Placement
+        pl.Rotation = App.Rotation(App.Vector(0, 0, 1), graus).multiply(pl.Rotation)
+        self.obj.Placement = pl
+        self.view.redraw()
+        self._avisar(f"Girado {graus:g}°.")
+
+    def tratar_tecla(self, tecla, shift=False):
+        """R gira 90° (Shift+R, 45°), Espaço/A alinha, L alterna o automático, ESC cancela."""
+        if not self.is_active:
+            return
+        if tecla == "R":
+            self.girar(45.0 if shift else 90.0)
         elif tecla in ("SPACE", " ", "A"):
             self._alternar_trava()
         elif tecla == "L":
@@ -506,6 +580,7 @@ class ComponentInsertionMode:
     def cancelar(self):
         """Encerra a inserção e apaga o objeto que ainda não foi fixado."""
         ComponentInsertionMode._trava_da_sequencia = None
+        ComponentInsertionMode._rotacao_da_sequencia = None
         self.stop()
         try:
             if self.obj and self.obj.Document:

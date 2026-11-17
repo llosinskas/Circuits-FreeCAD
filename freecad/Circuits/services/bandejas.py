@@ -146,18 +146,39 @@ def _substituir(doc, nome, forma, cor):
     return objeto
 
 
+def _verticais_por_bandeja(doc):
+    """{nome da bandeja: trechos verticais dela}, de ``core.bandejas.analisar``."""
+    por_nome = {}
+    for resultado in analisar(doc).values():
+        for vertical in resultado["verticais"]:
+            por_nome.setdefault(vertical["nome"], []).append(vertical)
+    return por_nome
+
+
 def gerar_3d(doc, objetos=None):
     """Recria o modelo 3D de cada bandeja, na cota do piso + ``AlturaBandeja``.
+
+    Os trechos verticais (encontro com uma bandeja em outra altura) entram no
+    modelo da bandeja que chega ao nó.
 
     Returns:
         Quantidade de bandejas modeladas.
     """
     feitas = 0
+    verticais = _verticais_por_bandeja(doc)
     for obj in (objetos if objetos is not None else listar(doc)):
         if not eh_bandeja(obj):
             continue
-        cota = pavimentos.elevacao_do_objeto(doc, obj) + _mm(obj.AlturaBandeja)
-        modelo = _substituir(doc, f"{obj.Name}_3D", _forma_3d(obj, cota), COR_BANDEJA)
+        piso = pavimentos.elevacao_do_objeto(doc, obj)
+        cota = piso + _mm(obj.AlturaBandeja)
+        forma = _forma_3d(obj, cota)
+        subidas = []
+        for vertical in verticais.get(obj.Name, []):
+            blocos = regras.blocos_da_vertical(vertical["largura"], vertical["aba"], vertical["de"], vertical["ate"])
+            subidas += _solido(blocos, vertical["x"], vertical["y"], piso, vertical["angulo"])
+        if subidas:
+            forma = Part.makeCompound([forma] + subidas)
+        modelo = _substituir(doc, f"{obj.Name}_3D", forma, COR_BANDEJA)
         modelo.Label = f"{obj.Label} 3D"
         pavimentos.guardar_3d(doc, obj, modelo)
         feitas += 1
@@ -178,10 +199,11 @@ def _pasta_de(doc, pav_nome):
 
 
 def anotar_conexoes(doc, resultados=None):
-    """Recria os textos das conexões (C90, C45, T, X, TF) na planta, na pasta das bandejas.
+    """Recria os textos das conexões na planta, na pasta das bandejas: um por nó, com as siglas
+    das peças dele (C90, C45, T, X, TF, R, CVE, CVI), por exemplo "T + R".
 
     Returns:
-        Quantidade de conexões identificadas.
+        Quantidade de nós identificados.
     """
     resultados = resultados if resultados is not None else analisar(doc)
     _remover_marcados(doc, "conexao_bandeja")
@@ -189,13 +211,17 @@ def anotar_conexoes(doc, resultados=None):
     for pav, resultado in resultados.items():
         pasta = _pasta_de(doc, pav)
         cota = pavimentos.elevacao(pavimentos.por_nome(doc, pav)) if pasta is not None else 0.0
+        largura_no = {}
         for conexao in resultado["conexoes"]:
-            altura_texto = max(80.0, float(conexao["largura"]) * 0.5)
-            posicao = App.Vector(conexao["x"] + float(conexao["largura"]) * 0.6, conexao["y"] + altura_texto * 0.3, cota)
-            texto = Draft.make_text([regras.rotulo_da_conexao(conexao["peca"])],
-                                    placement=App.Placement(posicao, App.Rotation()), height=altura_texto)
-            texto.addProperty("App::PropertyString", "conexao_bandeja", "Bandeja", "Peça da bandeja neste ponto")
-            texto.conexao_bandeja = conexao["peca"]
+            posicao_no = (conexao["x"], conexao["y"])
+            largura_no[posicao_no] = max(largura_no.get(posicao_no, 0.0), float(conexao["largura"]))
+        for (x, y), rotulo in regras.rotulos_por_no(resultado["conexoes"]).items():
+            largura = largura_no[(x, y)]
+            altura_texto = max(80.0, largura * 0.5)
+            posicao = App.Vector(x + largura * 0.6, y + altura_texto * 0.3, cota)
+            texto = Draft.make_text([rotulo], placement=App.Placement(posicao, App.Rotation()), height=altura_texto)
+            texto.addProperty("App::PropertyString", "conexao_bandeja", "Bandeja", "Peças da bandeja neste ponto")
+            texto.conexao_bandeja = rotulo
             if pasta is not None:
                 pasta.addObject(texto)
             total += 1
@@ -230,6 +256,8 @@ def gerar_suportes(doc):
             nx, ny = -math.sin(angulo) * meia, math.cos(angulo) * meia
             linhas.append(Part.makeLine(App.Vector(suporte["x"] - nx, suporte["y"] - ny, cota),
                                         App.Vector(suporte["x"] + nx, suporte["y"] + ny, cota)))
+            if suporte.get("vertical"):
+                continue  # suporte de parede do trecho vertical: só no quantitativo
             blocos = regras.blocos_do_suporte(suporte["largura"], suporte["altura"], laje)
             solidos += _solido(blocos, suporte["x"], suporte["y"], cota, suporte["angulo"])
 

@@ -308,11 +308,17 @@ def scenario(doc):
     bandeja_dialogo.exec_ = lambda self: 1
     tronco = Draft.make_wire([App.Vector(0, 3000, 0), App.Vector(6000, 3000, 0), App.Vector(6000, 6000, 0)])
     ramal = Draft.make_wire([App.Vector(3000, 3000, 0), App.Vector(3000, 5000, 0)])
+    descida = Draft.make_wire([App.Vector(6000, 6000, 0), App.Vector(8000, 6000, 0)])
     doc.recompute()
     Gui.Selection.clearSelection()
     for linha in (tronco, ramal):
         Gui.Selection.addSelection(linha)
     run("InsertCableTray")
+    bandeja_dialogo.get_dados = lambda self: {"tipo": "eletrocalha_perfurada", "largura": 100.0, "aba": 50.0,
+                                              "altura": 2300.0, "tampa": False}
+    Gui.Selection.clearSelection()
+    Gui.Selection.addSelection(descida)
+    run("InsertCableTray")  # mais estreita e mais baixa: redução e curvas verticais
     Gui.Selection.clearSelection()
     run("GerarSuportes")
     run("GerarSuportes")  # segunda execução: precisa substituir, não duplicar

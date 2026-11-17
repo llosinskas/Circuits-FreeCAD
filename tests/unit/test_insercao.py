@@ -156,6 +156,65 @@ class TestModoDeInsercao(unittest.TestCase):
         self.tecla("r")
         self.assertIsNot(self.obj.Placement.Rotation, antes)
 
+    def girar_registrando(self):
+        graus = []
+        fc = sys.modules["FreeCAD"]
+        fc.Rotation.side_effect = lambda eixo, angulo: graus.append(angulo) or mock.MagicMock(name=f"rot{angulo}")
+        return graus
+
+    def test_shift_r_gira_45_graus(self):
+        graus = self.girar_registrando()
+        self.modo()
+        self.tecla("r")
+        self.vista.callbacks["SoKeyboardEvent"]({"State": "DOWN", "Key": "r", "ShiftDown": True})
+        self.assertEqual(graus, [90.0, 45.0])
+
+    def test_a_sequencia_herda_a_rotacao(self):
+        self.girar_registrando()
+        primeiro = self.modo(ao_fixar=lambda: None)
+        self.tecla("r")
+        girado = self.obj.Placement.Rotation
+        self.vista.callbacks["SoMouseButtonEvent"]({"State": "DOWN", "Button": "BUTTON1"})
+        self.assertFalse(primeiro.is_active)
+        outro = types.SimpleNamespace(Name="P2", Document=self.documento, touch=lambda: None,
+                                      Placement=types.SimpleNamespace(Base=Vetor(), Rotation="original"))
+        self.Modo(outro, ao_fixar=lambda: None)
+        self.assertIs(outro.Placement.Rotation, girado)
+        avulso = types.SimpleNamespace(Name="P3", Placement=types.SimpleNamespace(Base=Vetor(), Rotation="original"))
+        self.Modo(avulso)  # fora de uma sequência não herda
+        self.assertEqual(avulso.Placement.Rotation, "original")
+
+    def test_filtro_do_qt_impede_o_atalho_e_entrega_a_tecla(self):
+        modulo = sys.modules[MODULO]
+        Qt = types.SimpleNamespace(Key_R=82, Key_A=65, Key_L=76, Key_Space=32, Key_Escape=27, ShiftModifier=0x2000000)
+        QEvent = types.SimpleNamespace(ShortcutOverride=51, KeyPress=6)
+        foco = {"widget": None}
+
+        class Campo:
+            pass
+        aplicacao = types.SimpleNamespace(focusWidget=lambda: foco["widget"])
+        modulo.QtCore = types.SimpleNamespace(QObject=object, Qt=Qt, QEvent=QEvent)
+        modulo.QtWidgets = types.SimpleNamespace(QApplication=aplicacao, QLineEdit=Campo)
+        modo = types.SimpleNamespace(is_active=True, teclas=[])
+        modo.tratar_tecla = lambda nome, shift: modo.teclas.append((nome, shift))
+        filtro = modulo._criar_filtro_de_teclas(modo)
+
+        def evento(tipo, tecla, shift=False, repeticao=False):
+            return mock.MagicMock(type=lambda: tipo, key=lambda: tecla, isAutoRepeat=lambda: repeticao,
+                                  modifiers=lambda: Qt.ShiftModifier if shift else 0)
+        atalho = evento(51, 82)
+        self.assertTrue(filtro.eventFilter(None, atalho))
+        atalho.accept.assert_called_once()
+        self.assertTrue(filtro.eventFilter(None, evento(6, 82, shift=True)))
+        self.assertTrue(filtro.eventFilter(None, evento(6, 82, repeticao=True)))  # repetição: engolida, sem girar
+        self.assertFalse(filtro.eventFilter(None, evento(6, 90)))  # outra tecla segue normal
+        self.assertEqual(modo.teclas, [("R", True)])
+        foco["widget"] = Campo()  # digitando num campo: a tecla é do campo
+        self.assertFalse(filtro.eventFilter(None, evento(6, 82)))
+        foco["widget"] = None
+        modo.is_active = False
+        self.assertFalse(filtro.eventFilter(None, evento(51, 82)))
+
 
 if __name__ == "__main__":
     unittest.main(verbosity=2)
