@@ -1,10 +1,8 @@
 import os
 import FreeCAD as App
 import FreeCADGui as Gui
-from collections import defaultdict
 
-from freecad.Circuits.core.simbolos import CATALOGO
-from freecad.Circuits.services import planilhas
+from freecad.Circuits.services import planilhas, quantitativos
 
 try:
     from reportlab.lib.pagesizes import A4
@@ -172,46 +170,13 @@ class PDFGenerator:
                 except: pass
 
     def _get_materiais_table(self):
-        """Conta e agrupa componentes para o quantitativo"""
-        contagem = defaultdict(int)
-        comprimento_eletroduto = defaultdict(float)
-        comprimento_fio = defaultdict(float)
-
-        for obj in self.doc.Objects:
-            # Componentes FeaturePython
-            if hasattr(obj, "Proxy") and hasattr(obj.Proxy, "Type"):
-                tipo = obj.Proxy.Type
-                if tipo == "Switch":
-                    contagem["Interruptor"] += 1
-                elif tipo == "Lighting":
-                    contagem["Ponto de Iluminação"] += 1
-                elif tipo == "Outlet":
-                    contagem["Tomada"] += 1
-                elif tipo == "Ponto":
-                    contagem[CATALOGO[obj.Simbolo]["legenda"]] += 1
-                elif tipo == "ConduitPath":
-                    diametro = getattr(obj, "Diametro", "3/4\"")
-                    if hasattr(diametro, "Value"): diametro = diametro.Value
-                    tamanho = obj.Shape.Length if hasattr(obj, "Shape") and obj.Shape else 0
-                    comprimento_eletroduto[f"Eletroduto {diametro}"] += tamanho
-            
-            # Componentes Antigos (Sketch de tomada)
-            elif hasattr(obj, "tipo") and getattr(obj, "tipo", "") == "tomada":
-                 contagem["Tomada (Simbologia Antiga)"] += 1
-            
-            # Caixa 3D
-            elif obj.Label.startswith("Caixa ") and obj.TypeId == "Part::Feature":
-                 contagem[obj.Label.split(" (")[0]] += 1
-                 
+        """Quantitativo de materiais, o mesmo do comando Quantitativos."""
         table_data = [["Item / Especificação", "Unidade", "Quantidade"]]
-        
-        for nome, qtd in contagem.items():
-            table_data.append([nome, "un", str(qtd)])
-            
-        for nome, comp in comprimento_eletroduto.items():
-            metros = round(comp / 1000.0, 2) # FreeCAD usa mm
-            table_data.append([nome, "m", f"{metros:.2f}"])
-            
+        for linha in quantitativos.calcular(self.doc):
+            nome = f"{linha['item']} - {linha['especificacao']}" if linha["especificacao"] else linha["item"]
+            quantidade = linha["quantidade"]
+            texto = f"{quantidade:.2f}" if isinstance(quantidade, float) else str(quantidade)
+            table_data.append([nome, linha["unidade"], texto])
         return table_data
 
     def _get_calculos_table(self):

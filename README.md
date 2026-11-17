@@ -21,6 +21,7 @@ O projeto está em desenvolvimento. A seção [Limitações](#limitações) diz 
 - **Infraestrutura:** caminho de eletrodutos em planta.
 - **Modelo 3D:** caixas dos pontos e tubos dos eletrodutos gerados a partir da planta.
 - **Biblioteca:** componentes `.FCStd` inseridos como link, com busca e miniatura.
+- **Quantitativos:** um botão levanta os materiais do projeto e grava a lista em CSV, XLSX e PDF.
 - **Relatório PDF** e importação de condutores do **QElectroTech**.
 
 ## Instalação
@@ -197,6 +198,26 @@ Luminotécnico, Pressurização e Bomba de recalque usam o mesmo tipo de formul�
 - o resultado é recalculado a cada mudança;
 - os valores usados ficam guardados e voltam na próxima vez; **Restaurar padrões** volta aos iniciais.
 
+## Quantitativos
+
+**Documentos > Quantitativos** levanta os materiais direto do desenho e grava três arquivos com o mesmo nome, na pasta que você escolher (por padrão, a do projeto):
+
+- `Quantitativo_<projeto>.csv`: separado por ponto e vírgula, abre no Excel com os acentos certos;
+- `Quantitativo_<projeto>.xlsx`: planilha com cabeçalho em negrito e números como números;
+- `Quantitativo_<projeto>.pdf`: uma tabela por grupo, pronta para anexar ao projeto.
+
+O que entra, somado e separado em grupos:
+
+| Grupo | Como é contado |
+|---|---|
+| Pontos | Cada tomada, ponto de energia e luminária, por tipo, tensão e potência |
+| Interruptores | Por tipo: simples, paralelo, intermediário |
+| Caixas | Uma por ponto: 4x2" na parede, octogonal 4x4" no teto, de piso na tomada de piso |
+| Eletrodutos | Comprimento desenhado de cada diâmetro, com 10 % de perdas |
+| Quadros | Os símbolos de quadro e os componentes de cada quadro: disjuntores, DR, DPS, barramentos e caixa |
+
+É uma estimativa: as descidas dos eletrodutos até as caixas e os fios e cabos ainda não entram, e uma tomada e um interruptor no mesmo ponto contam duas caixas. Os eletrodutos só são contados depois de ter o diâmetro definido (pelo botão Eletrodutos 3D). O Relatório PDF usa o mesmo levantamento na seção de materiais.
+
 ## Notas do projeto
 
 1. **Documentos > Planilha de notas** abre a planilha `Notas`, criada na primeira vez com três exemplos. Escreva uma nota por linha na coluna A, a partir da linha 3.
@@ -226,7 +247,7 @@ As barras da bancada têm poucos botões. Os que têm uma seta (▾) abrem uma l
 | Circuitos | Definir circuito, Ligar interruptor, Identificar pontos |
 | Eletrodutos | Eletroduto, Dividir trecho, Fiação |
 | Cálculos | Demanda, Pressurização, Bomba de recalque |
-| Documentos | Legenda, Planilha de notas, Notas, Sketches em preto, Relatório PDF |
+| Documentos | Quantitativos, Legenda, Planilha de notas, Notas, Sketches em preto, Relatório PDF |
 | Modelo 3D | Caixas 3D, Eletrodutos 3D, Tomadas 3D |
 | Biblioteca | Equipamento, Componente, Criar modelo, Importar modelo |
 

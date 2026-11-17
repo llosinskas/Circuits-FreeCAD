@@ -41,6 +41,8 @@ Circuits/                        pasta dentro de Mod/, raiz do repositório
     │   ├── pavimentos.py        pastas dos símbolos por tipo, nome e cota dos pavimentos
     │   ├── identificacao.py     letra de comando, próximo circuito e texto de anotação
     │   ├── formularios.py       campos dos formulários de cálculo: opções prontas, dicas, avançados
+    │   ├── quantitativos.py     soma dos materiais: pontos, caixas, interruptores, eletrodutos, quadros
+    │   ├── exportar.py          gravação de tabelas em CSV e XLSX só com a biblioteca padrão
     │   ├── quadro.py            componentes do quadro: disjuntores, DR, DPS, barramentos, módulos
     │   ├── circuitos.py         circuitos a partir dos pontos: soma, cabo, disjuntor, fases
     │   ├── planilha.py          layout das planilhas de quadro e circuitos
@@ -106,6 +108,7 @@ Regras gerais:
 | `CalcPressurizacao`, `CalcRecalque` | `calculos` | `core/functions/Predial/pressurizacao`, `recalque`, `motores`; `UI/dialogs/calculo_dialog` |
 | `DistribuirLuminarias` | `calculos` | `services/luminotecnico`; `core/functions/Predial/luminotecnico`; `UI/dialogs/calculo_dialog` |
 | `GenerateReport` | `reports` | `services/pdf_generator`; `UI/dialogs/report_dialog` |
+| `GerarQuantitativos` | `reports` | `services/quantitativos`; `core/quantitativos`, `exportar` |
 | `GetSpaces`, `ReiniciarBancada` | `tools` | no próprio módulo |
 
 ## Barras e legendas
@@ -131,7 +134,7 @@ As barras ficam em `init_gui.py`. As três barras próprias são enxutas: os com
 | `Grupo_Circuitos` | `DefinirCircuito`, `LigarInterruptor`, `IdentificarPontos` |
 | `Grupo_Infra` | `InsertConduit`, `Add_Node`, `Cabo` |
 | `Grupo_Calculos` | `CalcDemanda`, `CalcPressurizacao`, `CalcRecalque` |
-| `Grupo_Documentos` | `LegendaSimbolos`, `PlanilhaNotas`, `GerarNotas`, `PintarSketches`, `GenerateReport` |
+| `Grupo_Documentos` | `GerarQuantitativos`, `LegendaSimbolos`, `PlanilhaNotas`, `GerarNotas`, `PintarSketches`, `GenerateReport` |
 | `Grupo_3D` | `Generate3DSwitches`, `Generate3DConduits`, `Gerar3D` |
 | `Grupo_Biblioteca` | `InsertEquipaments`, `InsertComponent`, `CreateModel`, `ListElements` |
 
@@ -182,6 +185,7 @@ Os comandos se encontram pelos objetos do documento, não por estado em Python:
 - **Legenda:** grupo `Legenda_simbolos`, recriado a cada geração na posição em que estava.
 - **Luminotécnico:** `DistribuirLuminarias` usa o retângulo envolvente (plano XY) do objeto selecionado como ambiente e cria um `Ponto` de iluminação por posição da malha, com a propriedade `Ambiente` = nome desse objeto. Repetir o comando no mesmo objeto apaga os pontos com esse `Ambiente` e cria de novo.
 - **Notas:** planilha com a propriedade `notas_do_projeto`, uma nota por linha na coluna A, da linha 3 em diante. `GerarNotas` recria o grupo `Notas_projeto` com o título e as notas numeradas, na posição em que estava ou embaixo da legenda.
+- **Quantitativos:** `GerarQuantitativos` lê o documento a cada clique (nada é gravado nele) e grava `<nome>.csv`, `<nome>.xlsx` e `<nome>.pdf` com o mesmo nome base escolhido. Entram: pontos (`Ponto`, por legenda, tensão e potência), quadros da planta, interruptores (por `Tipo`), `Outlet`, `Lighting` e tomadas em Sketch; uma caixa por ponto (`core.quantitativos.caixa_do_simbolo`); eletrodutos pelos objetos com `Diametro` (ConduitPath, ou Draft Wire já preparado por `Generate3DConduits`, que tem `Altura3D`), com `PERDA_ELETRODUTO`; e `core.quadro.componentes` de cada quadro. Não entram descidas nem condutores. O CSV usa ponto e vírgula, vírgula decimal e UTF-8 com BOM; o XLSX é escrito por `core/exportar.py`, sem openpyxl; o PDF usa reportlab e, se faltar, os outros dois são gravados mesmo assim. A seção de materiais do relatório PDF (`GenerateReport`) usa o mesmo levantamento.
 - **Caixas e tubos 3D:** objeto `<nome da origem>_3D`, substituído a cada geração.
 - **Unidades:** comprimentos em mm no FreeCAD; correntes em A; seções em mm².
 
@@ -257,7 +261,7 @@ Todos foram confirmados no código ou em execução e já existiam antes da reor
 - `core/circuitos.py`, `dimensionar`: o disjuntor de motores é escolhido só pela corrente nominal, sem considerar a partida.
 - `services/circuitos.py`, `_de_tomada_sketch`: lê potência e tensão das tomadas em Sketch pelo número bruto, porque elas são gravadas sem unidade. Falta confirmar no FreeCAD e migrar para grandezas com unidade.
 - `core/quadro.py`: correntes comerciais de DR e de barramento, quantidade de DPS e módulos da caixa são regras gerais, não de um fabricante. O DR é sempre por circuito; não há DR geral nem agrupamento de circuitos em um DR.
-- A planilha de circuitos do quadro (criação, migração do formato antigo, leitura pelo unifilar), a criação de níveis do BIM (`Arch.makeBuildingPart` nunca foi chamado de verdade), os níveis do BIM como pavimentos (nunca testados com um BuildingPart real), a cor preta dos Sketches, os pavimentos e as pastas dos símbolos, o formulário de cálculo novo (opções avançadas, valores guardados, cálculo automático), o luminotécnico, as notas do projeto, a fiação em todos os pontos, a escala dos símbolos, os símbolos de quadro e medição, a lista de componentes do quadro, o medidor e os barramentos no unifilar, os botões de grupo (lista suspensa), as teclas da inserção (Espaço, R, L), os comandos Alinhar, Distribuir, Definir circuito, Ligar interruptor e Identificar pontos, os pontos novos, a legenda, `MontarCircuitos`, os cálculos prediais e as mudanças do unifilar têm teste unitário da lógica, mas ainda não foram executados no FreeCAD real: rode o `smoke_gui.py` e atualize este item.
+- O botão Quantitativos (leitura dos objetos reais e arquivos abertos no Excel/LibreOffice), a planilha de circuitos do quadro (criação, migração do formato antigo, leitura pelo unifilar), a criação de níveis do BIM (`Arch.makeBuildingPart` nunca foi chamado de verdade), os níveis do BIM como pavimentos (nunca testados com um BuildingPart real), a cor preta dos Sketches, os pavimentos e as pastas dos símbolos, o formulário de cálculo novo (opções avançadas, valores guardados, cálculo automático), o luminotécnico, as notas do projeto, a fiação em todos os pontos, a escala dos símbolos, os símbolos de quadro e medição, a lista de componentes do quadro, o medidor e os barramentos no unifilar, os botões de grupo (lista suspensa), as teclas da inserção (Espaço, R, L), os comandos Alinhar, Distribuir, Definir circuito, Ligar interruptor e Identificar pontos, os pontos novos, a legenda, `MontarCircuitos`, os cálculos prediais e as mudanças do unifilar têm teste unitário da lógica, mas ainda não foram executados no FreeCAD real: rode o `smoke_gui.py` e atualize este item.
 
 **Cálculos e tabelas, ainda sem uso na interface**
 - `core/functions/Barramento.py`: `Sec_tubular` gera `TypeError` (falta `*` em `math.pi(...)`) e não tem `return`. `Corrente_carga_maxima` usa `Qc*Qr-Qs`; conferir com a fonte, pois o balanço térmico sugere soma.

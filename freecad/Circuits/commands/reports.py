@@ -6,6 +6,7 @@ import FreeCADGui as Gui
 
 from freecad.Circuits.commands._base import recursos
 from freecad.Circuits.qt import QtWidgets
+from freecad.Circuits.services import quantitativos
 from freecad.Circuits.UI.dialogs.report_dialog import ReportDialog
 
 
@@ -67,4 +68,47 @@ class GenerateReport:
         )
 
 
+class GerarQuantitativos:
+    """Levanta os materiais do projeto e grava a lista em CSV, XLSX e PDF."""
+
+    def Activated(self):
+        doc = App.activeDocument()
+        if not doc:
+            QtWidgets.QMessageBox.warning(None, "Erro", "Nenhum documento aberto.")
+            return
+        linhas = quantitativos.calcular(doc)
+        if not linhas:
+            QtWidgets.QMessageBox.information(
+                None, "Quantitativos", "Nenhum material encontrado: insira pontos, eletrodutos ou quadros no projeto."
+            )
+            return
+        caminho, _ = QtWidgets.QFileDialog.getSaveFileName(
+            None, "Salvar quantitativos (CSV, XLSX e PDF)", quantitativos.caminho_padrao(doc),
+            "Quantitativo (*.csv *.xlsx *.pdf)",
+        )
+        if not caminho:
+            return
+        try:
+            gravados, avisos = quantitativos.exportar(doc, caminho, linhas)
+        except OSError as erro:
+            QtWidgets.QMessageBox.critical(None, "Quantitativos", f"Não foi possível gravar os arquivos:\n{erro}")
+            return
+        texto = [f"{len(linhas)} item(ns) levantado(s). Arquivos gravados:"] + [f"  {c}" for c in gravados]
+        if avisos:
+            texto += [""] + avisos
+        texto += ["", "Estimativa a partir do desenho: confira antes de comprar."]
+        QtWidgets.QMessageBox.information(None, "Quantitativos", "\n".join(texto))
+
+    def IsActive(self):
+        return True
+
+    def GetResources(self):
+        return recursos(
+            "quantitativos.svg",
+            "Quantitativos",
+            "Levanta pontos, caixas, eletrodutos e componentes dos quadros e grava em CSV, XLSX e PDF",
+        )
+
+
 Gui.addCommand("GenerateReport", GenerateReport())
+Gui.addCommand("GerarQuantitativos", GerarQuantitativos())

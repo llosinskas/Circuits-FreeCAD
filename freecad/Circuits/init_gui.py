@@ -102,7 +102,14 @@ INFRA_TOOLS = ["InsertConduit", "Add_Node", "Cabo"]
 BOARD_DATA_TOOLS = ["GerarPlanilha", "CircuitosQuadro", "AddCircuito"]
 BOARD_TOOLS = ["GerarPlanilha", "CircuitosQuadro", "AddCircuito", "MontarCircuitos", "ComponentesQuadro", "GerarUnifilar"]
 CALC_TOOLS = ["CalcDemanda", "CalcPressurizacao", "CalcRecalque"]
-DOCUMENT_TOOLS = ["LegendaSimbolos", "PlanilhaNotas", "GerarNotas", "PintarSketches", "GenerateReport"]
+DOCUMENT_TOOLS = [
+    "GerarQuantitativos",
+    "LegendaSimbolos",
+    "PlanilhaNotas",
+    "GerarNotas",
+    "PintarSketches",
+    "GenerateReport",
+]
 MODEL_3D_TOOLS = ["Generate3DSwitches", "Generate3DConduits", "Gerar3D"]
 LIBRARY_TOOLS = ["InsertEquipaments", "InsertComponent", "CreateModel", "ListElements"]
 
@@ -132,7 +139,7 @@ GROUPS = {
     "Grupo_Circuitos": ("Circuitos", "Definir o circuito dos pontos, ligar interruptores e identificar na planta", CIRCUIT_TOOLS),
     "Grupo_Infra": ("Eletrodutos", "Caminho de eletroduto, divisão de trecho e fiação", INFRA_TOOLS),
     "Grupo_Calculos": ("Cálculos", "Demanda do quadro, pressurização de escada e bomba de recalque", CALC_TOOLS),
-    "Grupo_Documentos": ("Documentos", "Legenda de símbolos, notas do projeto, Sketches em preto e relatório em PDF", DOCUMENT_TOOLS),
+    "Grupo_Documentos": ("Documentos", "Quantitativos, legenda de símbolos, notas, Sketches em preto e relatório em PDF", DOCUMENT_TOOLS),
     "Grupo_3D": ("Modelo 3D", "Caixas, eletrodutos e tomadas em 3D, gerados a partir da planta", MODEL_3D_TOOLS),
     "Grupo_Biblioteca": ("Biblioteca", "Equipamentos e componentes da biblioteca; criar e importar modelos", LIBRARY_TOOLS),
 }

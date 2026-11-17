@@ -1,0 +1,202 @@
+"""Quantitativo de materiais: soma, caixas, eletrodutos e exportação em CSV, XLSX e PDF."""
+import csv
+import importlib
+import os
+import sys
+import tempfile
+import types
+import unittest
+import zipfile
+from unittest import mock
+from xml.etree import ElementTree
+
+from tests import ROOT  # noqa: F401  (configura o caminho do pacote)
+from freecad.Circuits.core import exportar, quantitativos
+from freecad.Circuits.core.simbolos import CATALOGO, QUADRO
+
+MODULOS_FREECAD = ("FreeCAD", "FreeCADGui", "Part", "Draft", "Sketcher", "Spreadsheet")
+RECARREGAR = ("freecad.Circuits.services.quantitativos", "freecad.Circuits.services.planilhas",
+              "freecad.Circuits.services.tomadas", "freecad.Circuits.services.documento",
+              "freecad.Circuits.services.estilo")
+NS = {"x": "http://schemas.openxmlformats.org/spreadsheetml/2006/main"}
+
+try:
+    import reportlab  # noqa: F401
+    TEM_REPORTLAB = True
+except ImportError:
+    TEM_REPORTLAB = False
+
+
+def ponto(item, caixa="4x2", grupo="Pontos", especificacao=""):
+    return {"grupo": grupo, "item": item, "especificacao": especificacao, "caixa": caixa}
+
+
+class TestMontar(unittest.TestCase):
+    def test_caixa_de_cada_simbolo(self):
+        self.assertEqual(quantitativos.caixa_do_simbolo("tomada_baixa"), "4x2")
+        self.assertEqual(quantitativos.caixa_do_simbolo("luz_teto"), "octogonal")
+        self.assertEqual(quantitativos.caixa_do_simbolo("tomada_piso"), "piso")
+        self.assertIsNone(quantitativos.caixa_do_simbolo("quadro_distribuicao"))
+        self.assertIsNone(quantitativos.caixa_do_simbolo("nao_existe"))
+        for chave, dados in CATALOGO.items():
+            if dados["categoria"] != QUADRO:
+                self.assertIn(quantitativos.caixa_do_simbolo(chave), quantitativos.CAIXAS)
+
+    def test_soma_pontos_caixas_e_eletrodutos_em_ordem(self):
+        linhas = quantitativos.montar(
+            pontos=[
+                ponto("Tomada baixa", especificacao="127V"), ponto("Tomada baixa", especificacao="127V"),
+                ponto("Luz de teto", "octogonal"),
+                ponto("Interruptor", grupo="Interruptores", especificacao="Simples"),
+                ponto("Quadro distribuição", None, grupo="Quadros", especificacao="QD1"),
+            ],
+            eletrodutos=[("3/4", 10000.0), ("3/4", 5000.0), ("1", 2000.0), ("1", 0.0)],
+            componentes_quadros=[
+                {"item": "Disjuntor de circuito", "especificacao": "1P 16 A curva C", "quantidade": 2, "unidade": "un"},
+                {"item": "Disjuntor de circuito", "especificacao": "1P 16 A curva C", "quantidade": 3, "unidade": "un"},
+            ],
+        )
+        tabela = [(l["grupo"], l["item"], l["especificacao"], l["unidade"], l["quantidade"]) for l in linhas]
+        self.assertEqual(tabela, [
+            ("Pontos", "Luz de teto", "", "un", 1),
+            ("Pontos", "Tomada baixa", "127V", "un", 2),
+            ("Interruptores", "Interruptor", "Simples", "un", 1),
+            ("Caixas", "Caixa 4x2\" de embutir", "", "un", 3),
+            ("Caixas", "Caixa octogonal 4x4\" de laje", "", "un", 1),
+            ("Eletrodutos", "Eletroduto", "1\" (inclui 10% de perdas)", "m", 2.2),
+            ("Eletrodutos", "Eletroduto", "3/4\" (inclui 10% de perdas)", "m", 16.5),
+            ("Quadros", "Disjuntor de circuito", "1P 16 A curva C", "un", 5),
+            ("Quadros", "Quadro distribuição", "QD1", "un", 1),
+        ])
+
+    def test_vazio(self):
+        self.assertEqual(quantitativos.montar(), [])
+        self.assertEqual(quantitativos.como_tabela([]), [quantitativos.COLUNAS])
+
+
+class TestExportar(unittest.TestCase):
+    TABELA = [["Grupo", "Item", "Especificação", "Unidade", "Quantidade"],
+              ["Pontos", "Tomada <baixa> & média", "127 V", "un", 12],
+              ["Eletrodutos", "Eletroduto", "3/4\"", "m", 16.5]]
+
+    def setUp(self):
+        self.pasta = tempfile.mkdtemp()
+
+    def test_csv_com_ponto_e_virgula_e_virgula_decimal(self):
+        caminho = exportar.para_csv(self.TABELA, os.path.join(self.pasta, "q.csv"))
+        with open(caminho, encoding="utf-8-sig", newline="") as arquivo:
+            linhas = list(csv.reader(arquivo, delimiter=";"))
+        self.assertEqual(linhas[0][2], "Especificação")
+        self.assertEqual(linhas[1], ["Pontos", "Tomada <baixa> & média", "127 V", "un", "12"])
+        self.assertEqual(linhas[2][4], "16,50")
+        with open(caminho, "rb") as arquivo:
+            self.assertTrue(arquivo.read().startswith(b"\xef\xbb\xbf"))  # BOM: o Excel abre com acentos
+
+    def test_coluna_do_excel(self):
+        self.assertEqual([exportar._coluna(i) for i in (0, 25, 26, 27, 701, 702)], ["A", "Z", "AA", "AB", "ZZ", "AAA"])
+
+    def test_xlsx_e_um_zip_valido_com_numeros_e_textos(self):
+        caminho = exportar.para_xlsx(self.TABELA, os.path.join(self.pasta, "q.xlsx"))
+        with zipfile.ZipFile(caminho) as arquivo:
+            self.assertIsNone(arquivo.testzip())
+            nomes = set(arquivo.namelist())
+            self.assertTrue({"[Content_Types].xml", "xl/workbook.xml", "xl/worksheets/sheet1.xml"} <= nomes)
+            folha = ElementTree.fromstring(arquivo.read("xl/worksheets/sheet1.xml"))
+        celulas = {c.get("r"): c for c in folha.iter(f"{{{NS['x']}}}c")}
+        self.assertEqual(celulas["B2"].find("x:is/x:t", NS).text, "Tomada <baixa> & média")
+        self.assertEqual(celulas["E2"].find("x:v", NS).text, "12")
+        self.assertEqual(celulas["E3"].find("x:v", NS).text, "16.5")
+        self.assertEqual(celulas["A1"].get("s"), "1")  # cabeçalho em negrito
+
+    def test_xlsx_abre_no_openpyxl(self):
+        try:
+            import openpyxl
+        except ImportError:
+            self.skipTest("openpyxl não instalado")
+        caminho = exportar.para_xlsx(self.TABELA, os.path.join(self.pasta, "q.xlsx"))
+        folha = openpyxl.load_workbook(caminho).active
+        self.assertEqual(folha.title, "Quantitativo")
+        self.assertEqual([c.value for c in folha[2]], ["Pontos", "Tomada <baixa> & média", "127 V", "un", 12])
+        self.assertEqual(folha["E3"].value, 16.5)
+        self.assertTrue(folha["A1"].font.b)
+
+
+class TestServico(unittest.TestCase):
+    def setUp(self):
+        falsos = {nome: mock.MagicMock(name=nome) for nome in MODULOS_FREECAD}
+        self.patch = mock.patch.dict(sys.modules, falsos)
+        self.patch.start()
+        for nome in RECARREGAR:
+            sys.modules.pop(nome, None)
+        self.servico = importlib.import_module("freecad.Circuits.services.quantitativos")
+        self.pasta = tempfile.mkdtemp()
+
+    def tearDown(self):
+        for nome in RECARREGAR:
+            sys.modules.pop(nome, None)
+        self.patch.stop()
+
+    def documento(self):
+        def obj(tipo, **props):
+            return types.SimpleNamespace(Proxy=types.SimpleNamespace(Type=tipo), **props)
+        return types.SimpleNamespace(Label="Casa", FileName="", Objects=[
+            obj("Ponto", Simbolo="tomada_baixa", Tensao="127V", Potencia=100.0, Descricao="Tomada baixa"),
+            obj("Ponto", Simbolo="tomada_baixa", Tensao="127V", Potencia=100.0, Descricao="Tomada baixa"),
+            obj("Ponto", Simbolo="luz_teto", Tensao="127V", Potencia=60.0, Descricao="Luz de teto"),
+            obj("Ponto", Simbolo="quadro_distribuicao", Tensao="220V", Potencia=0.0, Descricao="QD1"),
+            obj("Switch", Tipo="Paralelo"),
+            obj("ConduitPath", Diametro="3/4", Shape=types.SimpleNamespace(Length=10000.0)),
+            types.SimpleNamespace(Diametro="1", Altura3D=2800.0, Shape=types.SimpleNamespace(Length=1000.0)),
+            types.SimpleNamespace(Diametro="1", Shape=types.SimpleNamespace(Length=999.0)),  # sem Altura3D: não é eletroduto
+            types.SimpleNamespace(tipo="tomada"),
+        ])
+
+    def test_calcular_le_o_documento(self):
+        with mock.patch.object(self.servico, "coletar_componentes_quadros", return_value=[]):
+            linhas = self.servico.calcular(self.documento())
+        por_item = {(l["item"], l["especificacao"]): l["quantidade"] for l in linhas}
+        self.assertEqual(por_item[("Tomada baixa", "127V, 100 VA")], 2)
+        self.assertEqual(por_item[("Luz de teto", "127V, 60 VA")], 1)
+        self.assertEqual(por_item[("Quadro distribuição", "QD1")], 1)
+        self.assertEqual(por_item[("Interruptor", "Paralelo")], 1)
+        self.assertEqual(por_item[("Tomada TUG", "")], 1)
+        self.assertEqual(por_item[("Caixa 4x2\" de embutir", "")], 4)  # 2 tomadas + interruptor + TUG
+        self.assertEqual(por_item[("Caixa octogonal 4x4\" de laje", "")], 1)
+        self.assertEqual(por_item[("Eletroduto", "3/4\" (inclui 10% de perdas)")], 11.0)
+        self.assertEqual(por_item[("Eletroduto", "1\" (inclui 10% de perdas)")], 1.1)
+
+    def test_componentes_dos_quadros(self):
+        quadro = object()
+        with mock.patch.object(self.servico.planilhas, "listar_quadros", return_value=[quadro, quadro]), \
+                mock.patch.object(self.servico.planilhas, "ler_quadro", return_value={}), \
+                mock.patch.object(self.servico.planilhas, "ler_circuitos_completos", return_value=[]), \
+                mock.patch.object(self.servico.regras_quadro, "componentes",
+                                  side_effect=[[{"item": "DPS", "especificacao": "x", "quantidade": 4, "unidade": "un"}],
+                                               ValueError("fora da tabela")]):
+            self.assertEqual(self.servico.coletar_componentes_quadros(self.documento())[0]["item"], "DPS")
+
+    def test_caminho_padrao(self):
+        doc = types.SimpleNamespace(Label="Casa", FileName="")
+        self.assertEqual(self.servico.caminho_padrao(doc), "Quantitativo_Casa")
+        doc.FileName = os.path.join("projetos", "casa.FCStd")
+        self.assertEqual(self.servico.caminho_padrao(doc), os.path.join("projetos", "Quantitativo_Casa"))
+
+    def test_exportar_grava_os_tres_arquivos_com_o_mesmo_nome(self):
+        linhas = quantitativos.montar([ponto("Tomada baixa")], [("3/4", 1000.0)])
+        base = os.path.join(self.pasta, "lista.pdf")  # a extensão escolhida no diálogo é trocada
+        gravados, avisos = self.servico.exportar(types.SimpleNamespace(Label="Casa"), base, linhas)
+        esperados = [os.path.join(self.pasta, "lista" + ext) for ext in (".csv", ".xlsx")]
+        self.assertEqual(gravados[:2], esperados)
+        if TEM_REPORTLAB:
+            self.assertEqual((gravados[2], avisos), (os.path.join(self.pasta, "lista.pdf"), []))
+            with open(gravados[2], "rb") as arquivo:
+                self.assertTrue(arquivo.read().startswith(b"%PDF"))
+        else:
+            self.assertEqual(len(gravados), 2)
+            self.assertIn("reportlab", avisos[0])
+        for caminho in gravados:
+            self.assertGreater(os.path.getsize(caminho), 0)
+
+
+if __name__ == "__main__":
+    unittest.main(verbosity=2)

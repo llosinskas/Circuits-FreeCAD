@@ -273,6 +273,16 @@ def scenario(doc):
     result["steps"]["demanda"] = avisos[-1]
     run("GerarUnifilar")
     result["steps"]["unifilar"] = snapshot(doc)
+
+    base_quantitativo = os.path.join(tempfile.gettempdir(), "circuits_smoke_quantitativo")
+    salvar_original = QtWidgets.QFileDialog.getSaveFileName
+    QtWidgets.QFileDialog.getSaveFileName = staticmethod(lambda *a, **k: (base_quantitativo + ".csv", ""))
+    run("GerarQuantitativos")
+    QtWidgets.QFileDialog.getSaveFileName = salvar_original
+    result["steps"]["quantitativos"] = {
+        ext: os.path.exists(base_quantitativo + ext) and os.path.getsize(base_quantitativo + ext) > 0
+        for ext in (".csv", ".xlsx", ".pdf")
+    }
     run("GerarUnifilar")  # segunda execução: precisa substituir, não duplicar
     result["steps"]["unifilar_repetido"] = [o["name"] for o in snapshot(doc)]
 
