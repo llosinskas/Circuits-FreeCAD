@@ -258,6 +258,40 @@ def pasta(doc, pavimento, chave):
     return grupo
 
 
+def pasta_3d(doc, obj):
+    """Subpasta "<tipo> 3D" dentro da pasta do símbolo (ex.: Térreo > Tomadas > Tomadas 3D).
+
+    É onde ficam as caixas e os tubos 3D gerados a partir do símbolo ou do
+    eletroduto. Criada se ainda não existir.
+
+    Returns:
+        A subpasta, ou None se o objeto não está numa pasta de pavimento.
+    """
+    pasta_do_simbolo = _pai(obj)
+    if pasta_do_simbolo is None or not hasattr(pasta_do_simbolo, "pasta"):
+        return None
+    chave = pasta_do_simbolo.pasta
+    for filho in pasta_do_simbolo.Group:
+        if getattr(filho, "pasta_3d", None) == chave:
+            return filho
+    grupo = doc.addObject("App::DocumentObjectGroup", f"Pasta_{chave}_3D")
+    grupo.addProperty("App::PropertyString", "pasta_3d", "Pavimento", "Modelo 3D gerado dos objetos desta pasta")
+    grupo.pasta_3d = chave
+    rotulo = f"{regras.PASTAS.get(chave, chave)} 3D"
+    pavimento = _pai(pasta_do_simbolo)
+    _rotular(grupo, rotulo, f"{pavimento.Label} - {rotulo}" if pavimento is not None else f"{pasta_do_simbolo.Label} 3D")
+    pasta_do_simbolo.addObject(grupo)
+    return grupo
+
+
+def guardar_3d(doc, origem, objeto_3d):
+    """Põe o objeto 3D na subpasta 3D da pasta do símbolo de origem. Devolve a pasta, ou None."""
+    destino = pasta_3d(doc, origem)
+    if destino is not None:
+        destino.addObject(objeto_3d)
+    return destino
+
+
 def altura_de_montagem(obj):
     """Altura da caixa em relação ao piso [mm]: Altura3D, ou altura_piso na tomada em Sketch."""
     if hasattr(obj, "Altura3D"):

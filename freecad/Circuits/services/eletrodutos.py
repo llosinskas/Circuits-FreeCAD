@@ -129,6 +129,7 @@ def _gerar_tubo(doc, obj, tomadas):
         tubo.Shape = forma
         tubo.Label = f"Eletroduto 3D ({obj.Diametro})"
         tubo.ViewObject.ShapeColor = cor
+        pavimentos.guardar_3d(doc, obj, tubo)  # ex.: Térreo > Eletrodutos > Eletrodutos 3D
         return True
     except Exception as e:
         App.Console.PrintError(f"Erro ao gerar tubo 3D para {obj.Name}: {e}\n")

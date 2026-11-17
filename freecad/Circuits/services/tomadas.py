@@ -4,6 +4,7 @@ import FreeCAD as App
 import Part
 import Sketcher  # noqa: F401  (registra o tipo Sketcher::SketchObject)
 
+from freecad.Circuits.services import pavimentos
 from freecad.Circuits.services.documento import create_group
 from freecad.Circuits.services.estilo import pintar_sketch
 
@@ -117,7 +118,8 @@ def gerar_caixas_tomadas(doc, tomadas):
         caixa.Height = 30
         Draft.move([caixa], tomada.Placement.Base, copy=False)
         Draft.move([caixa], App.Vector(-15, -10, tomada.altura_piso), copy=False)
-        grupo_caixas.addObject(caixa)
+        if pavimentos.guardar_3d(doc, tomada, caixa) is None:  # tomada solta, fora de um pavimento
+            grupo_caixas.addObject(caixa)
         if grupo_tomadas is not None and tomada in soltas:
             grupo_tomadas.addObject(tomada)
         tomada.Visibility = False  # esconde o símbolo 2D; a caixa 3D aparece no lugar

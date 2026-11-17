@@ -48,6 +48,7 @@ def _criar_caixa(doc, obj, largura, profundidade, altura, elevacao, label, cor):
     caixa.Label = label
     caixa.ViewObject.ShapeColor = cor
     caixa.ViewObject.Transparency = 30
+    pavimentos.guardar_3d(doc, obj, caixa)  # ex.: Térreo > Tomadas > Tomadas 3D
     return True
 
 

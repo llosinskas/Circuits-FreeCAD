@@ -96,6 +96,7 @@ Cada pavimento é uma pasta com os símbolos separados por tipo:
 Pontos_eletricos
 ├── Térreo
 │   ├── Tomadas
+│   │   └── Tomadas 3D        (caixas geradas pelo Modelo 3D)
 │   ├── Pontos de energia
 │   ├── Iluminação
 │   ├── Interruptores
@@ -113,7 +114,7 @@ Pontos_eletricos
 - **Projeto > Nível do BIM** cria um nível da bancada BIM e o ativa.
 - **Projeto > Mover para pavimento** leva os símbolos selecionados para outro pavimento, já na cota do piso dele.
 
-As caixas e os eletrodutos 3D somam a cota do pavimento à altura de montagem.
+As caixas e os eletrodutos 3D somam a cota do pavimento à altura de montagem e ficam numa subpasta 3D dentro da pasta do elemento, por exemplo *Térreo > Tomadas > Tomadas 3D*.
 
 ### Circuitos e interruptores
 

@@ -365,6 +365,29 @@ class TestServico(unittest.TestCase):
         self.assertEqual(self.servico.ajustar_cotas(self.doc), 2)
         self.assertEqual((a.Placement.Base.z, b.Placement.Base.z), (3000.0, 3000.0))
 
+    def test_modelo_3d_vai_para_a_subpasta_3d_da_pasta_do_elemento(self):
+        terreo = self.servico.definir(self.doc, "Térreo")
+        tomada, luz = self.adicionar(ponto("T1", "tomada_baixa")), self.adicionar(ponto("L1", "luz_teto"))
+        pasta_tomadas = self.servico.arquivar(self.doc, tomada, terreo)
+        self.servico.arquivar(self.doc, luz, terreo)
+        caixa_t1, caixa_t2, caixa_l1 = Objeto("T1_3D"), Objeto("T2_3D"), Objeto("L1_3D")
+        tomada2 = self.adicionar(ponto("T2", "tomada_baixa"))
+        self.servico.arquivar(self.doc, tomada2, terreo)
+
+        pasta_3d = self.servico.guardar_3d(self.doc, tomada, caixa_t1)
+        self.assertIs(self.servico.guardar_3d(self.doc, tomada2, caixa_t2), pasta_3d)  # a mesma subpasta
+        self.servico.guardar_3d(self.doc, luz, caixa_l1)
+        self.assertEqual((pasta_3d.Label, pasta_3d.pasta_3d), ("Tomadas 3D", "tomadas"))
+        self.assertIs(pasta_3d._pai, pasta_tomadas)  # Térreo > Tomadas > Tomadas 3D
+        self.assertEqual([o.Name for o in pasta_3d.Group], ["T1_3D", "T2_3D"])
+        self.assertEqual(self.servico.pasta_3d(self.doc, luz).Label, "Iluminação 3D")
+        # a subpasta 3D não é confundida com uma pasta de símbolos
+        self.assertEqual(sorted(self.pastas(terreo)), ["iluminacao", "tomadas"])
+
+    def test_objeto_fora_de_pavimento_nao_tem_pasta_3d(self):
+        solta = self.adicionar(ponto("T9", "tomada_baixa"))
+        self.assertIsNone(self.servico.guardar_3d(self.doc, solta, Objeto("T9_3D")))
+
     def test_criar_nivel_do_bim(self):
         edificio = self.adicionar(Objeto("Building", IfcType="Building"))
         criado = nivel_bim("BuildingPart", 0.0)
