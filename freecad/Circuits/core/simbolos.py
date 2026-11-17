@@ -304,3 +304,37 @@ def limites_de(primitivas):
 def limites(simbolo, tamanho=1.0):
     """Caixa envolvente do símbolo do catálogo: (xmin, ymin, xmax, ymax)."""
     return limites_de(geometria(simbolo, tamanho))
+
+
+def posicao_da_caixa(simbolo):
+    """Onde fica o volume 3D da caixa em relação ao ponto de inserção.
+
+    - 'parede': tomadas de parede. O ponto de inserção é a face da parede (onde
+      o traço do triângulo encosta) e a caixa entra na parede, para trás do
+      triângulo, que aponta para o ambiente (+x do símbolo).
+    - 'piso': tomada de piso, com o topo da caixa no piso.
+    - 'centro': os outros símbolos, com a caixa centrada no ponto.
+    """
+    dados = CATALOGO.get(simbolo)
+    if dados is None or dados["categoria"] != TOMADA:
+        return "centro"
+    return "piso" if simbolo == "tomada_piso" else "parede"
+
+
+def caixa_local(posicao, largura, profundidade, altura):
+    """Canto e medidas da caixa no sistema do símbolo, com z a partir da cota da caixa.
+
+    Args:
+        posicao: de ``posicao_da_caixa``.
+        largura, profundidade, altura: medidas da caixa [mm]; na parede, a
+            largura corre ao longo da parede (y do símbolo) e a profundidade
+            entra nela (−x).
+    Returns:
+        (x, y, z, comprimento em x, comprimento em y, comprimento em z) [mm].
+    """
+    largura, profundidade, altura = float(largura), float(profundidade), float(altura)
+    if posicao == "parede":
+        return (-profundidade, -largura / 2, -altura / 2, profundidade, largura, altura)
+    if posicao == "piso":
+        return (-largura / 2, -profundidade / 2, -altura, largura, profundidade, altura)
+    return (-largura / 2, -profundidade / 2, -altura / 2, largura, profundidade, altura)

@@ -2,7 +2,8 @@
 import FreeCAD as App
 import Part
 
-from freecad.Circuits.core.simbolos import ATERRAMENTO, CATALOGO, ENERGIA, PASSAGEM, QUADRO, TOMADA
+from freecad.Circuits.core.simbolos import (ATERRAMENTO, CATALOGO, ENERGIA, PASSAGEM, QUADRO, TOMADA, caixa_local,
+                                            posicao_da_caixa)
 from freecad.Circuits.services import pavimentos
 from freecad.Circuits.services.tomadas import listar_tomadas
 
@@ -31,20 +32,26 @@ def listar_alvos(doc):
 
 
 def _criar_caixa(doc, obj, largura, profundidade, altura, elevacao, label, cor):
-    """Cria ou substitui a caixa do objeto. Devolve True se foi criada."""
+    """Cria ou substitui a caixa do objeto. Devolve True se foi criada.
+
+    A caixa é montada no sistema do símbolo (``core.simbolos.caixa_local``) e
+    girada com ele: nas tomadas de parede ela fica atrás do ponto de inserção,
+    dentro da parede; na tomada de piso, embaixo do piso; nos outros, centrada.
+    """
     if largura <= 0 or profundidade <= 0 or altura <= 0:
         App.Console.PrintWarning(f"Dimensões inválidas para {obj.Label}, ignorando.\n")
         return False
 
     pos = obj.Placement.Base
-    origem = App.Vector(pos.x - largura / 2.0, pos.y - profundidade / 2.0, elevacao - altura / 2.0)
+    x, y, z, dx, dy, dz = caixa_local(posicao_da_caixa(getattr(obj, "Simbolo", "")), largura, profundidade, altura)
 
     nome = f"{obj.Name}_3D"
     if doc.getObject(nome):
         doc.removeObject(nome)
 
     caixa = doc.addObject("Part::Feature", nome)
-    caixa.Shape = Part.makeBox(largura, profundidade, altura, origem)
+    caixa.Shape = Part.makeBox(dx, dy, dz, App.Vector(x, y, z))
+    caixa.Placement = App.Placement(App.Vector(pos.x, pos.y, elevacao), obj.Placement.Rotation)
     caixa.Label = label
     caixa.ViewObject.ShapeColor = cor
     caixa.ViewObject.Transparency = 30

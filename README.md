@@ -119,6 +119,10 @@ Pontos_eletricos
 
 As caixas e os eletrodutos 3D somam a cota do pavimento à altura de montagem e ficam numa subpasta 3D dentro da pasta do elemento, por exemplo *Térreo > Tomadas > Tomadas 3D*.
 
+**Modelo 3D > Modelo 3D completo** gera ou refaz todo o 3D num clique: as caixas de todos os símbolos, os tubos de todos os eletrodutos, as eletrocalhas com curvas, tês e reduções, e os suportes. Os botões separados (caixas, eletrodutos, tomadas TUG antigas) continuam no mesmo grupo.
+
+A caixa 3D da **tomada de parede** fica atrás do ponto de inserção, dentro da parede: insira a tomada com o traço encostado na face da parede e o triângulo apontando para o ambiente (gire com **R**), e a caixa entra na parede com a largura ao longo dela. A **tomada de piso** tem a caixa embaixo do piso. Os outros símbolos continuam com a caixa centrada no ponto.
+
 Tudo o que é gerado a partir dos símbolos fica no pavimento deles: a identificação vai para a pasta *Circuitos*, a fiação para *Fiação*, e as planilhas do quadro (dados, circuitos e componentes) e o diagrama unifilar ficam junto do símbolo do quadro, em *Quadros e medição*. O que está fora de um pavimento continua nos grupos da raiz.
 
 ### Circuitos e interruptores

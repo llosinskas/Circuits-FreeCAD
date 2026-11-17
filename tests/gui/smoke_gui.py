@@ -361,6 +361,19 @@ def scenario(doc):
                      if hasattr(o, "conexoes_3d_de")],
         "contorno": [(o.Label, len(o.Shape.Edges)) for o in doc.Objects if hasattr(o, "contorno_bandejas_de")],
     }
+    run("Gerar3DCompleto")
+    run("Gerar3DCompleto")  # segunda execução: refaz, não duplica
+    tomada_3d = next((o for o in doc.Objects if o.Name.endswith("_3D") and getattr(doc.getObject(o.Name[:-3]), "Simbolo", "")
+                      .startswith("tomada_") and getattr(doc.getObject(o.Name[:-3]), "Simbolo", "") != "tomada_piso"), None)
+    if tomada_3d is not None:
+        origem = doc.getObject(tomada_3d.Name[:-3])
+        caixa = tomada_3d.Shape.BoundBox
+        # a caixa fica atrás do ponto de inserção (dentro da parede): o ponto está numa face, não no meio
+        result["steps"]["tomada_3d_na_parede"] = {
+            "ponto": [round(origem.Placement.Base.x), round(origem.Placement.Base.y)],
+            "caixa_x": [round(caixa.XMin), round(caixa.XMax)], "caixa_y": [round(caixa.YMin), round(caixa.YMax)],
+        }
+    result["steps"]["modelo_3d"] = len([o for o in doc.Objects if o.Name.endswith("_3D")])
     run("SimbolosVerticais")
     run("SimbolosVerticais")  # segunda execução: precisa substituir, não duplicar
     run("DetalharVerticais")

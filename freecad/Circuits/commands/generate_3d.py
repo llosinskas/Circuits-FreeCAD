@@ -4,7 +4,42 @@ import FreeCADGui as Gui
 
 from freecad.Circuits.commands._base import documento_ou_aviso, recursos
 from freecad.Circuits.qt import QtWidgets
-from freecad.Circuits.services import caixas_3d, eletrodutos
+from freecad.Circuits.services import caixas_3d, eletrodutos, modelo_3d, rede
+
+
+class Modelo3DCompleto:
+    """Gera ou refaz todo o modelo 3D: caixas, eletrodutos, eletrocalhas e suportes."""
+
+    def Activated(self):
+        doc = documento_ou_aviso()
+        if not doc:
+            return
+        doc.openTransaction("Modelo 3D completo")
+        try:
+            feito = modelo_3d.gerar_tudo(doc)
+            doc.commitTransaction()
+        except Exception:
+            doc.abortTransaction()
+            raise
+        if not any(feito.values()):
+            QtWidgets.QMessageBox.information(
+                None, "Modelo 3D", "Nada para modelar: insira pontos, eletrodutos ou eletrocalhas na planta.")
+            return
+        App.Console.PrintMessage(
+            f"Modelo 3D: {feito['caixas']} caixa(s), {feito['eletrodutos']} eletroduto(s), "
+            f"{feito['bandejas']} eletrocalha(s) e {feito['suportes']} suporte(s).\n"
+        )
+
+    def IsActive(self):
+        return True
+
+    def GetResources(self):
+        return recursos(
+            "modelo3d.svg",
+            "Modelo 3D completo",
+            "Gera ou refaz todo o 3D de uma vez: caixas (tomadas dentro da parede), eletrodutos, eletrocalhas com "
+            "curvas, tês e reduções, e suportes",
+        )
 
 
 class Generate3DConduits:
@@ -15,7 +50,7 @@ class Generate3DConduits:
         if not doc:
             return
 
-        caminhos = Gui.Selection.getSelection() or eletrodutos.listar_caminhos(doc)
+        caminhos = Gui.Selection.getSelection() or rede.listar_eletrodutos(doc)  # inclui as linhas marcadas
         if not caminhos:
             QtWidgets.QMessageBox.information(None, "Aviso", "Selecione uma linha (Wire) para gerar o eletroduto 3D.")
             return
@@ -66,5 +101,6 @@ class Generate3DSwitches:
         )
 
 
+Gui.addCommand("Gerar3DCompleto", Modelo3DCompleto())
 Gui.addCommand("Generate3DConduits", Generate3DConduits())
 Gui.addCommand("Generate3DSwitches", Generate3DSwitches())

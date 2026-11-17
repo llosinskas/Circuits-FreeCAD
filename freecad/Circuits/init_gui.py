@@ -129,7 +129,7 @@ DOCUMENT_TOOLS = [
     "PintarSketches",
     "GenerateReport",
 ]
-MODEL_3D_TOOLS = ["Generate3DSwitches", "Generate3DConduits", "Gerar3D"]
+MODEL_3D_TOOLS = ["Gerar3DCompleto", "Generate3DSwitches", "Generate3DConduits", "Gerar3D"]
 LIBRARY_TOOLS = ["InsertEquipaments", "InsertComponent", "CreateModel", "ListElements"]
 
 # Só no menu: comandos antigos, incompletos ou de uso raro.
@@ -170,7 +170,9 @@ GROUPS = {
     ),
     "Grupo_Calculos": ("Cálculos", "Demanda do quadro, pressurização de escada e bomba de recalque", CALC_TOOLS),
     "Grupo_Documentos": ("Documentos", "Quantitativos, legenda de símbolos, notas, Sketches em preto e relatório em PDF", DOCUMENT_TOOLS),
-    "Grupo_3D": ("Modelo 3D", "Caixas, eletrodutos e tomadas em 3D, gerados a partir da planta", MODEL_3D_TOOLS),
+    "Grupo_3D": (
+        "Modelo 3D", "Modelo 3D completo num clique, ou só caixas, eletrodutos ou tomadas TUG antigas", MODEL_3D_TOOLS,
+    ),
     "Grupo_Biblioteca": ("Biblioteca", "Equipamentos e componentes da biblioteca; criar e importar modelos", LIBRARY_TOOLS),
 }
 
