@@ -100,10 +100,12 @@ Pontos_eletricos
 ```
 
 - **Níveis do BIM:** se o projeto tem níveis da bancada BIM, eles são os pavimentos, e as pastas ficam dentro do próprio nível. A cota vem do nível; a bancada não altera níveis do BIM.
-- **Onde o símbolo entra:** no nível ativo da bancada BIM (o que você ativou com duplo clique), ou no pavimento selecionado na árvore, ou no pavimento ativo. O símbolo é desenhado na cota desse pavimento.
+- **Onde o símbolo entra:** no nível ativo da bancada BIM (o que você ativou com duplo clique), ou no pavimento selecionado na árvore, ou no pavimento ativo.
+- **Altura no desenho:** a altura de montagem (`Altura3D`) é sempre medida a partir do piso, e o símbolo é desenhado na cota do piso do pavimento mais essa altura. Uma tomada alta tem 2,00 m em qualquer pavimento; no pavimento de cota 3,00 m ela fica no Z 5,00 m. Mudar a altura no painel de propriedades move o símbolo na hora.
+- **Projeto > Ajustar cotas** recoloca todos os símbolos nessa regra; use uma vez em projetos feitos antes dela.
 - **Projeto > Pavimento** escolhe o pavimento ativo ou cria um novo, com cota e altura de piso a piso, e sugere o próximo.
 - **Projeto > Nível do BIM** cria um nível da bancada BIM e o ativa.
-- **Projeto > Mover para pavimento** leva os símbolos selecionados para outro pavimento e para a cota dele.
+- **Projeto > Mover para pavimento** leva os símbolos selecionados para outro pavimento, já na cota do piso dele mais a altura de montagem.
 
 As caixas e os eletrodutos 3D somam a cota do pavimento à altura de montagem.
 

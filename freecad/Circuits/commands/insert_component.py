@@ -59,7 +59,8 @@ class _CriarEPosicionar:
             pavimentos.arquivar(doc, obj, pavimento)  # entra na pasta do tipo, dentro do pavimento
             # O próximo só começa depois que o clique atual terminar de ser tratado.
             _posicionar_com_mouse(
-                obj, self.mensagem, lambda: QtCore.QTimer.singleShot(0, self.Activated), pavimentos.elevacao(pavimento)
+                obj, self.mensagem, lambda: QtCore.QTimer.singleShot(0, self.Activated),
+                pavimentos.cota_no_desenho(doc, obj, pavimento),
             )
 
     def IsActive(self):
@@ -96,7 +97,7 @@ class Tugs:
             pavimento = pavimentos.pavimento_para_insercao(doc, Gui.Selection.getSelection())
             tug = criar_tug(doc)
             pavimentos.arquivar(doc, tug, pavimento)
-            _posicionar_com_mouse(tug, "Tomada criada.", cota=pavimentos.elevacao(pavimento))
+            _posicionar_com_mouse(tug, "Tomada criada.", cota=pavimentos.cota_no_desenho(doc, tug, pavimento))
 
     def IsActive(self):
         return True

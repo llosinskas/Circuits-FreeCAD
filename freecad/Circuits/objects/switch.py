@@ -8,6 +8,8 @@ import FreeCAD as App
 import Part
 import math
 
+from freecad.Circuits.objects.ponto import acompanhar_cota
+
 try:
     import FreeCADGui as Gui
     GUI_AVAILABLE = True
@@ -72,6 +74,15 @@ class Switch:
                 "Altura (elevação Z) onde a caixa será posicionada"
             ).Altura3D = 1200.0
 
+        if not hasattr(obj, "CotaPiso"):
+            self._criando = True  # criar a propriedade não move o interruptor
+            obj.addProperty(
+                "App::PropertyDistance", "CotaPiso", "Caixa 3D",
+                "Cota do piso do pavimento, preenchida pela bancada. Z no desenho = CotaPiso + Altura3D"
+            ).CotaPiso = 0.0
+            obj.setEditorMode("CotaPiso", 1)
+            self._criando = False
+
         if not hasattr(obj, "CaixaAltura"):
             obj.addProperty(
                 "App::PropertyDistance", "CaixaAltura", "Caixa 3D",
@@ -135,9 +146,12 @@ class Switch:
         obj.Shape = compound
 
     def onChanged(self, fp, prop):
-        """Reexecuta quando propriedades visuais mudam."""
-        if prop in ["RaioSimbolo", "LinhaComprimento", "Tipo"]:
-            pass  # FreeCAD chama execute() automaticamente
+        """Mantém o Z do interruptor na cota do piso mais a altura de montagem."""
+        acompanhar_cota(fp, prop)
+
+    def onDocumentRestored(self, obj):
+        """Acrescenta propriedades criadas em versões mais novas da bancada (como CotaPiso)."""
+        self._add_properties(obj)
 
     def dumps(self):
         return {"Type": self.Type}

@@ -25,7 +25,7 @@ def _inserir_motor(descricao, motor):
         App.Console.PrintMessage("Motor criado. Clique na planta para posicionar e defina o circuito dele.\n")
         pavimento = pavimentos.pavimento_para_insercao(App.activeDocument())
         pavimentos.arquivar(App.activeDocument(), obj, pavimento)
-        ComponentInsertionMode(obj, cota=pavimentos.elevacao(pavimento)).start()
+        ComponentInsertionMode(obj, cota=pavimentos.cota_no_desenho(App.activeDocument(), obj, pavimento)).start()
 
 
 class CalcDemanda:

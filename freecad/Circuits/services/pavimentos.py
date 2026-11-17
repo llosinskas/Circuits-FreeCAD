@@ -256,6 +256,56 @@ def pasta(doc, pavimento, chave):
     return grupo
 
 
+def altura_de_montagem(obj):
+    """Altura da caixa em relação ao piso [mm]: Altura3D, ou altura_piso na tomada em Sketch."""
+    if hasattr(obj, "Altura3D"):
+        return _mm(obj.Altura3D)
+    if hasattr(obj, "altura_piso"):
+        return float(obj.altura_piso)
+    return 0.0
+
+
+def cota_no_desenho(doc, obj, pavimento=None):
+    """Z do símbolo no desenho [mm]: cota do piso do pavimento + altura de montagem."""
+    pavimento = pavimento or pavimento_do_objeto(doc, obj)
+    piso = elevacao(pavimento) if pavimento is not None else 0.0
+    return regras.cota_de_desenho(piso, altura_de_montagem(obj))
+
+
+def ajustar_cota(doc, obj, pavimento=None):
+    """Põe o símbolo na cota do piso do pavimento mais a altura de montagem.
+
+    Pontos e interruptores guardam a cota do piso em ``CotaPiso`` e passam a
+    acompanhar as mudanças de altura sozinhos; nos demais, o Z é ajustado aqui.
+    """
+    pavimento = pavimento or pavimento_do_objeto(doc, obj)
+    piso = elevacao(pavimento) if pavimento is not None else 0.0
+    if hasattr(obj, "CotaPiso"):
+        obj.CotaPiso = piso
+    if hasattr(obj, "Placement"):
+        z = regras.cota_de_desenho(piso, altura_de_montagem(obj))
+        base = obj.Placement.Base
+        if abs(base.z - z) > 1e-6:
+            posicao = obj.Placement
+            posicao.Base = App.Vector(base.x, base.y, z)
+            obj.Placement = posicao
+
+
+def ajustar_cotas(doc):
+    """Ajusta o Z de todos os símbolos do documento (veja ``ajustar_cota``). Devolve quantos."""
+    simbolos = [obj for obj in doc.Objects if chave_do_objeto(obj) not in (None, "eletrodutos")]
+    doc.openTransaction("Ajustar cotas dos símbolos")
+    try:
+        for obj in simbolos:
+            ajustar_cota(doc, obj)
+        doc.commitTransaction()
+    except Exception:
+        doc.abortTransaction()
+        raise
+    doc.recompute()
+    return len(simbolos)
+
+
 def _marcar(obj, nome):
     """Guarda o nome do pavimento no próprio símbolo, para ele saber onde está."""
     if not hasattr(obj, "Pavimento"):
@@ -282,6 +332,8 @@ def arquivar(doc, obj, pavimento=None):
             atual.removeObject(obj)
         destino.addObject(obj)
     _marcar(obj, pavimento.Label)
+    if chave != "eletrodutos":  # o eletroduto tem a cota do próprio traçado
+        ajustar_cota(doc, obj, pavimento)
     return destino
 
 
@@ -298,8 +350,8 @@ def _subir(obj, diferenca):
 def mover(doc, objetos, pavimento):
     """Move os símbolos para as pastas do pavimento, em uma única operação de desfazer.
 
-    Os símbolos e eletrodutos também mudam de cota: sobem ou descem a diferença
-    entre a cota do pavimento novo e a do antigo.
+    Os símbolos vão para a cota do pavimento novo mais a altura de montagem; os
+    eletrodutos sobem ou descem a diferença entre as cotas dos dois pavimentos.
 
     Returns:
         Quantidade de símbolos movidos; objetos que não são símbolos são ignorados.
@@ -311,8 +363,9 @@ def mover(doc, objetos, pavimento):
             if chave_do_objeto(obj) is None:
                 continue
             antes = elevacao_do_objeto(doc, obj)
-            if arquivar(doc, obj, pavimento) is not None:
-                _subir(obj, elevacao(pavimento) - antes)
+            if arquivar(doc, obj, pavimento) is not None:  # símbolos: arquivar já ajusta a cota
+                if chave_do_objeto(obj) == "eletrodutos":
+                    _subir(obj, elevacao(pavimento) - antes)
                 movidos += 1
         doc.commitTransaction()
     except Exception:

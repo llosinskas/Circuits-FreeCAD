@@ -82,6 +82,7 @@ PROJECT_TOOLS = [
     "DefinirPavimento",
     "AdicionarNivelBIM",
     "MoverParaPavimento",
+    "AjustarCotas",
     "newSpreadsheet",
     "ImportQET",
 ]

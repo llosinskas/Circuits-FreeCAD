@@ -13,6 +13,7 @@ import FreeCAD as App
 import Part
 
 from freecad.Circuits.core import simbolos
+from freecad.Circuits.core.pavimentos import cota_de_desenho
 from freecad.Circuits.core.simbologia import tamanho_efetivo
 
 try:
@@ -35,6 +36,26 @@ def tamanho_do_ponto(obj):
     """Tamanho do símbolo na planta, em mm, já com a escala."""
     tamanho = obj.Tamanho.Value if hasattr(obj.Tamanho, "Value") else float(obj.Tamanho)
     return tamanho_efetivo(tamanho, getattr(obj, "Escala", 1.0))
+
+
+def _mm(valor):
+    return valor.Value if hasattr(valor, "Value") else float(valor)
+
+
+def acompanhar_cota(fp, prop):
+    """Põe o símbolo no Z = CotaPiso + Altura3D quando uma das duas muda.
+
+    Não age enquanto o documento é aberto nem enquanto as propriedades são criadas.
+    """
+    if prop not in ("Altura3D", "CotaPiso") or "Restore" in getattr(fp, "State", ()):
+        return
+    if getattr(fp.Proxy, "_criando", False) or not (hasattr(fp, "CotaPiso") and hasattr(fp, "Altura3D")):
+        return
+    z = cota_de_desenho(_mm(fp.CotaPiso), _mm(fp.Altura3D))
+    posicao = fp.Placement
+    if abs(posicao.Base.z - z) > 1e-6:
+        posicao.Base = App.Vector(posicao.Base.x, posicao.Base.y, z)
+        fp.Placement = posicao
 
 
 def icone_do_simbolo(simbolo):
@@ -79,8 +100,10 @@ class PontoEletrico:
     def __init__(self, obj, simbolo="tomada_baixa"):
         obj.Proxy = self
         self._add_properties(obj, simbolo)
+        self._criando = False
 
     def _add_properties(self, obj, simbolo="tomada_baixa"):
+        self._criando = True  # criar propriedades não move o símbolo (veja acompanhar_cota)
         dados = simbolos.CATALOGO[simbolo]
 
         def nova(tipo, nome, grupo, dica):
@@ -138,9 +161,18 @@ class PontoEletrico:
             obj.CaixaProfundidade = profundidade
         if nova("App::PropertyDistance", "CaixaAltura", "Caixa 3D", "Altura da caixa (eixo Z)"):
             obj.CaixaAltura = altura
+        if nova("App::PropertyDistance", "CotaPiso", "Caixa 3D",
+                "Cota do piso do pavimento, preenchida pela bancada. Z no desenho = CotaPiso + Altura3D"):
+            obj.CotaPiso = 0.0
+            obj.setEditorMode("CotaPiso", 1)  # só leitura no painel
+        self._criando = False
+
+    def onChanged(self, obj, prop):
+        """Mantém o Z do símbolo na cota do piso mais a altura de montagem."""
+        acompanhar_cota(obj, prop)
 
     def execute(self, obj):
-        """Gera o símbolo 2D no plano Z=0."""
+        """Gera o símbolo 2D, no plano do próprio objeto."""
         tamanho = tamanho_do_ponto(obj)
         if tamanho <= 0:
             return

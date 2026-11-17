@@ -68,6 +68,26 @@ class AdicionarNivelBIM:
         )
 
 
+class AjustarCotas:
+    """Recoloca todos os símbolos no Z = cota do piso do pavimento + altura de montagem."""
+
+    def Activated(self):
+        doc = documento_ou_aviso()
+        if doc:
+            ajustados = servico.ajustar_cotas(doc)
+            App.Console.PrintMessage(f"{ajustados} símbolo(s) na cota do pavimento mais a altura de montagem.\n")
+
+    def IsActive(self):
+        return True
+
+    def GetResources(self):
+        return recursos(
+            "ajustar_cotas.svg",
+            "Ajustar cotas",
+            "Põe cada símbolo no Z = cota do piso do pavimento + altura de montagem (use em projetos antigos)",
+        )
+
+
 class MoverParaPavimento:
     """Move os símbolos selecionados para as pastas de outro pavimento."""
 
@@ -110,3 +130,4 @@ class MoverParaPavimento:
 Gui.addCommand("DefinirPavimento", DefinirPavimento())
 Gui.addCommand("AdicionarNivelBIM", AdicionarNivelBIM())
 Gui.addCommand("MoverParaPavimento", MoverParaPavimento())
+Gui.addCommand("AjustarCotas", AjustarCotas())

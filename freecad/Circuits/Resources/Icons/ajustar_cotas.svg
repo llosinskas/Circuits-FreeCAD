@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64">
+  <!-- Ajustar cotas: piso do pavimento e a caixa na altura de montagem, com a cota -->
+  <path d="M6 54H40 M18 22H30V34H18Z M50 54V22M46 26L50 22L54 26M46 50L50 54L54 50" fill="none" stroke-linecap="round" stroke-linejoin="round" stroke="#ffffff" stroke-width="7" stroke-opacity="0.85"/>
+  <path d="M6 54H40" fill="none" stroke-linecap="round" stroke="#5f6368" stroke-width="4"/>
+  <path d="M18 22H30V34H18Z" fill="none" stroke-linejoin="round" stroke="#5f6368" stroke-width="3"/>
+  <path d="M50 54V22M46 26L50 22L54 26M46 50L50 54L54 50" fill="none" stroke-linecap="round" stroke-linejoin="round" stroke="#1a73e8" stroke-width="3"/>
+</svg>

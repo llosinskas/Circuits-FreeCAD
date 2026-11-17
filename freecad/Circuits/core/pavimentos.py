@@ -51,6 +51,15 @@ def pasta_do_objeto(tipo, simbolo=""):
     return _PASTA_DO_TIPO.get(tipo)
 
 
+def cota_de_desenho(cota_piso, altura_montagem):
+    """Z do símbolo no desenho [mm]: a cota do piso do pavimento mais a altura de montagem.
+
+    A altura de montagem é sempre medida a partir do piso: a tomada alta tem 2000
+    em qualquer pavimento, e no pavimento de cota 3000 fica desenhada em 5000.
+    """
+    return float(cota_piso) + float(altura_montagem)
+
+
 def nome_do_pavimento(texto):
     """Nome sem espaços nas pontas; vazio vale como o pavimento padrão."""
     return " ".join(str(texto).split()) or PAVIMENTO_PADRAO
