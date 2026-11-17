@@ -331,6 +331,30 @@ class TestServico(unittest.TestCase):
         self.assertEqual(self.servico.cota_no_desenho(self.doc, tomada), 3000.0)
         self.assertEqual(self.servico.cota_3d(self.doc, tomada), 5000.0)
 
+    def test_pasta_de_circuitos_e_fiacao_no_pavimento_do_simbolo(self):
+        terreo = self.servico.definir(self.doc, "Térreo", 0, 3000)
+        tomada = self.adicionar(self._com_posicao(ponto("T1", "tomada_baixa"), Altura3D=300.0))
+        self.servico.arquivar(self.doc, tomada, terreo)
+        fiacao = self.servico.pasta_do_pavimento(self.doc, tomada, "fiacao")
+        circuitos = self.servico.pasta_do_pavimento(self.doc, tomada, "circuitos")
+        self.assertEqual((fiacao.Label, circuitos.Label), ("Fiação", "Circuitos"))
+        self.assertIs(fiacao.getParentGroup(), terreo)
+        self.assertIs(self.servico.pasta_do_pavimento(self.doc, tomada, "fiacao"), fiacao)  # não duplica
+        self.assertIsNone(self.servico.pasta_do_pavimento(self.doc, ponto("T2", "tomada_baixa"), "fiacao"))
+
+    def test_guardar_junto_poe_na_pasta_da_referencia(self):
+        terreo = self.servico.definir(self.doc, "Térreo", 0, 3000)
+        quadro = self.adicionar(self._com_posicao(ponto("QD1", "quadro_distribuicao"), Altura3D=1500.0))
+        self.servico.arquivar(self.doc, quadro, terreo)
+        raiz, planilha = Objeto("Quadros"), Objeto("Quadro")
+        raiz.addObject(planilha)
+        destino = self.servico.guardar_junto(quadro, planilha)
+        self.assertIs(destino, quadro.getParentGroup())
+        self.assertEqual((raiz.Group, destino.Group[-1]), ([], planilha))
+        self.assertIs(self.servico.guardar_junto(quadro, planilha), destino)
+        self.assertEqual(destino.Group.count(planilha), 1)
+        self.assertIsNone(self.servico.guardar_junto(Objeto("solto"), Objeto("outra")))
+
     def test_mover_leva_para_a_cota_do_outro_pavimento(self):
         terreo = self.servico.definir(self.doc, "Térreo", 0, 3000)
         segundo = self.servico.definir(self.doc, "2º Pavimento", 3000, 3000)

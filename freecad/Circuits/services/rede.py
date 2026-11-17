@@ -211,7 +211,11 @@ def analisar(doc):
         do_pav = [c for c in caixas if c["pavimento"] == pav]
         if not do_pav:
             continue
-        resultados.append(regras.analisar(caminhos, do_pav, _info_circuito(doc, cache)))
+        resultado = regras.analisar(caminhos, do_pav, _info_circuito(doc, cache))
+        resultado["pavimento"] = pav
+        for circuito in resultado["circuitos"]:
+            circuito["pavimento"] = pav
+        resultados.append(resultado)
     return regras.juntar(resultados)
 
 

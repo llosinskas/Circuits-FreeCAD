@@ -91,6 +91,22 @@ class TestServicos(unittest.TestCase):
         criados = [chamada for chamada in doc.addObject.call_args_list if chamada.args[0] == "Sketcher::SketchObject"]
         self.assertEqual(len(criados), 2)
 
+    def test_fiacao_vai_para_a_pasta_do_pavimento(self):
+        pasta = mock.MagicMock()
+        doc = self.documento(ponto("T", "tomada_baixa"), ponto("L", "luz_teto"))
+        chaves = []
+
+        def pasta_do_pavimento(documento, obj, chave):
+            chaves.append(chave)
+            return pasta if obj.Name == "T" else None
+        with mock.patch.object(self.cabos.pavimentos, "pasta_do_pavimento", side_effect=pasta_do_pavimento), \
+                mock.patch.object(self.cabos, "create_group") as criar_grupo:
+            self.assertEqual(self.cabos.desenhar_cabos_planta(doc), 2)
+        self.assertEqual(chaves, ["fiacao", "fiacao"])
+        self.assertEqual(pasta.addObject.call_count, 1)  # T no pavimento
+        criar_grupo.assert_called_once_with("Cabos", doc)  # L fora de pavimento
+        self.assertEqual(criar_grupo.return_value.addObject.call_count, 1)
+
     def test_escala_na_selecao(self):
         a, b = ponto("A", "tomada_baixa"), ponto("B", "luz_teto")
         antiga = types.SimpleNamespace(Name="O", Proxy=types.SimpleNamespace(Type="Outlet"))

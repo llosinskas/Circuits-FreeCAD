@@ -310,9 +310,17 @@ def analisar(caminhos, caixas, info_circuito, folga=FOLGA_PONTA_MM, tolerancia=T
 
 
 def juntar(resultados):
-    """Soma os resultados de vários pavimentos."""
-    total = {"fios": {}, "circuitos": [], "verticais": [], "avisos": []}
+    """Soma os resultados de vários pavimentos.
+
+    ``fios_por_pavimento`` guarda os fios de cada um, pela chave ``pavimento``
+    do resultado ('' quando não informada).
+    """
+    total = {"fios": {}, "circuitos": [], "verticais": [], "avisos": [], "fios_por_pavimento": {}}
     for resultado in resultados:
+        pavimento = resultado.get("pavimento", "")
+        do_pav = total["fios_por_pavimento"].setdefault(pavimento, {})
+        for chave, metros in resultado["fios"].items():
+            do_pav[chave] = do_pav.get(chave, 0.0) + metros
         for chave, metros in resultado["fios"].items():
             total["fios"][chave] = total["fios"].get(chave, 0.0) + metros
         for campo in ("circuitos", "verticais", "avisos"):

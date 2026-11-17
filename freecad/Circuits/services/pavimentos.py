@@ -258,6 +258,30 @@ def pasta(doc, pavimento, chave):
     return grupo
 
 
+def pasta_do_pavimento(doc, obj, chave):
+    """Pasta ``chave`` do pavimento do objeto (ex.: Térreo > Fiação), ou None fora de um pavimento."""
+    pav = pavimento_do_objeto(doc, obj)
+    return pasta(doc, pav, chave) if pav is not None else None
+
+
+def guardar_junto(referencia, obj):
+    """Põe o objeto na mesma pasta da referência (ex.: a planilha do quadro ao lado do símbolo).
+
+    Returns:
+        A pasta, ou None se a referência não está em pasta nenhuma (o objeto fica onde está).
+    """
+    destino = _pai(referencia)
+    if destino is None:
+        return None
+    anterior = _pai(obj)
+    if anterior is destino:
+        return destino
+    if anterior is not None:
+        anterior.removeObject(obj)
+    destino.addObject(obj)
+    return destino
+
+
 def pasta_3d(doc, obj):
     """Subpasta "<tipo> 3D" dentro da pasta do símbolo (ex.: Térreo > Tomadas > Tomadas 3D).
 

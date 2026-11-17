@@ -126,7 +126,7 @@ def montar(pontos=(), eletrodutos=(), componentes_quadros=(), fios=None, vertica
 
 COLUNAS_VERTICAIS = ["Pavimento", "Caixa", "Circuito", "Altura do eletroduto [m]", "Altura da caixa [m]",
                      "Vertical [m]", "Sentido", "Diâmetro"]
-COLUNAS_CIRCUITOS = ["Quadro", "Circuito", "Seção [mm²]", "Condutores", "Pontos", "Trajeto [m]", "Fio total [m]"]
+COLUNAS_CIRCUITOS = ["Pavimento", "Quadro", "Circuito", "Seção [mm²]", "Condutores", "Pontos", "Trajeto [m]", "Fio total [m]"]
 
 
 def tabela_verticais(verticais):
@@ -142,10 +142,29 @@ def tabela_verticais(verticais):
 def tabela_circuitos(circuitos):
     """Fiação por circuito (de ``core.rede.analisar``) como tabela, com cabeçalho."""
     return [list(COLUNAS_CIRCUITOS)] + [
-        [c["quadro"], c["circuito"], _secao(c["secao"]), c["condutores"], c["pontos"], float(c["trajeto"]),
+        [c.get("pavimento", ""), c["quadro"], c["circuito"], _secao(c["secao"]), c["condutores"], c["pontos"], float(c["trajeto"]),
          float(c["fio"])]
         for c in circuitos
     ]
+
+
+SEM_PAVIMENTO = "Sem pavimento"
+COLUNAS_POR_PAVIMENTO = ["Pavimento"] + COLUNAS
+
+
+def tabela_por_pavimento(por_pavimento):
+    """Quantitativo separado por pavimento como tabela, com cabeçalho.
+
+    Args:
+        por_pavimento: pares (nome do pavimento, linhas de ``montar``) na ordem
+            em que devem aparecer; nome vazio vira ``SEM_PAVIMENTO``.
+    """
+    tabela = [list(COLUNAS_POR_PAVIMENTO)]
+    for pavimento, linhas in por_pavimento:
+        for linha in linhas:
+            tabela.append([pavimento or SEM_PAVIMENTO, linha["grupo"], linha["item"], linha["especificacao"],
+                           linha["unidade"], linha["quantidade"]])
+    return tabela
 
 
 def como_tabela(linhas):

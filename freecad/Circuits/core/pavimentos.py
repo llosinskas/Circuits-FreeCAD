@@ -20,6 +20,8 @@ PASTAS = {
     "quadros": "Quadros e medição",
     "eletrodutos": "Eletrodutos",
     "aterramento": "Aterramento",
+    "circuitos": "Circuitos",
+    "fiacao": "Fiação",
 }
 
 _PASTA_DA_CATEGORIA = {

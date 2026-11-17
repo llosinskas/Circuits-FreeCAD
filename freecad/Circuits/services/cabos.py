@@ -5,6 +5,7 @@ import Part
 from freecad.Circuits.core.simbolos import CATALOGO, SEM_CARGA
 from freecad.Circuits.core.simbologia import condutores, posicoes_fase
 from freecad.Circuits.objects.ponto import tamanho_do_ponto
+from freecad.Circuits.services import pavimentos
 from freecad.Circuits.services.documento import create_group
 from freecad.Circuits.services.estilo import pintar_sketch
 from freecad.Circuits.services.tomadas import escala_da_tomada
@@ -84,7 +85,10 @@ def _remover_fiacao(doc):
 
 
 def desenhar_cabos_planta(doc, pontos=None):
-    """Recria o símbolo de fiação de cada ponto da planta, no grupo Cabos.
+    """Recria o símbolo de fiação de cada ponto da planta.
+
+    Cada desenho vai para a pasta Fiação do pavimento do ponto; pontos fora de
+    um pavimento ficam no grupo Cabos.
 
     A fiação anterior feita por este comando é apagada antes, então repetir o
     comando atualiza o desenho em vez de duplicar.
@@ -95,13 +99,17 @@ def desenhar_cabos_planta(doc, pontos=None):
     if pontos is None:
         pontos = listar_pontos_com_fiacao(doc)
     _remover_fiacao(doc)
-    grupo = create_group("Cabos", doc)
+    sem_pavimento = None
     desenhados = 0
     for ponto in pontos:
         dados = condutores_do_ponto(ponto)
         if dados is None:
             continue
         fases, neutro, terra, h = dados
+        grupo = pavimentos.pasta_do_pavimento(doc, ponto, "fiacao")
+        if grupo is None:
+            sem_pavimento = sem_pavimento or create_group("Cabos", doc)
+            grupo = sem_pavimento
         _desenhar_simbolo_planta(doc, ponto.Placement.Base, fases, neutro, terra, h, grupo, ponto.Name)
         desenhados += 1
     doc.recompute()

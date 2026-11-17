@@ -217,6 +217,37 @@ class TestServico(unittest.TestCase):
         fios = [l["especificacao"] for l in linhas if l["grupo"] == "Fios e cabos"]
         self.assertEqual(fios, ["1,5 mm² - retorno", "2,5 mm² - fase", "2,5 mm² - terra (verde e amarelo)"])
 
+    def test_quantitativo_separado_por_pavimento(self):
+        doc = self.documento()
+        doc.Objects[0].Pavimento = "Térreo"
+        doc.Objects[2].Pavimento = "Superior"
+        doc.Objects[5].Pavimento = "Superior"
+        fiacao = {"fios": {(2.5, "fase"): 15.0}, "fios_por_pavimento": {"Térreo": {(2.5, "fase"): 10.0},
+                                                                        "Superior": {(2.5, "fase"): 5.0}},
+                  "verticais": [{"pavimento": "Superior", "diametro": "3/4", "comprimento": 2.0}],
+                  "circuitos": [], "avisos": []}
+        with mock.patch.object(self.servico, "_componentes_por_quadro", return_value=[]), \
+                mock.patch.object(self.servico, "nome_do_pavimento", lambda doc, obj: getattr(obj, "Pavimento", "")), \
+                mock.patch.object(self.servico, "_ordem_dos_pavimentos",
+                                  lambda doc, nomes: [n for n in ("Térreo", "Superior", "") if n in nomes]):
+            por_pav = dict(self.servico.levantar_por_pavimento(doc, fiacao))
+        self.assertEqual(list(por_pav), ["Térreo", "Superior", ""])
+
+        def item(pav, nome, espec):
+            return next((l["quantidade"] for l in por_pav[pav] if l["item"] == nome and l["especificacao"] == espec), 0)
+        self.assertEqual(item("Térreo", "Tomada baixa", "127V, 100 VA"), 1)
+        self.assertEqual(item("", "Tomada baixa", "127V, 100 VA"), 1)
+        self.assertEqual(item("Superior", "Luz de teto", "127V, 60 VA"), 1)
+        self.assertEqual(item("Superior", "Eletroduto", "3/4\" (inclui 10% de perdas)"), 11.0)
+        self.assertEqual(item("Superior", "Eletroduto", "3/4\" verticais (inclui 10% de perdas)"), 2.2)
+        self.assertEqual(item("Térreo", "Cabo flexível 750 V", "2,5 mm² - fase"), 10.0)
+        self.assertEqual(item("Superior", "Cabo flexível 750 V", "2,5 mm² - fase"), 5.0)
+
+    def test_ordem_dos_pavimentos_pela_cota(self):
+        pavs = [types.SimpleNamespace(Label="Superior"), types.SimpleNamespace(Label="Térreo")]
+        with mock.patch.object(self.servico.pavimentos, "listar", return_value=pavs):
+            self.assertEqual(self.servico._ordem_dos_pavimentos(None, {"", "Térreo", "Superior"}), ["Superior", "Térreo", ""])
+
     def test_componentes_dos_quadros(self):
         quadro = object()
         with mock.patch.object(self.servico.planilhas, "listar_quadros", return_value=[quadro, quadro]), \
@@ -243,23 +274,30 @@ class TestServico(unittest.TestCase):
             "verticais": [{"pavimento": "Térreo", "caixa": "Tomada baixa", "circuito": "1", "altura_eletroduto": 2800.0,
                            "altura_caixa": 300.0, "comprimento": 2.5, "sentido": "descida", "diametro": "3/4"}],
         }
-        gravados, avisos = self.servico.exportar(types.SimpleNamespace(Label="Casa"), base, linhas, fiacao)
+        por_pavimento = [("Térreo", linhas), ("", quantitativos.montar([ponto("Luz de teto")]))]
+        gravados, avisos = self.servico.exportar(types.SimpleNamespace(Label="Casa"), base, linhas, fiacao, por_pavimento)
         esperados = [os.path.join(self.pasta, "lista" + ext)
-                     for ext in (".csv", "_verticais.csv", "_circuitos.csv", ".xlsx")]
-        self.assertEqual(gravados[:4], esperados)
-        with zipfile.ZipFile(esperados[3]) as arquivo:
+                     for ext in (".csv", "_pavimentos.csv", "_verticais.csv", "_circuitos.csv", ".xlsx")]
+        self.assertEqual(gravados[:5], esperados)
+        with zipfile.ZipFile(esperados[4]) as arquivo:
             livro = ElementTree.fromstring(arquivo.read("xl/workbook.xml"))
-            self.assertIn("xl/worksheets/sheet3.xml", arquivo.namelist())
+            self.assertIn("xl/worksheets/sheet4.xml", arquivo.namelist())
         self.assertEqual([aba.get("name") for aba in livro.iter(f"{{{NS['x']}}}sheet")],
-                         ["Quantitativo", "Verticais", "Fiação por circuito"])
+                         ["Quantitativo", "Por pavimento", "Verticais", "Fiação por circuito"])
         with open(esperados[1], encoding="utf-8-sig") as arquivo:
+            pavs = [linha.split(";")[0] for linha in arquivo.read().splitlines()[1:]]
+        self.assertEqual(pavs[0], "Térreo")
+        self.assertEqual(pavs[-1], quantitativos.SEM_PAVIMENTO)
+        with open(esperados[2], encoding="utf-8-sig") as arquivo:
             self.assertEqual(arquivo.read().splitlines()[1], "Térreo;Tomada baixa;1;2,80;0,30;2,50;descida;\"3/4\"\"\"")
+        with open(esperados[3], encoding="utf-8-sig") as arquivo:
+            self.assertTrue(arquivo.read().splitlines()[1].startswith(";QD1;1;2,5;"))  # circuito sem pavimento
         if TEM_REPORTLAB:
-            self.assertEqual((gravados[4], avisos), (os.path.join(self.pasta, "lista.pdf"), []))
-            with open(gravados[4], "rb") as arquivo:
+            self.assertEqual((gravados[5], avisos), (os.path.join(self.pasta, "lista.pdf"), []))
+            with open(gravados[5], "rb") as arquivo:
                 self.assertTrue(arquivo.read().startswith(b"%PDF"))
         else:
-            self.assertEqual(len(gravados), 4)
+            self.assertEqual(len(gravados), 5)
             self.assertIn("reportlab", avisos[0])
         for caminho in gravados:
             self.assertGreater(os.path.getsize(caminho), 0)

@@ -189,6 +189,29 @@ class TestServico(unittest.TestCase):
             self.assertEqual(self.servico.mapa_de_secoes(self.documento()),
                              {("QD1", "1"): 2.5, ("", "1"): 2.5, ("QD2", "1"): 4.0})
 
+    def test_anotar_poe_os_textos_na_pasta_circuitos_do_pavimento(self):
+        base = types.SimpleNamespace(x=0.0, y=0.0, z=3000.0)
+        l1, t1 = luz("L1"), tomada("T1", "2")
+        for obj in (l1, t1):
+            obj.Placement = types.SimpleNamespace(Base=base)
+        antigo = types.SimpleNamespace(Name="Texto009", identificacao_de="L1")
+        doc = self.documento(l1, t1, antigo)
+        pasta, chaves = mock.MagicMock(), []
+
+        def pasta_do_pavimento(documento, obj, chave):
+            chaves.append(chave)
+            return pasta if obj is l1 else None
+        with mock.patch.object(self.servico, "listar_simbolos", return_value=[l1, t1]), \
+                mock.patch.object(self.servico, "mapa_de_secoes", return_value={}), \
+                mock.patch.object(self.servico.pavimentos, "pasta_do_pavimento", side_effect=pasta_do_pavimento):
+            self.assertEqual(self.servico.anotar(doc), 2)
+        doc.removeObject.assert_called_once_with("Texto009")  # o texto anterior sai
+        self.assertEqual(chaves, ["circuitos", "circuitos"])
+        self.assertEqual(pasta.addObject.call_count, 1)
+        doc.addObject.assert_called_once_with("App::DocumentObjectGroup", self.servico.NOME_GRUPO)  # T1 fora de pavimento
+        self.assertTrue(self.servico.existe_anotacao(doc))
+        self.assertFalse(self.servico.existe_anotacao(self.documento(l1)))
+
     def test_texto_dos_quadros(self):
         medicao = objeto("CM", "Ponto", Simbolo="medicao_agrupada", Descricao="CM", Medidores=12, Circuito="")
         quadro = objeto("QD", "Ponto", Simbolo="quadro_distribuicao", Descricao="QD1", Circuito="")

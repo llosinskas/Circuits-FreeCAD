@@ -206,6 +206,8 @@ def scenario(doc):
     run("Cabo")
     run("Cabo")  # segunda execução: precisa substituir a fiação, não duplicar
     result["steps"]["fiacao"] = len([o for o in doc.Objects if hasattr(o, "fiacao_de")])
+    result["steps"]["fiacao_pastas"] = sorted({getattr(o.getParentGroup(), "Label", "") for o in doc.Objects
+                                               if hasattr(o, "fiacao_de")})
     QtWidgets.QInputDialog.getDouble = staticmethod(lambda *a, **k: (1.5, True))
     Gui.Selection.clearSelection()
     run("EscalaSimbolos")
@@ -234,6 +236,8 @@ def scenario(doc):
         "circuitos": [o.Circuito for o in luzes + interruptores[:1]],
         "comandos": [o.Comando for o in luzes + interruptores[:1]],
         "grupos": [o["name"] for o in snapshot(doc) if o["name"].startswith("Identificacao")],
+        "textos": len([o for o in doc.Objects if hasattr(o, "identificacao_de")]),
+        "pastas": sorted({getattr(o.getParentGroup(), "Label", "") for o in doc.Objects if hasattr(o, "identificacao_de")}),
     }
 
     run("LegendaSimbolos")
@@ -283,7 +287,7 @@ def scenario(doc):
     QtWidgets.QFileDialog.getSaveFileName = salvar_original
     result["steps"]["quantitativos"] = {
         ext: os.path.exists(base_quantitativo + ext) and os.path.getsize(base_quantitativo + ext) > 0
-        for ext in (".csv", ".xlsx", ".pdf")
+        for ext in (".csv", "_pavimentos.csv", ".xlsx", ".pdf")
     }
     run("GerarUnifilar")  # segunda execução: precisa substituir, não duplicar
     result["steps"]["unifilar_repetido"] = [o["name"] for o in snapshot(doc)]

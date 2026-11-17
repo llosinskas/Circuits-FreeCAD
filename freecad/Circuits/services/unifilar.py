@@ -5,7 +5,7 @@ import Part
 
 from freecad.Circuits.core import quadro as regras_quadro
 from freecad.Circuits.core import simbolos
-from freecad.Circuits.services import planilhas
+from freecad.Circuits.services import pavimentos, planilhas
 from freecad.Circuits.services.cabos import desenhar_cabo_unifilar
 from freecad.Circuits.services.estilo import pintar_sketch
 
@@ -282,7 +282,7 @@ def gerar_diagramas(doc, quadros, h=ALTURA_PADRAO):
     """Recria o diagrama de cada quadro, substituindo o anterior se existir.
 
     Os diagramas são empilhados de cima para baixo, um por quadro, para não se
-    sobreporem.
+    sobreporem. Cada um fica na mesma pasta da planilha do quadro.
     """
     topo = 0.0
     for quadro in quadros:
@@ -291,6 +291,7 @@ def gerar_diagramas(doc, quadros, h=ALTURA_PADRAO):
         grupo.Label = f"diagrama_{quadro.Label}"
         grupo.addProperty("App::PropertyString", "quadro_origem", "Diagrama", "Planilha do quadro que gerou o diagrama")
         grupo.quadro_origem = quadro.Name
+        pavimentos.guardar_junto(quadro, grupo)  # na pasta do quadro, se ele estiver num pavimento
         desenhar_quadro(doc, h, grupo, quadro)
 
         circuitos = 0

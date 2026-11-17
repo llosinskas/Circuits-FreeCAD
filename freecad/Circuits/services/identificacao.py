@@ -6,7 +6,7 @@ from freecad.Circuits.core import circuitos as calculo
 from freecad.Circuits.core import quadro as regras_quadro
 from freecad.Circuits.core import identificacao, simbolos
 from freecad.Circuits.core.simbologia import tamanho_efetivo
-from freecad.Circuits.services import planilhas
+from freecad.Circuits.services import pavimentos, planilhas
 from freecad.Circuits.services.alinhamento import listar_simbolos
 
 NOME_GRUPO = "Identificacao_pontos"
@@ -159,10 +159,18 @@ def quadro_selecionado(objetos):
 
 
 def vincular_planilha(doc, simbolo, planilha, identificacao_quadro):
-    """Liga o símbolo de quadro da planta à planilha criada para ele."""
+    """Liga o símbolo de quadro da planta à planilha criada para ele.
+
+    A planilha do quadro e a de circuitos vão para a pasta do símbolo
+    (ex.: Térreo > Quadros e medição).
+    """
     simbolo.Descricao = identificacao_quadro
     simbolo.Label = identificacao_quadro
     simbolo.Planilha = planilha.Name
+    pavimentos.guardar_junto(simbolo, planilha)
+    circuitos = planilhas.planilha_de_circuitos(planilha, criar=False)
+    if circuitos is not None:
+        pavimentos.guardar_junto(simbolo, circuitos)
     atualizar_anotacao(doc)
 
 
@@ -175,13 +183,26 @@ def texto_do_objeto(obj):
     return identificacao.texto_ponto(circuito, comando, _potencia(obj))
 
 
+def _textos_de_identificacao(doc):
+    return [obj for obj in doc.Objects if hasattr(obj, "identificacao_de")]
+
+
+def existe_anotacao(doc):
+    """Se a identificação já foi gerada: textos marcados ou o grupo antigo na raiz."""
+    return doc.getObject(NOME_GRUPO) is not None or bool(_textos_de_identificacao(doc))
+
+
 def _remover_anotacao(doc):
+    removeu = False
+    for texto in _textos_de_identificacao(doc):
+        doc.removeObject(texto.Name)
+        removeu = True
     anterior = doc.getObject(NOME_GRUPO)
-    if anterior is None:
-        return False
-    anterior.removeObjectsFromDocument()
-    doc.removeObject(NOME_GRUPO)
-    return True
+    if anterior is not None:
+        anterior.removeObjectsFromDocument()
+        doc.removeObject(NOME_GRUPO)
+        removeu = True
+    return removeu
 
 
 def mapa_de_secoes(doc):
@@ -238,7 +259,10 @@ def anotar(doc):
     """Recria os textos de identificação ao lado de cada símbolo da planta.
 
     Cada texto tem duas linhas: circuito, comando e potência; e, embaixo, a
-    seção e os condutores dos cabos que chegam à caixa.
+    seção e os condutores dos cabos que chegam à caixa. Os textos ficam na
+    pasta Circuitos do pavimento do símbolo, marcados pela propriedade
+    ``identificacao_de``; os de símbolos fora de um pavimento, no grupo
+    ``Identificacao_pontos``.
 
     Returns:
         Quantidade de símbolos anotados.
@@ -254,14 +278,21 @@ def anotar(doc):
         doc.recompute()
         return 0
 
-    grupo = doc.addObject("App::DocumentObjectGroup", NOME_GRUPO)
-    grupo.Label = "Identificação dos pontos"
+    sem_pavimento = None
     for obj, linhas in alvos:
         tamanho = _tamanho(obj)
         base = obj.Placement.Base
         # Embaixo e à direita do ponto de inserção, fora do desenho do símbolo, na cota do símbolo.
         posicao = App.Vector(base.x + tamanho * 0.2, base.y - tamanho * 1.1, base.z)
         anotacao = Draft.make_text(linhas, placement=App.Placement(posicao, App.Rotation()), height=tamanho * 0.45)
+        anotacao.addProperty("App::PropertyString", "identificacao_de", "Identificação", "Símbolo identificado por este texto")
+        anotacao.identificacao_de = obj.Name
+        grupo = pavimentos.pasta_do_pavimento(doc, obj, "circuitos")
+        if grupo is None:
+            if sem_pavimento is None:
+                sem_pavimento = doc.addObject("App::DocumentObjectGroup", NOME_GRUPO)
+                sem_pavimento.Label = "Identificação dos pontos"
+            grupo = sem_pavimento
         grupo.addObject(anotacao)
     doc.recompute()
     return len(alvos)
@@ -269,7 +300,7 @@ def anotar(doc):
 
 def atualizar_anotacao(doc):
     """Refaz a anotação só se ela já existe no documento."""
-    if doc.getObject(NOME_GRUPO) is not None:
+    if existe_anotacao(doc):
         anotar(doc)
     else:
         doc.recompute()

@@ -100,8 +100,10 @@ Pontos_eletricos
 │   ├── Pontos de energia
 │   ├── Iluminação
 │   ├── Interruptores
-│   ├── Quadros e medição
-│   └── Eletrodutos
+│   ├── Quadros e medição     (símbolos, planilhas do quadro e diagrama unifilar)
+│   ├── Eletrodutos
+│   ├── Circuitos             (textos de identificação dos pontos)
+│   └── Fiação                (traços de fase, neutro e terra)
 └── 1º Pavimento
     └── ...
 ```
@@ -115,6 +117,8 @@ Pontos_eletricos
 - **Projeto > Mover para pavimento** leva os símbolos selecionados para outro pavimento, já na cota do piso dele.
 
 As caixas e os eletrodutos 3D somam a cota do pavimento à altura de montagem e ficam numa subpasta 3D dentro da pasta do elemento, por exemplo *Térreo > Tomadas > Tomadas 3D*.
+
+Tudo o que é gerado a partir dos símbolos fica no pavimento deles: a identificação vai para a pasta *Circuitos*, a fiação para *Fiação*, e as planilhas do quadro (dados, circuitos e componentes) e o diagrama unifilar ficam junto do símbolo do quadro, em *Quadros e medição*. O que está fora de um pavimento continua nos grupos da raiz.
 
 ### Circuitos e interruptores
 
@@ -165,9 +169,11 @@ O botão **Fiação** desenha na planta os traços de fase, neutro e terra ao la
 **Documentos > Quantitativos** levanta os materiais do desenho e grava, com o mesmo nome:
 
 - `Quantitativo_<projeto>.csv`, separado por ponto e vírgula, abre no Excel com os acentos certos;
-- `Quantitativo_<projeto>.xlsx`, com as abas *Quantitativo*, *Verticais* e *Fiação por circuito*;
-- `Quantitativo_<projeto>.pdf`, com as mesmas tabelas e os avisos;
-- `_verticais.csv` e `_circuitos.csv`, com as duas tabelas auxiliares.
+- `Quantitativo_<projeto>.xlsx`, com as abas *Quantitativo* (total do projeto), *Por pavimento*, *Verticais* e *Fiação por circuito*;
+- `Quantitativo_<projeto>.pdf`, com as mesmas tabelas, uma por pavimento, e os avisos;
+- `_pavimentos.csv`, `_verticais.csv` e `_circuitos.csv`, com as tabelas auxiliares.
+
+O quantitativo por pavimento soma em cada um os pontos, caixas, eletrodutos, verticais, fios, aterramento e os componentes dos quadros que estão nele; o que está fora de um pavimento aparece como *Sem pavimento*.
 
 | Grupo | Como é contado |
 |---|---|

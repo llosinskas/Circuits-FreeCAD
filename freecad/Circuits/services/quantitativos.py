@@ -6,7 +6,7 @@ from freecad.Circuits.core import exportar as gravacao
 from freecad.Circuits.core import quantitativos as regras
 from freecad.Circuits.core import quadro as regras_quadro
 from freecad.Circuits.core.simbolos import ATERRAMENTO, CATALOGO, COMANDO, PASSAGEM, QUADRO
-from freecad.Circuits.services import planilhas, rede
+from freecad.Circuits.services import pavimentos, planilhas, rede
 from freecad.Circuits.services.tomadas import listar_tomadas
 
 EXTENSOES = (".csv", ".xlsx", ".pdf")
@@ -41,26 +41,48 @@ def _ponto(obj):
     }
 
 
+def nome_do_pavimento(doc, obj):
+    """Nome do pavimento do objeto, ou '' se ele está fora de um pavimento."""
+    try:
+        pav = pavimentos.pavimento_do_objeto(doc, obj)
+    except Exception:
+        return ""
+    return pav.Label if pav is not None else ""
+
+
 def coletar_pontos(doc):
-    """Pontos, interruptores e quadros da planta, no formato de ``core.quantitativos.montar``."""
+    """Pontos, interruptores e quadros da planta, no formato de ``core.quantitativos.montar``.
+
+    Cada dicionário leva também ``pavimento``, o nome do pavimento do símbolo ('' fora de um).
+    """
     pontos = []
     for obj in doc.Objects:
         tipo = _tipo(obj)
         if tipo == "Ponto" and obj.Simbolo in CATALOGO:
-            pontos.append(_ponto(obj))
+            dados = _ponto(obj)
         elif tipo == "Switch":
-            pontos.append({"grupo": "Interruptores", "item": "Interruptor", "especificacao": str(obj.Tipo), "caixa": "4x2"})
+            dados = {"grupo": "Interruptores", "item": "Interruptor", "especificacao": str(obj.Tipo), "caixa": "4x2"}
         elif tipo == "Outlet":
-            pontos.append({"grupo": "Pontos", "item": "Tomada (antiga)", "especificacao": str(obj.Tensao), "caixa": "4x2"})
+            dados = {"grupo": "Pontos", "item": "Tomada (antiga)", "especificacao": str(obj.Tensao), "caixa": "4x2"}
         elif tipo == "Lighting":
-            pontos.append({"grupo": "Pontos", "item": "Ponto de iluminação (antigo)", "especificacao": "", "caixa": "octogonal"})
-    for _ in listar_tomadas(doc):
-        pontos.append({"grupo": "Pontos", "item": "Tomada TUG", "especificacao": "", "caixa": "4x2"})
+            dados = {"grupo": "Pontos", "item": "Ponto de iluminação (antigo)", "especificacao": "", "caixa": "octogonal"}
+        else:
+            continue
+        dados["pavimento"] = nome_do_pavimento(doc, obj)
+        pontos.append(dados)
+    for tomada in listar_tomadas(doc):
+        pontos.append({"grupo": "Pontos", "item": "Tomada TUG", "especificacao": "", "caixa": "4x2",
+                       "pavimento": nome_do_pavimento(doc, tomada)})
     return pontos
 
 
 def coletar_eletrodutos(doc):
     """(diâmetro, comprimento [mm]) de cada caminho de eletroduto: os que têm a propriedade Diametro."""
+    return [(diametro, comprimento) for _, diametro, comprimento in _eletrodutos(doc)]
+
+
+def _eletrodutos(doc):
+    """(pavimento, diâmetro, comprimento [mm]) de cada caminho de eletroduto."""
     eletrodutos = []
     for obj in doc.Objects:
         if not hasattr(obj, "Diametro") or not hasattr(obj, "Shape"):
@@ -71,33 +93,113 @@ def coletar_eletrodutos(doc):
             comprimento = obj.Shape.Length
         except Exception:
             continue
-        eletrodutos.append((str(obj.Diametro), float(comprimento)))
+        eletrodutos.append((nome_do_pavimento(doc, obj), str(obj.Diametro), float(comprimento)))
     return eletrodutos
 
 
 def coletar_aterramento(doc):
     """(seção [mm²], comprimento [mm]) de cada condutor de aterramento e um conector por haste."""
-    condutores, conectores = [], 0
+    condutores, conectores = _aterramento(doc)
+    return [(secao, comprimento) for _, secao, comprimento in condutores], sum(conectores.values())
+
+
+def _aterramento(doc):
+    """[(pavimento, seção, comprimento [mm])] dos condutores e {pavimento: conectores} das hastes."""
+    condutores, conectores = [], {}
     for obj in doc.Objects:
         if hasattr(obj, "SecaoAterramento") and hasattr(obj, "Shape"):
             try:
-                condutores.append((float(str(obj.SecaoAterramento).replace(",", ".")), float(obj.Shape.Length)))
+                condutores.append((nome_do_pavimento(doc, obj), float(str(obj.SecaoAterramento).replace(",", ".")),
+                                   float(obj.Shape.Length)))
             except Exception:
                 continue
         elif _tipo(obj) == "Ponto" and getattr(obj, "Simbolo", "") == "haste_aterramento":
-            conectores += 1
+            pavimento = nome_do_pavimento(doc, obj)
+            conectores[pavimento] = conectores.get(pavimento, 0) + 1
     return condutores, conectores
+
+
+def _pavimento_do_quadro(doc, quadro):
+    """Pavimento da planilha do quadro: o da pasta dela ou o do símbolo ligado a ela (propriedade Planilha)."""
+    nome = nome_do_pavimento(doc, quadro)
+    if nome:
+        return nome
+    simbolo = next((obj for obj in doc.Objects if getattr(obj, "Planilha", None) == getattr(quadro, "Name", None)), None)
+    return nome_do_pavimento(doc, simbolo) if simbolo is not None else ""
 
 
 def coletar_componentes_quadros(doc):
     """Componentes de todos os quadros, lidos das planilhas de dados e de circuitos."""
-    componentes = []
+    return [item for _, itens in _componentes_por_quadro(doc) for item in itens]
+
+
+def _componentes_por_quadro(doc):
+    """(pavimento, componentes) de cada quadro."""
+    resultado = []
     for quadro in planilhas.listar_quadros(doc):
         try:
-            componentes += regras_quadro.componentes(planilhas.ler_quadro(quadro), planilhas.ler_circuitos_completos(quadro))
+            itens = regras_quadro.componentes(planilhas.ler_quadro(quadro), planilhas.ler_circuitos_completos(quadro))
         except ValueError:
             continue  # quadro com valores fora das tabelas: fica de fora, sem impedir o resto
-    return componentes
+        resultado.append((_pavimento_do_quadro(doc, quadro), itens))
+    return resultado
+
+
+def _conector(quantidade):
+    return {"item": "Conector haste-cabo", "especificacao": "", "quantidade": quantidade, "unidade": "un",
+            "grupo": "Aterramento"}
+
+
+def _ordem_dos_pavimentos(doc, nomes):
+    """Nomes na ordem das cotas dos pavimentos; os sem pavimento ('') por último."""
+    try:
+        ordem = [pav.Label for pav in pavimentos.listar(doc)]
+    except Exception:
+        ordem = []
+    return sorted(nomes, key=lambda nome: (nome == "", ordem.index(nome) if nome in ordem else len(ordem), nome))
+
+
+def levantar_por_pavimento(doc, fiacao=None):
+    """Quantitativo de cada pavimento, separado.
+
+    Args:
+        fiacao: resultado de ``services.rede.analisar`` (lido de novo se None).
+    Returns:
+        Pares (nome do pavimento, linhas de ``core.quantitativos.montar``), em
+        ordem de cota; o nome '' reúne o que está fora de um pavimento.
+    """
+    if fiacao is None:
+        fiacao = rede.analisar(doc)
+    entradas = {}
+
+    def de(pavimento):
+        return entradas.setdefault(pavimento, {"pontos": [], "eletrodutos": [], "componentes": [], "fios": {},
+                                               "verticais": [], "aterramento": []})
+
+    for ponto in coletar_pontos(doc):
+        de(ponto.get("pavimento", ""))["pontos"].append(ponto)
+    for pavimento, diametro, comprimento in _eletrodutos(doc):
+        de(pavimento)["eletrodutos"].append((diametro, comprimento))
+    for pavimento, itens in _componentes_por_quadro(doc):
+        de(pavimento)["componentes"].extend(itens)
+    condutores, conectores = _aterramento(doc)
+    for pavimento, secao, comprimento in condutores:
+        de(pavimento)["aterramento"].append((secao, comprimento))
+    for pavimento, quantidade in conectores.items():
+        de(pavimento)["componentes"].append(_conector(quantidade))
+    for pavimento, fios in fiacao.get("fios_por_pavimento", {}).items():
+        de(pavimento)["fios"] = fios
+    for vertical in fiacao["verticais"]:
+        de(vertical.get("pavimento", ""))["verticais"].append(vertical)
+
+    resultado = []
+    for pavimento in _ordem_dos_pavimentos(doc, entradas):
+        dados = entradas[pavimento]
+        linhas = regras.montar(dados["pontos"], dados["eletrodutos"], dados["componentes"], fios=dados["fios"],
+                               verticais=dados["verticais"], aterramento=dados["aterramento"])
+        if linhas:
+            resultado.append((pavimento, linhas))
+    return resultado
 
 
 def levantar(doc):
@@ -111,8 +213,7 @@ def levantar(doc):
     condutores, conectores = coletar_aterramento(doc)
     componentes = coletar_componentes_quadros(doc)
     if conectores:
-        componentes = componentes + [{"item": "Conector haste-cabo", "especificacao": "", "quantidade": conectores,
-                                      "unidade": "un", "grupo": "Aterramento"}]
+        componentes = componentes + [_conector(conectores)]
     linhas = regras.montar(
         coletar_pontos(doc), coletar_eletrodutos(doc), componentes,
         fios=fiacao["fios"], verticais=fiacao["verticais"], aterramento=condutores,
@@ -156,8 +257,11 @@ def _tabela_pdf(tabela, larguras_cm, estilos):
     return resultado
 
 
-def exportar_pdf(linhas, caminho, titulo, fiacao=None):
+def exportar_pdf(linhas, caminho, titulo, fiacao=None, por_pavimento=None):
     """Grava o quantitativo em PDF, com uma tabela por grupo.
+
+    Com ``por_pavimento`` (de ``levantar_por_pavimento``), acrescenta o
+    quantitativo de cada pavimento, um depois do outro.
 
     Raises:
         RuntimeError: se a biblioteca reportlab não estiver instalada.
@@ -201,9 +305,19 @@ def exportar_pdf(linhas, caminho, titulo, fiacao=None):
             ("GRID", (0, 0), (-1, -1), 0.5, colors.HexColor("#9aa0a6")),
         ]))
         historia += [tabela, Spacer(1, 0.4 * cm)]
+    if por_pavimento:
+        historia.append(Paragraph("Quantitativo por pavimento", estilos["Heading2"]))
+        for pavimento, do_pavimento in por_pavimento:
+            tabela = [list(regras.COLUNAS[:4]) + ["Quant."]] + [
+                [linha["grupo"], linha["item"], linha["especificacao"], linha["unidade"], linha["quantidade"]]
+                for linha in do_pavimento
+            ]
+            historia += [Paragraph(pavimento or regras.SEM_PAVIMENTO, estilos["Heading3"]),
+                         _tabela_pdf(tabela, [2.6, 4.4, 6.4, 1.4, 2.2], estilos), Spacer(1, 0.3 * cm)]
     if fiacao and fiacao["circuitos"]:
         historia += [Paragraph("Fiação por circuito", estilos["Heading2"]),
-                     _tabela_pdf(regras.tabela_circuitos(fiacao["circuitos"]), [2.2, 1.8, 1.8, 2.6, 1.6, 2.2, 2.4], estilos),
+                     _tabela_pdf(regras.tabela_circuitos(fiacao["circuitos"]), [2.2, 2.0, 1.6, 1.6, 2.4, 1.6, 1.8, 2.0],
+                                 estilos),
                      Spacer(1, 0.4 * cm)]
     if fiacao and fiacao["verticais"]:
         historia += [Paragraph("Lista de verticais", estilos["Heading2"]),
@@ -220,11 +334,13 @@ def exportar_pdf(linhas, caminho, titulo, fiacao=None):
     return caminho
 
 
-def exportar(doc, caminho_base, linhas=None, fiacao=None):
+def exportar(doc, caminho_base, linhas=None, fiacao=None, por_pavimento=None):
     """Grava o quantitativo em CSV, XLSX e PDF com o mesmo nome base.
 
-    O XLSX tem as abas Quantitativo, Verticais e Fiação por circuito; os CSV das
-    verticais e da fiação são gravados ao lado, com os sufixos _verticais e _circuitos.
+    O XLSX tem as abas Quantitativo, Por pavimento, Verticais e Fiação por
+    circuito; os CSV dessas três últimas são gravados ao lado, com os sufixos
+    _pavimentos, _verticais e _circuitos. ``por_pavimento`` vem de
+    ``levantar_por_pavimento`` e é lido do documento se não for dado.
 
     Returns:
         (arquivos gravados, avisos): lista de caminhos e lista de textos.
@@ -234,20 +350,26 @@ def exportar(doc, caminho_base, linhas=None, fiacao=None):
     base, extensao = os.path.splitext(caminho_base)
     if extensao.lower() not in EXTENSOES:
         base = caminho_base
+    if por_pavimento is None:
+        por_pavimento = levantar_por_pavimento(doc, fiacao)
     tabela = regras.como_tabela(linhas)
+    pavimentos_tabela = regras.tabela_por_pavimento(por_pavimento)
     verticais = regras.tabela_verticais(fiacao["verticais"])
     circuitos = regras.tabela_circuitos(fiacao["circuitos"])
     gravados = [
         gravacao.para_csv(tabela, base + ".csv"),
+        gravacao.para_csv(pavimentos_tabela, base + "_pavimentos.csv"),
         gravacao.para_csv(verticais, base + "_verticais.csv"),
         gravacao.para_csv(circuitos, base + "_circuitos.csv"),
         gravacao.para_xlsx_abas(
-            [("Quantitativo", tabela), ("Verticais", verticais), ("Fiação por circuito", circuitos)], base + ".xlsx"
+            [("Quantitativo", tabela), ("Por pavimento", pavimentos_tabela), ("Verticais", verticais),
+             ("Fiação por circuito", circuitos)], base + ".xlsx"
         ),
     ]
     avisos = []
     try:
-        gravados.append(exportar_pdf(linhas, base + ".pdf", f"Quantitativo de materiais - {doc.Label}", fiacao))
+        gravados.append(exportar_pdf(linhas, base + ".pdf", f"Quantitativo de materiais - {doc.Label}", fiacao,
+                                     por_pavimento))
     except RuntimeError as erro:
         avisos.append(str(erro))
     return gravados, avisos

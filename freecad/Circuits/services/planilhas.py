@@ -3,6 +3,7 @@ import Spreadsheet  # noqa: F401  (registra o tipo Spreadsheet::Sheet)
 
 from freecad.Circuits.core import planilha as layout
 from freecad.Circuits.core import quadro as regras_quadro
+from freecad.Circuits.services import pavimentos
 
 
 def criar_planilha_circuitos(doc):
@@ -82,9 +83,9 @@ def _limpar_circuitos_do_quadro(quadro):
 def planilha_de_circuitos(quadro, criar=True):
     """Planilha de circuitos ligada ao quadro pela propriedade ``circuitos_de``.
 
-    Com ``criar``, é criada com os títulos das colunas se não existir. Os
-    circuitos que estavam na planilha do quadro (formato antigo) são levados
-    para ela.
+    Com ``criar``, é criada com os títulos das colunas se não existir, na
+    mesma pasta da planilha do quadro. Os circuitos que estavam na planilha do
+    quadro (formato antigo) são levados para ela.
     """
     doc = quadro.Document
     for obj in doc.Objects:
@@ -107,6 +108,7 @@ def planilha_de_circuitos(quadro, criar=True):
         _gravar_linha(planilha, layout.PRIMEIRA_LINHA_PLANILHA_CIRCUITOS + indice, circuito)
     if antigos:
         _limpar_circuitos_do_quadro(quadro)
+    pavimentos.guardar_junto(quadro, planilha)
     doc.recompute()
     return planilha
 
@@ -142,7 +144,10 @@ def ler_circuitos_completos(quadro):
 
 
 def gravar_componentes(doc, quadro, itens):
-    """Recria a planilha ``Componentes_<quadro>`` com a lista de componentes do quadro."""
+    """Recria a planilha ``Componentes_<quadro>`` com a lista de componentes do quadro.
+
+    Ela fica na mesma pasta da planilha do quadro.
+    """
     nome = f"Componentes_{quadro.Name}"
     if doc.getObject(nome):
         doc.removeObject(nome)
@@ -157,6 +162,7 @@ def gravar_componentes(doc, quadro, itens):
         planilha.set(f"B{linha}", f"'{item['especificacao']}")
         planilha.set(f"C{linha}", str(item["quantidade"]))
         planilha.set(f"D{linha}", f"'{item['unidade']}")
+    pavimentos.guardar_junto(quadro, planilha)
     doc.recompute()
     return planilha
 
