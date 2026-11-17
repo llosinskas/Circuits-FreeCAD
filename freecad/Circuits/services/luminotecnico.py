@@ -39,6 +39,8 @@ def luminarias_do_ambiente(doc, ambiente):
 def distribuir(doc, ambiente, x_min, y_min, posicoes, simbolo, potencia_va, circuito):
     """Cria uma luminária em cada posição, substituindo as que o ambiente já tinha.
 
+    As luminárias entram no pavimento ativo e ficam na cota dele.
+
     Args:
         ambiente: objeto que delimita o ambiente (o retângulo desenhado).
         x_min, y_min: canto do ambiente [mm].
@@ -50,6 +52,8 @@ def distribuir(doc, ambiente, x_min, y_min, posicoes, simbolo, potencia_va, circ
     Returns:
         Lista dos pontos criados.
     """
+    pavimento = pavimentos.garantir_ativo(doc)
+    cota = pavimentos.elevacao(pavimento)
     doc.openTransaction("Distribuir luminárias")
     try:
         for antigo in luminarias_do_ambiente(doc, ambiente):
@@ -58,12 +62,12 @@ def distribuir(doc, ambiente, x_min, y_min, posicoes, simbolo, potencia_va, circ
         for x, y in posicoes:
             ponto = create_ponto(simbolo)
             posicao = ponto.Placement
-            posicao.Base = App.Vector(x_min + x * MM_POR_M, y_min + y * MM_POR_M, 0)
+            posicao.Base = App.Vector(x_min + x * MM_POR_M, y_min + y * MM_POR_M, cota)
             ponto.Placement = posicao
             ponto.Potencia = float(potencia_va)
             ponto.Circuito = str(circuito)
             ponto.Ambiente = ambiente.Name
-            pavimentos.arquivar(doc, ponto)
+            pavimentos.arquivar(doc, ponto, pavimento)
             criados.append(ponto)
         doc.commitTransaction()
     except Exception:

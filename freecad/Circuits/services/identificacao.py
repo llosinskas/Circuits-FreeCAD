@@ -3,8 +3,10 @@ import Draft
 import FreeCAD as App
 
 from freecad.Circuits.core import circuitos as calculo
+from freecad.Circuits.core import quadro as regras_quadro
 from freecad.Circuits.core import identificacao, simbolos
 from freecad.Circuits.core.simbologia import tamanho_efetivo
+from freecad.Circuits.services import planilhas
 from freecad.Circuits.services.alinhamento import listar_simbolos
 
 NOME_GRUPO = "Identificacao_pontos"
@@ -167,27 +169,84 @@ def _remover_anotacao(doc):
     return True
 
 
+def mapa_de_secoes(doc):
+    """Seção do cabo de cada circuito das planilhas: {(quadro, número): mm²}.
+
+    A chave ('', número) vale para pontos sem quadro definido e fica com o
+    primeiro quadro que tiver esse número.
+    """
+    mapa = {}
+    for quadro in planilhas.listar_quadros(doc):
+        try:
+            circuitos = planilhas.ler_circuitos_completos(quadro)
+        except Exception:
+            continue
+        for circuito in circuitos:
+            secao = regras_quadro.numero(circuito.get("Cabo"))
+            if secao > 0:
+                mapa[(quadro.Label, circuito["N_circuito"])] = secao
+                mapa.setdefault(("", circuito["N_circuito"]), secao)
+    return mapa
+
+
+def _secao_minima(obj):
+    if eh_interruptor(obj) or eh_ponto_de_luz(obj):
+        return calculo.SECAO_MINIMA[simbolos.ILUM]
+    return calculo.SECAO_MINIMA[simbolos.TUG]
+
+
+def texto_dos_cabos(obj, secoes):
+    """Identificação dos cabos que chegam ao símbolo (``core.identificacao.texto_cabos``), ou ''.
+
+    Só para pontos e interruptores com circuito. A seção vem da planilha de
+    circuitos do quadro; sem ela, 1,5 mm² para iluminação e interruptores e
+    2,5 mm² para o resto.
+    """
+    circuito = str(getattr(obj, "Circuito", "")).strip()
+    if not circuito or eh_quadro(obj):
+        return ""
+    quadro = str(getattr(obj, "Quadro", "")).strip()
+    secao = secoes.get((quadro, circuito)) or secoes.get(("", circuito)) or _secao_minima(obj)
+    if eh_interruptor(obj):
+        condutores = identificacao.condutores_no_ponto("interruptor", tipo_interruptor=str(getattr(obj, "Tipo", "")))
+    else:
+        tensao = str(getattr(obj, "Tensao", ""))
+        ligacao = getattr(obj, "Ligacao", "F+F" if tensao == "Bifásica" else "F+N")
+        if getattr(obj, "tipo", "") == "tomada":
+            ligacao = {2: "F+F", 3: "3F"}.get(int(getattr(obj, "Fase", 1)), "F+N")
+        comando = getattr(obj, "Comando", "") if eh_ponto_de_luz(obj) else ""
+        condutores = identificacao.condutores_no_ponto("ponto", ligacao, comando)
+    return identificacao.texto_cabos(secao, condutores)
+
+
 def anotar(doc):
     """Recria os textos de identificação ao lado de cada símbolo da planta.
+
+    Cada texto tem duas linhas: circuito, comando e potência; e, embaixo, a
+    seção e os condutores dos cabos que chegam à caixa.
 
     Returns:
         Quantidade de símbolos anotados.
     """
     _remover_anotacao(doc)
-    alvos = [(obj, texto_do_objeto(obj)) for obj in listar_simbolos(doc)]
-    alvos = [(obj, texto) for obj, texto in alvos if texto]
+    secoes = mapa_de_secoes(doc)
+    alvos = []
+    for obj in listar_simbolos(doc):
+        linhas = [texto for texto in (texto_do_objeto(obj), texto_dos_cabos(obj, secoes)) if texto]
+        if linhas:
+            alvos.append((obj, linhas))
     if not alvos:
         doc.recompute()
         return 0
 
     grupo = doc.addObject("App::DocumentObjectGroup", NOME_GRUPO)
     grupo.Label = "Identificação dos pontos"
-    for obj, texto in alvos:
+    for obj, linhas in alvos:
         tamanho = _tamanho(obj)
         base = obj.Placement.Base
-        # Embaixo e à direita do ponto de inserção, fora do desenho do símbolo.
-        posicao = App.Vector(base.x + tamanho * 0.2, base.y - tamanho * 1.1, 0)
-        anotacao = Draft.make_text(texto, placement=App.Placement(posicao, App.Rotation()), height=tamanho * 0.45)
+        # Embaixo e à direita do ponto de inserção, fora do desenho do símbolo, na cota do símbolo.
+        posicao = App.Vector(base.x + tamanho * 0.2, base.y - tamanho * 1.1, base.z)
+        anotacao = Draft.make_text(linhas, placement=App.Placement(posicao, App.Rotation()), height=tamanho * 0.45)
         grupo.addObject(anotacao)
     doc.recompute()
     return len(alvos)

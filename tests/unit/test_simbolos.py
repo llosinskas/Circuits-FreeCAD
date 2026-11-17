@@ -49,6 +49,14 @@ class TestCatalogo(unittest.TestCase):
         self.assertGreater(media, baixa)
         self.assertGreater(alta, baixa)
 
+    def test_interruptores_tem_o_desenho_do_objeto_switch(self):
+        simples = simbolos.geometria_interruptor("Simples", 200)
+        self.assertEqual(simples, [("circulo", 0, 0, 80.0), ("linha", 80.0, 0, 120.0, 0)])  # raio 80, linha de 40
+        self.assertEqual(len(simbolos.geometria_interruptor("Paralelo", 200)), 3)
+        self.assertEqual(len(simbolos.geometria_interruptor("Intermediário", 200)), 4)
+        self.assertEqual(simbolos.limites_de(simples), (-80.0, -80.0, 120.0, 80.0))
+        self.assertEqual(set(simbolos.INTERRUPTORES), {"Simples", "Paralelo", "Intermediário"})
+
     def test_simbolo_desconhecido(self):
         with self.assertRaises(KeyError):
             simbolos.geometria("nao_existe")

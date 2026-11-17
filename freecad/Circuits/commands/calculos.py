@@ -7,7 +7,7 @@ from freecad.Circuits.commands.gerar_unifilar import _escolher_quadro
 from freecad.Circuits.core import formularios
 from freecad.Circuits.core.functions.Predial import demanda, luminotecnico, pressurizacao, recalque
 from freecad.Circuits.qt import QtWidgets
-from freecad.Circuits.services import circuitos
+from freecad.Circuits.services import circuitos, pavimentos
 from freecad.Circuits.services import luminotecnico as servico_luminotecnico
 from freecad.Circuits.UI.dialogs.calculo_dialog import CalculoDialog
 from freecad.Circuits.UI.dialogs.ComponentInserter import ComponentInsertionMode
@@ -23,7 +23,9 @@ def _inserir_motor(descricao, motor):
     obj = circuitos.criar_ponto_motor(f"{descricao} {motor['motor_cv']:g} cv", motor)
     if obj:
         App.Console.PrintMessage("Motor criado. Clique na planta para posicionar e defina o circuito dele.\n")
-        ComponentInsertionMode(obj, plano_z0=True).start()
+        pavimento = pavimentos.pavimento_para_insercao(App.activeDocument())
+        pavimentos.arquivar(App.activeDocument(), obj, pavimento)
+        ComponentInsertionMode(obj, cota=pavimentos.elevacao(pavimento)).start()
 
 
 class CalcDemanda:

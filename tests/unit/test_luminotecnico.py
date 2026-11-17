@@ -116,16 +116,20 @@ class TestServico(unittest.TestCase):
         doc.Objects = [antiga, de_outro]
         doc.getObject.return_value = None
         novos = [types.SimpleNamespace(Placement=types.SimpleNamespace(Base=None)) for _ in range(4)]
+        pavimento = types.SimpleNamespace(Label="1º Pavimento")
         with mock.patch.object(self.servico, "create_ponto", side_effect=novos) as criar, \
+                mock.patch.object(self.servico.pavimentos, "garantir_ativo", return_value=pavimento), \
+                mock.patch.object(self.servico.pavimentos, "elevacao", return_value=3000.0), \
                 mock.patch.object(self.servico.pavimentos, "arquivar") as arquivar:
             criados = self.servico.distribuir(
                 doc, retangulo, 1000, 2000, lum.posicoes(2, 2, 5, 4), "luz_teto", 20, 3,
             )
-        self.assertEqual([chamada.args[1] for chamada in arquivar.call_args_list], novos)  # cada luminária vai para a pasta
+        self.assertEqual([chamada.args[1:] for chamada in arquivar.call_args_list], [(p, pavimento) for p in novos])
         doc.removeObject.assert_called_once_with("Ponto007")
         self.assertEqual(criar.call_count, 4)
         self.assertEqual([p.Placement.Base for p in criados],
-                         [(2250.0, 3000.0, 0), (4750.0, 3000.0, 0), (2250.0, 5000.0, 0), (4750.0, 5000.0, 0)])
+                         [(2250.0, 3000.0, 3000.0), (4750.0, 3000.0, 3000.0),
+                          (2250.0, 5000.0, 3000.0), (4750.0, 5000.0, 3000.0)])  # na cota do pavimento
         self.assertEqual({(p.Potencia, p.Circuito, p.Ambiente) for p in criados}, {(20.0, "3", "Rectangle")})
         doc.commitTransaction.assert_called_once()
 

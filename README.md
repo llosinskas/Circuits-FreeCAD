@@ -100,17 +100,18 @@ Pontos_eletricos
 ```
 
 - **Níveis do BIM:** se o projeto tem níveis da bancada BIM, eles são os pavimentos, e as pastas ficam dentro do próprio nível. A cota vem do nível; a bancada não altera níveis do BIM.
+- **Onde o símbolo entra:** no nível ativo da bancada BIM (o que você ativou com duplo clique), ou no pavimento selecionado na árvore, ou no pavimento ativo. O símbolo é desenhado na cota desse pavimento.
 - **Projeto > Pavimento** escolhe o pavimento ativo ou cria um novo, com cota e altura de piso a piso, e sugere o próximo.
 - **Projeto > Nível do BIM** cria um nível da bancada BIM e o ativa.
-- **Projeto > Mover para pavimento** leva os símbolos selecionados para outro pavimento.
+- **Projeto > Mover para pavimento** leva os símbolos selecionados para outro pavimento e para a cota dele.
 
-As caixas 3D somam a cota do pavimento à altura de montagem.
+As caixas e os eletrodutos 3D somam a cota do pavimento à altura de montagem.
 
 ### Circuitos e interruptores
 
 - **Definir circuito:** dá o mesmo circuito (e, se quiser, o quadro) aos pontos selecionados; sugere o próximo número livre.
 - **Ligar interruptor:** dá a mesma letra de comando (a, b, c...) ao interruptor e às luminárias selecionadas. Para paralelos, selecione os dois interruptores junto.
-- **Identificar pontos:** escreve ao lado de cada símbolo o circuito, a letra e a potência, por exemplo `C1 · a · 100 VA`.
+- **Identificar pontos:** escreve ao lado de cada símbolo duas linhas: o circuito, a letra e a potência (`C1 · a · 100 VA`) e os cabos que chegam à caixa, com a seção e os condutores (`#2,5 F+N+T`). F é fase, N neutro, T terra e R retorno: uma luminária comandada recebe `R+N+T`, um interruptor simples `F+R` e um paralelo `F+2R`. A seção vem da planilha de circuitos do quadro.
 
 ## Quadros e unifilar
 
@@ -170,7 +171,7 @@ O botão **Fiação** desenha na planta os traços de fase, neutro e terra ao la
 
 ### Legenda, notas e relatório
 
-- **Legenda:** desenha ao lado da planta os símbolos usados.
+- **Legenda:** desenha ao lado da planta os símbolos usados, inclusive os tipos de interruptor.
 - **Planilha de notas** e **Notas:** escreva as notas numa planilha, uma por linha; o botão as desenha numeradas embaixo da legenda.
 - **Sketches em preto:** os Sketches da bancada já nascem pretos; o botão repinta os de projetos antigos.
 - **Relatório PDF:** quadros, demandas, materiais e imagens dos diagramas.

@@ -206,10 +206,32 @@ def geometria(simbolo, tamanho=1.0):
     return escaladas
 
 
-def limites(simbolo, tamanho=1.0):
-    """Caixa envolvente do símbolo: (xmin, ymin, xmax, ymax)."""
+# Tipo do interruptor (propriedade Tipo do objeto Switch) -> (legenda, dica).
+INTERRUPTORES = {
+    "Simples": ("Interruptor simples", "Interruptor de uma seção"),
+    "Paralelo": ("Interruptor paralelo", "Comanda a luz de dois lugares (three-way)"),
+    "Intermediário": ("Interruptor intermediário", "Comanda a luz de três ou mais lugares (four-way)"),
+}
+
+
+def geometria_interruptor(tipo, tamanho=1.0):
+    """Primitivas do interruptor, iguais às do objeto Switch: círculo e linha saindo da borda.
+
+    O paralelo tem uma linha a mais, e o intermediário duas. Com ``tamanho`` 200
+    dá o mesmo desenho do interruptor padrão (raio 80, linha de 40).
+    """
+    raio, linha = 0.4 * tamanho, 0.2 * tamanho
+    afastamento = raio * 0.2
+    primitivas = [("circulo", 0, 0, raio), ("linha", raio, 0, raio + linha, 0)]
+    deslocamentos = {"Paralelo": [afastamento], "Intermediário": [afastamento, -afastamento]}.get(tipo, [])
+    primitivas += [("linha", raio, dy, raio + linha, dy) for dy in deslocamentos]
+    return primitivas
+
+
+def limites_de(primitivas):
+    """Caixa envolvente de uma lista de primitivas: (xmin, ymin, xmax, ymax)."""
     xs, ys = [], []
-    for primitiva in geometria(simbolo, tamanho):
+    for primitiva in primitivas:
         if primitiva[0] == "linha":
             xs += [primitiva[1], primitiva[3]]
             ys += [primitiva[2], primitiva[4]]
@@ -218,3 +240,8 @@ def limites(simbolo, tamanho=1.0):
             xs += [cx - raio, cx + raio]
             ys += [cy - raio, cy + raio]
     return min(xs), min(ys), max(xs), max(ys)
+
+
+def limites(simbolo, tamanho=1.0):
+    """Caixa envolvente do símbolo do catálogo: (xmin, ymin, xmax, ymax)."""
+    return limites_de(geometria(simbolo, tamanho))

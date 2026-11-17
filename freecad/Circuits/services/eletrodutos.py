@@ -3,6 +3,7 @@ import FreeCAD as App
 import Part
 
 from freecad.Circuits.core.tables.eletrodutos import COR_PADRAO, CORES, DIAMETRO_PADRAO, DIAMETROS_EXTERNOS
+from freecad.Circuits.services import pavimentos
 from freecad.Circuits.services.tomadas import listar_tomadas
 
 TOLERANCIA_TOMADA_MM = 10.0
@@ -55,7 +56,7 @@ def _como_wire(obj):
     return forma
 
 
-def _descidas_para_tomadas(obj, tomadas, raio):
+def _descidas_para_tomadas(obj, tomadas, raio, cota_eletroduto=None, doc=None):
     """Tubos verticais entre a altura do eletroduto e as tomadas sob seus pontos."""
     descidas = []
     pontos = obj.Points if hasattr(obj, "Points") else [v.Point for v in obj.Shape.Vertexes]
@@ -71,7 +72,9 @@ def _descidas_para_tomadas(obj, tomadas, raio):
             atendidas.add(tomada.Name)
 
             z_tomada = float(tomada.altura_piso) if hasattr(tomada, "altura_piso") else 0.0
-            topo = App.Vector(tx, ty, obj.Altura3D.Value)
+            if doc is not None:
+                z_tomada += pavimentos.elevacao_do_objeto(doc, tomada)
+            topo = App.Vector(tx, ty, obj.Altura3D.Value if cota_eletroduto is None else cota_eletroduto)
             base = App.Vector(tx, ty, z_tomada)
             if (topo - base).Length <= 1e-2:
                 continue
@@ -99,7 +102,9 @@ def _gerar_tubo(doc, obj, tomadas):
     if fio is None:
         return False
 
-    deslocamento = obj.Altura3D.Value - fio.Vertexes[0].Point.z
+    # A altura do eletroduto é medida a partir do piso do pavimento dele.
+    cota = obj.Altura3D.Value + pavimentos.elevacao_do_objeto(doc, obj)
+    deslocamento = cota - fio.Vertexes[0].Point.z
     if abs(deslocamento) > 1e-4:
         fio.translate(App.Vector(0, 0, deslocamento))
 
@@ -117,7 +122,7 @@ def _gerar_tubo(doc, obj, tomadas):
 
     try:
         tubos = [Part.Wire(fio).makePipeShell([perfil], True, True)]
-        tubos += _descidas_para_tomadas(obj, tomadas, raio)
+        tubos += _descidas_para_tomadas(obj, tomadas, raio, cota, doc)
         forma = Part.makeCompound(tubos) if len(tubos) > 1 else tubos[0]
 
         tubo = doc.addObject("Part::Feature", nome)

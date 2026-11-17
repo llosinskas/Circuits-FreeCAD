@@ -341,19 +341,22 @@ class ComponentInsertionMode:
     _trava_da_sequencia = None  # trava herdada pelo próximo objeto de uma inserção em sequência
     TOLERANCIA_PIXELS = 10  # alcance do alinhamento automático, em pixels da tela
 
-    def __init__(self, obj, ao_fixar=None, plano_z0=False, referencias=None):
+    def __init__(self, obj, ao_fixar=None, plano_z0=False, referencias=None, cota=None):
         """
         Args:
             obj: objeto que acompanha o cursor.
             ao_fixar: função chamada depois do clique que fixa o objeto
                 (usada para inserir vários pontos em sequência).
             plano_z0: mantém o objeto no plano Z=0, para desenho em planta.
+            cota: mantém o objeto nesta cota Z [mm], a do pavimento; tem
+                prioridade sobre ``plano_z0``.
             referencias: lista de (x, y) dos símbolos já colocados, usada para
                 alinhar. None desliga o alinhamento.
         """
         self.obj = obj
         self.ao_fixar = ao_fixar
         self.plano_z0 = plano_z0
+        self.cota = cota
         self.referencias = list(referencias) if referencias else []
         self.automatico = True
         self.trava = ComponentInsertionMode._trava_da_sequencia if ao_fixar else None
@@ -423,7 +426,9 @@ class ComponentInsertionMode:
         pnt = self.view.getPoint(x, y)
         if not pnt:
             return
-        if self.plano_z0:
+        if self.cota is not None:
+            pnt.z = float(self.cota)
+        elif self.plano_z0:
             pnt.z = 0.0
         self._ultimo_ponto = (pnt.x, pnt.y)
         self._ultima_tela = (x, y)

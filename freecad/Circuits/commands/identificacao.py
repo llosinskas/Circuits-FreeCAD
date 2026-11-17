@@ -83,7 +83,7 @@ class LigarInterruptor:
 
 
 class IdentificarPontos:
-    """Escreve ao lado de cada símbolo o circuito, o comando e a potência."""
+    """Escreve ao lado de cada símbolo o circuito, o comando, a potência e os cabos que chegam a ele."""
 
     def Activated(self):
         doc = documento_ou_aviso()
@@ -99,7 +99,7 @@ class IdentificarPontos:
         return recursos(
             "identificar_pontos.svg",
             "Identificar pontos",
-            "Escreve ao lado de cada símbolo o circuito, o comando do interruptor e a potência",
+            "Escreve ao lado de cada símbolo o circuito, o comando, a potência e os cabos (seção e condutores)",
         )
 
 

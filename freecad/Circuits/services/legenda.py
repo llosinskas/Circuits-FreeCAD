@@ -3,7 +3,7 @@ import Draft
 import FreeCAD as App
 
 from freecad.Circuits.core import simbolos
-from freecad.Circuits.objects.ponto import TAMANHO_PADRAO, forma_do_simbolo
+from freecad.Circuits.objects.ponto import TAMANHO_PADRAO, forma_das_primitivas
 
 NOME_GRUPO = "Legenda_simbolos"
 MARGEM = 1000.0  # mm entre a planta e a legenda
@@ -18,11 +18,33 @@ def simbolos_usados(doc):
     return [chave for chave in simbolos.CATALOGO if chave in usados]
 
 
+def interruptores_usados(doc):
+    """Tipos de interruptor (Simples, Paralelo, Intermediário) presentes no documento, nessa ordem."""
+    usados = {
+        str(obj.Tipo) for obj in doc.Objects
+        if getattr(getattr(obj, "Proxy", None), "Type", "") == "Switch"
+    }
+    return [tipo for tipo in simbolos.INTERRUPTORES if tipo in usados]
+
+
+def itens_da_legenda(doc, tamanho=TAMANHO_PADRAO):
+    """Linhas da legenda: (nome do objeto, primitivas do desenho, texto), pontos e depois interruptores."""
+    itens = []
+    for chave in simbolos_usados(doc):
+        dados = simbolos.CATALOGO[chave]
+        itens.append((chave, simbolos.geometria(chave, tamanho), f"{dados['legenda']} - {dados['dica']}"))
+    for tipo in interruptores_usados(doc):
+        legenda, dica = simbolos.INTERRUPTORES[tipo]
+        chave = "interruptor_" + {"Simples": "simples", "Paralelo": "paralelo"}.get(tipo, "intermediario")
+        itens.append((chave, simbolos.geometria_interruptor(tipo, tamanho), f"{legenda} - {dica}"))
+    return itens
+
+
 def _canto_livre(doc):
     """Ponto à direita de todos os pontos elétricos, alinhado ao topo deles."""
     x_max, y_max = None, None
     for obj in doc.Objects:
-        if getattr(getattr(obj, "Proxy", None), "Type", "") != "Ponto":
+        if getattr(getattr(obj, "Proxy", None), "Type", "") not in ("Ponto", "Switch"):
             continue
         base = obj.Placement.Base
         x_max = base.x if x_max is None else max(x_max, base.x)
@@ -38,7 +60,7 @@ def gerar_legenda(doc, tamanho=TAMANHO_PADRAO):
     Returns:
         Quantidade de linhas da legenda (0 se não há pontos na planta).
     """
-    usados = simbolos_usados(doc)
+    itens = itens_da_legenda(doc, tamanho)
     anterior = doc.getObject(NOME_GRUPO)
     posicao = _canto_livre(doc)
     if anterior:
@@ -46,7 +68,7 @@ def gerar_legenda(doc, tamanho=TAMANHO_PADRAO):
             posicao = anterior.Group[0].Placement.Base  # mantém onde o usuário deixou
         anterior.removeObjectsFromDocument()
         doc.removeObject(NOME_GRUPO)
-    if not usados:
+    if not itens:
         doc.recompute()
         return 0
 
@@ -58,24 +80,23 @@ def gerar_legenda(doc, tamanho=TAMANHO_PADRAO):
     titulo = Draft.make_text("LEGENDA", placement=App.Placement(posicao, App.Rotation()), height=altura_texto * 1.2)
     grupo.addObject(titulo)
 
-    for indice, chave in enumerate(usados, start=1):
-        dados = simbolos.CATALOGO[chave]
-        xmin, ymin, xmax, ymax = simbolos.limites(chave, tamanho)
+    for indice, (chave, primitivas, descricao) in enumerate(itens, start=1):
+        xmin, ymin, xmax, ymax = simbolos.limites_de(primitivas)
         linha = posicao + App.Vector(0, -indice * passo, 0)
 
         desenho = doc.addObject("Part::Feature", f"Legenda_{chave}")
-        desenho.Shape = forma_do_simbolo(chave, tamanho)
+        desenho.Shape = forma_das_primitivas(primitivas)
         # Alinha a borda esquerda e o meio do símbolo com a linha do texto.
         encaixe = linha + App.Vector(-xmin, altura_texto / 2 - (ymin + ymax) / 2, 0)
         desenho.Placement = App.Placement(encaixe, App.Rotation())
         grupo.addObject(desenho)
 
         texto = Draft.make_text(
-            f"{dados['legenda']} - {dados['dica']}",
+            descricao,
             placement=App.Placement(linha + App.Vector(tamanho * 2.0, 0, 0), App.Rotation()),
             height=altura_texto,
         )
         grupo.addObject(texto)
 
     doc.recompute()
-    return len(usados)
+    return len(itens)

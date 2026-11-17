@@ -114,6 +114,46 @@ def definir(doc, nome, elevacao_mm=0.0, altura_mm=regras.ALTURA_PADRAO_MM):
     return pav
 
 
+def _nivel_ativo_no_bim(doc):
+    """Nível que a bancada BIM marcou como ativo (duplo clique no nível), ou None."""
+    try:
+        import FreeCADGui as Gui
+
+        nivel = Gui.ActiveDocument.ActiveView.getActiveObject("Arch")
+    except Exception:
+        return None
+    return nivel if nivel is not None and nivel in doc.Objects and eh_pavimento(nivel) else None
+
+
+def _pavimento_selecionado(doc, selecao):
+    """Pavimento selecionado na árvore: ele mesmo, ou uma das pastas dele."""
+    for obj in selecao:
+        if obj not in doc.Objects:
+            continue
+        if eh_pavimento(obj):
+            return obj
+        if hasattr(obj, "pasta"):
+            pai = _pai(obj)
+            if pai is not None and eh_pavimento(pai):
+                return pai
+    return None
+
+
+def pavimento_para_insercao(doc, selecao=()):
+    """Pavimento em que o próximo símbolo entra, que passa a ser o ativo.
+
+    Na ordem: o nível ativo da bancada BIM; o pavimento (ou uma pasta dele)
+    selecionado na árvore; o pavimento ativo da bancada; e, sem nenhum, o mais
+    baixo ou um Térreo novo.
+    """
+    escolhido = _nivel_ativo_no_bim(doc) or _pavimento_selecionado(doc, selecao)
+    if escolhido is not None:
+        if not getattr(escolhido, "Ativo", False):
+            ativar(doc, escolhido)
+        return escolhido
+    return garantir_ativo(doc)
+
+
 def criar_nivel_bim(doc, nome, elevacao_mm=0.0, altura_mm=regras.ALTURA_PADRAO_MM):
     """Cria um nível da bancada BIM (ou ativa o de mesmo nome) e o torna o pavimento ativo.
 
@@ -245,8 +285,21 @@ def arquivar(doc, obj, pavimento=None):
     return destino
 
 
+def _subir(obj, diferenca):
+    """Desloca o objeto na vertical, mantendo a posição em planta."""
+    if abs(diferenca) < 1e-6 or not hasattr(obj, "Placement"):
+        return
+    posicao = obj.Placement
+    base = posicao.Base
+    posicao.Base = App.Vector(base.x, base.y, base.z + diferenca)
+    obj.Placement = posicao
+
+
 def mover(doc, objetos, pavimento):
     """Move os símbolos para as pastas do pavimento, em uma única operação de desfazer.
+
+    Os símbolos e eletrodutos também mudam de cota: sobem ou descem a diferença
+    entre a cota do pavimento novo e a do antigo.
 
     Returns:
         Quantidade de símbolos movidos; objetos que não são símbolos são ignorados.
@@ -255,7 +308,11 @@ def mover(doc, objetos, pavimento):
     doc.openTransaction("Mover para pavimento")
     try:
         for obj in objetos:
+            if chave_do_objeto(obj) is None:
+                continue
+            antes = elevacao_do_objeto(doc, obj)
             if arquivar(doc, obj, pavimento) is not None:
+                _subir(obj, elevacao(pavimento) - antes)
                 movidos += 1
         doc.commitTransaction()
     except Exception:

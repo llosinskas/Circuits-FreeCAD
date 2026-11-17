@@ -84,6 +84,11 @@ class TestModoDeInsercao(unittest.TestCase):
         self.assertEqual(self.mover(100, 50), (200.0, 100.0))
         self.assertEqual(self.obj.Placement.Base.z, 0.0)
 
+    def test_cota_do_pavimento(self):
+        self.modo(cota=3000.0, plano_z0=True)  # a cota tem prioridade
+        self.assertEqual(self.mover(100, 50), (200.0, 100.0))
+        self.assertEqual(self.obj.Placement.Base.z, 3000.0)
+
     def test_alinhamento_automatico_dentro_de_dez_pixels(self):
         self.modo(referencias=[(1000.0, 0.0)])
         # 10 pixels = 20 mm: a 12 mm do vizinho em X, alinha; em Y está longe, não mexe.

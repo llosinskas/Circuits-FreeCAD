@@ -67,6 +67,39 @@ def texto_quadro(sigla, medidores=None, circuito=""):
     return " · ".join(partes)
 
 
+_FASES = {"F+N": 1, "F+F": 2, "3F": 3}
+_CONDUTORES_INTERRUPTOR = {"Simples": "F+R", "Paralelo": "F+2R", "Intermediário": "4R"}
+
+
+def condutores_no_ponto(tipo, ligacao="F+N", comando="", tipo_interruptor="Simples"):
+    """Condutores que chegam à caixa, para a identificação dos cabos na planta.
+
+    F = fase, N = neutro, T = terra, R = retorno. Exemplos: tomada 'F+N+T';
+    chuveiro em duas fases '2F+T'; luminária comandada por interruptor 'R+N+T';
+    interruptor simples 'F+R', paralelo 'F+2R' (fase ou retorno e os dois
+    condutores entre os paralelos), intermediário '4R'.
+
+    Args:
+        tipo: 'ponto' ou 'interruptor'.
+        ligacao: 'F+N', 'F+F' ou '3F' (pontos).
+        comando: letra do interruptor que comanda o ponto; vazia se não houver.
+        tipo_interruptor: Simples, Paralelo ou Intermediário (interruptores).
+    """
+    if tipo == "interruptor":
+        return _CONDUTORES_INTERRUPTOR.get(tipo_interruptor, "F+R")
+    fases = _FASES.get(str(ligacao).strip(), 1)
+    if str(comando).strip():  # a fase vai ao interruptor e volta como retorno
+        partes = ["R"] + (["N"] if fases == 1 else ["F"] * (fases - 1))
+    else:
+        partes = (["F"] if fases == 1 else [f"{fases}F"]) + (["N"] if fases == 1 else [])
+    return "+".join(partes + ["T"])
+
+
+def texto_cabos(secao, condutores):
+    """Identificação dos cabos: seção e condutores, como '#2,5 F+N+T'."""
+    return f"#{float(secao):g} {condutores}".replace(".", ",")
+
+
 def texto_ponto(circuito="", comando="", potencia_va=None):
     """Texto de identificação de um ponto na planta.
 

@@ -10,6 +10,7 @@ from freecad.Circuits.core import identificacao
 
 MODULOS_FREECAD = ("FreeCAD", "FreeCADGui", "Part", "Draft", "Sketcher", "Spreadsheet")
 SERVICOS = ("freecad.Circuits.services.identificacao", "freecad.Circuits.services.alinhamento",
+            "freecad.Circuits.services.planilhas",
             "freecad.Circuits.services.tomadas", "freecad.Circuits.services.documento")
 
 
@@ -38,6 +39,19 @@ class TestRegras(unittest.TestCase):
         self.assertEqual(identificacao.texto_ponto("2", "", 600), "C2 · 600 VA")
         self.assertEqual(identificacao.texto_ponto("1", "A"), "C1 · a")
         self.assertEqual(identificacao.texto_ponto(), "")
+
+    def test_condutores_no_ponto(self):
+        self.assertEqual(identificacao.condutores_no_ponto("ponto", "F+N"), "F+N+T")
+        self.assertEqual(identificacao.condutores_no_ponto("ponto", "F+F"), "2F+T")
+        self.assertEqual(identificacao.condutores_no_ponto("ponto", "3F"), "3F+T")
+        self.assertEqual(identificacao.condutores_no_ponto("ponto", "F+N", comando="a"), "R+N+T")
+        self.assertEqual(identificacao.condutores_no_ponto("interruptor", tipo_interruptor="Simples"), "F+R")
+        self.assertEqual(identificacao.condutores_no_ponto("interruptor", tipo_interruptor="Paralelo"), "F+2R")
+        self.assertEqual(identificacao.condutores_no_ponto("interruptor", tipo_interruptor="Intermediário"), "4R")
+
+    def test_texto_dos_cabos(self):
+        self.assertEqual(identificacao.texto_cabos(2.5, "F+N+T"), "#2,5 F+N+T")
+        self.assertEqual(identificacao.texto_cabos(10.0, "2F+T"), "#10 2F+T")
 
     def test_texto_do_quadro(self):
         self.assertEqual(identificacao.texto_quadro("QD1"), "QD1")
@@ -133,6 +147,31 @@ class TestServico(unittest.TestCase):
         self.assertEqual(self.servico.texto_do_objeto(luz("L1", "1", "a")), "C1 · a · 100 VA")
         self.assertEqual(self.servico.texto_do_objeto(tomada("T1", "2")), "C2 · 600 VA")
         self.assertEqual(self.servico.texto_do_objeto(interruptor("S1", "1", "a")), "C1 · a")
+
+    def test_cabos_pela_planilha_ou_pela_secao_minima(self):
+        secoes = {("QD1", "2"): 4.0, ("", "2"): 4.0, ("QD2", "2"): 6.0}
+        tomada_qd2 = tomada("T1", "2")
+        tomada_qd2.Ligacao, tomada_qd2.Quadro = "F+N", "QD2"
+        self.assertEqual(self.servico.texto_dos_cabos(tomada_qd2, secoes), "#6 F+N+T")
+        sem_quadro = tomada("T2", "2")
+        sem_quadro.Ligacao = "F+F"
+        self.assertEqual(self.servico.texto_dos_cabos(sem_quadro, secoes), "#4 2F+T")
+        luz = luz_ligada = objeto("L1", "Ponto", Simbolo="luz_teto", Circuito="9", Comando="b", Quadro="", Ligacao="F+N")
+        self.assertEqual(self.servico.texto_dos_cabos(luz_ligada, secoes), "#1,5 R+N+T")  # sem planilha: 1,5 mm²
+        chave = interruptor("S1", "9", "b")
+        chave.Tipo = "Paralelo"
+        self.assertEqual(self.servico.texto_dos_cabos(chave, secoes), "#1,5 F+2R")
+        self.assertEqual(self.servico.texto_dos_cabos(tomada("T3", ""), secoes), "")  # sem circuito
+        self.assertEqual(luz.Name, "L1")
+
+    def test_mapa_de_secoes(self):
+        quadros = [types.SimpleNamespace(Label="QD1"), types.SimpleNamespace(Label="QD2")]
+        linhas = {"QD1": [{"N_circuito": "1", "Cabo": "2.5"}, {"N_circuito": "2", "Cabo": ""}],
+                  "QD2": [{"N_circuito": "1", "Cabo": "4"}]}
+        with mock.patch.object(self.servico.planilhas, "listar_quadros", return_value=quadros), \
+                mock.patch.object(self.servico.planilhas, "ler_circuitos_completos", side_effect=lambda q: linhas[q.Label]):
+            self.assertEqual(self.servico.mapa_de_secoes(self.documento()),
+                             {("QD1", "1"): 2.5, ("", "1"): 2.5, ("QD2", "1"): 4.0})
 
     def test_texto_dos_quadros(self):
         medicao = objeto("CM", "Ponto", Simbolo="medicao_agrupada", Descricao="CM", Medidores=12, Circuito="")

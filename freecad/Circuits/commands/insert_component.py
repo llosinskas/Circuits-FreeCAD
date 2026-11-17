@@ -13,13 +13,13 @@ from freecad.Circuits.services.tomadas import criar_tug
 from freecad.Circuits.UI.dialogs.ComponentInserter import ComponentInserter, ComponentInsertionMode
 
 
-def _posicionar_com_mouse(obj, mensagem, ao_fixar=None):
-    """Posiciona um símbolo 2D na planta, com alinhamento aos símbolos vizinhos."""
+def _posicionar_com_mouse(obj, mensagem, ao_fixar=None, cota=0.0):
+    """Posiciona um símbolo 2D na planta, na cota dada, com alinhamento aos símbolos vizinhos."""
     App.Console.PrintMessage(f"{mensagem} Clique na planta para posicionar.\n")
     ComponentInsertionMode(
         obj,
         ao_fixar=ao_fixar,
-        plano_z0=True,
+        cota=cota,
         referencias=alinhamento.posicoes_dos_simbolos(App.activeDocument(), exceto=obj),
     ).start()
 
@@ -53,11 +53,14 @@ class _CriarEPosicionar:
         doc = documento_ou_aviso()
         if not doc:
             return
+        pavimento = pavimentos.pavimento_para_insercao(doc, Gui.Selection.getSelection())
         obj = type(self).criar()
         if obj:
-            pavimentos.arquivar(doc, obj)  # entra na pasta do tipo, dentro do pavimento ativo
+            pavimentos.arquivar(doc, obj, pavimento)  # entra na pasta do tipo, dentro do pavimento
             # O próximo só começa depois que o clique atual terminar de ser tratado.
-            _posicionar_com_mouse(obj, self.mensagem, lambda: QtCore.QTimer.singleShot(0, self.Activated))
+            _posicionar_com_mouse(
+                obj, self.mensagem, lambda: QtCore.QTimer.singleShot(0, self.Activated), pavimentos.elevacao(pavimento)
+            )
 
     def IsActive(self):
         return True
@@ -90,9 +93,10 @@ class Tugs:
     def Activated(self):
         doc = documento_ou_aviso()
         if doc:
+            pavimento = pavimentos.pavimento_para_insercao(doc, Gui.Selection.getSelection())
             tug = criar_tug(doc)
-            pavimentos.arquivar(doc, tug)
-            _posicionar_com_mouse(tug, "Tomada criada.")
+            pavimentos.arquivar(doc, tug, pavimento)
+            _posicionar_com_mouse(tug, "Tomada criada.", cota=pavimentos.elevacao(pavimento))
 
     def IsActive(self):
         return True

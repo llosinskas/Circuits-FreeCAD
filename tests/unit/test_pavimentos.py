@@ -270,6 +270,48 @@ class TestServico(unittest.TestCase):
         self.assertEqual(self.servico.sugestao_novo(self.doc), ("1º Pavimento", 8500.0, 2500.0))
         self.assertTrue(cobertura.Ativo)
 
+    def test_insercao_usa_o_nivel_ativo_do_bim(self):
+        terreo, primeiro = self.adicionar(nivel_bim("Terreo", 0.0)), self.adicionar(nivel_bim("Nivel 1", 3000.0))
+        self.servico.definir(self.doc, "Terreo")
+        gui = sys.modules["FreeCADGui"]
+        gui.ActiveDocument.ActiveView.getActiveObject.return_value = primeiro
+        self.assertIs(self.servico.pavimento_para_insercao(self.doc), primeiro)
+        self.assertEqual((terreo.Ativo, primeiro.Ativo), (False, True))
+        gui.ActiveDocument.ActiveView.getActiveObject.assert_called_with("Arch")
+
+    def test_insercao_usa_o_pavimento_selecionado_na_arvore(self):
+        sys.modules["FreeCADGui"].ActiveDocument.ActiveView.getActiveObject.return_value = None
+        terreo = self.servico.definir(self.doc, "Térreo", 0, 3000)
+        primeiro = self.servico.definir(self.doc, "1º Pavimento", 3000, 3000)
+        self.servico.ativar(self.doc, terreo)
+        self.assertIs(self.servico.pavimento_para_insercao(self.doc, [primeiro]), primeiro)
+        self.assertTrue(primeiro.Ativo)
+        # uma pasta do pavimento selecionada também vale
+        a = self.adicionar(ponto("T1", "tomada_baixa"))
+        pasta_terreo = self.servico.arquivar(self.doc, a, terreo)
+        self.assertIs(self.servico.pavimento_para_insercao(self.doc, [pasta_terreo]), terreo)
+        # sem seleção, fica o ativo
+        self.assertIs(self.servico.pavimento_para_insercao(self.doc, []), terreo)
+
+    def test_selecao_de_outro_documento_ou_simbolo_nao_troca_o_pavimento(self):
+        sys.modules["FreeCADGui"].ActiveDocument.ActiveView.getActiveObject.return_value = mock.MagicMock()
+        terreo = self.servico.definir(self.doc, "Térreo", 0, 3000)
+        estranho = nivel_bim("De outro arquivo", 9000.0)
+        simbolo = self.adicionar(ponto("T1", "tomada_baixa"))
+        self.assertIs(self.servico.pavimento_para_insercao(self.doc, [estranho, simbolo]), terreo)
+
+    def test_mover_muda_a_cota(self):
+        sys.modules["FreeCAD"].Vector = lambda x, y, z: types.SimpleNamespace(x=x, y=y, z=z)
+        terreo = self.servico.definir(self.doc, "Térreo", 0, 3000)
+        primeiro = self.servico.definir(self.doc, "1º Pavimento", 3000, 3000)
+        a = self.adicionar(ponto("T1", "tomada_baixa"))
+        a.Placement = types.SimpleNamespace(Base=types.SimpleNamespace(x=100.0, y=200.0, z=0.0))
+        self.servico.arquivar(self.doc, a, terreo)
+        self.servico.mover(self.doc, [a], primeiro)
+        self.assertEqual((a.Placement.Base.x, a.Placement.Base.y, a.Placement.Base.z), (100.0, 200.0, 3000.0))
+        self.servico.mover(self.doc, [a], terreo)
+        self.assertEqual(a.Placement.Base.z, 0.0)
+
     def test_criar_nivel_do_bim(self):
         edificio = self.adicionar(Objeto("Building", IfcType="Building"))
         criado = nivel_bim("BuildingPart", 0.0)

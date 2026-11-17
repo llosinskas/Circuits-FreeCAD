@@ -26,10 +26,11 @@ class InserirPonto:
         doc = documento_ou_aviso()
         if not doc:
             return
+        pavimento = pavimentos.pavimento_para_insercao(doc, Gui.Selection.getSelection())
         obj = create_ponto(self.simbolo)
         if obj is None:
             return
-        pavimentos.arquivar(doc, obj)  # entra na pasta do tipo, dentro do pavimento ativo
+        pavimentos.arquivar(doc, obj, pavimento)  # entra na pasta do tipo, dentro do pavimento
         anterior = self._ultimo_fixado()
         if anterior is not None:  # o próximo ponto repete circuito, quadro e rotação
             obj.Circuito = anterior.Circuito
@@ -42,7 +43,7 @@ class InserirPonto:
         ComponentInsertionMode(
             obj,
             ao_fixar=lambda: QtCore.QTimer.singleShot(0, self._repetir),
-            plano_z0=True,
+            cota=pavimentos.elevacao(pavimento),  # o símbolo é desenhado na cota do pavimento
             referencias=alinhamento.posicoes_dos_simbolos(App.activeDocument(), exceto=obj),
         ).start()
 
