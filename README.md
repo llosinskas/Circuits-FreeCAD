@@ -62,7 +62,7 @@ Depois use **Elétrica > Outros > Reiniciar Bancada** ou reabra o FreeCAD. Mante
 8. **Demanda** (botão *Cálculos*): calcula a demanda do quadro e grava na planilha; gere o unifilar de novo para mostrá-la.
 9. **Legenda** e **Relatório PDF** (botão *Documentos*).
 
-**Pressurização** e **Bomba de recalque** abrem um formulário, mostram o cálculo e, com o botão *Inserir motor na planta*, criam o ponto de força do motor para entrar nos circuitos.
+**Pressurização** e **Bomba de recalque** abrem um formulário (veja [Formulários de cálculo](#formulários-de-cálculo)), mostram o cálculo e, com o botão *Inserir motor na planta*, criam o ponto de força do motor para entrar nos circuitos.
 
 Ao repetir **Montar circuitos**, as linhas com o mesmo número são atualizadas e as demais ficam como estão.
 
@@ -134,10 +134,20 @@ A fiação e a identificação acompanham o tamanho do símbolo; gere-as de novo
 ## Luminotécnico
 
 1. Desenhe um retângulo no contorno do ambiente, com a ferramenta de retângulo da barra *Desenho*, e selecione-o.
-2. Abra **Iluminação > Luminotécnico**. Escolha o ambiente (que define a iluminância), a luminária, o fluxo luminoso e a potência de cada uma, o pé-direito e o circuito.
-3. **Calcular** mostra o número de luminárias, a malha e a iluminância resultante. **Distribuir luminárias** as coloca dentro do retângulo, com o mesmo espaçamento entre elas e metade até as paredes.
+2. Abra **Iluminação > Luminotécnico** e responda quatro perguntas: tipo de ambiente, lâmpada ou luminária (de uma lista pronta), circuito e pé-direito. O resultado aparece na hora: número de luminárias, malha e iluminância resultante.
+3. **Distribuir luminárias** as coloca dentro do retângulo, com o mesmo espaçamento entre elas e metade até as paredes.
 
-Repetir o comando no mesmo retângulo troca as luminárias anteriores pelas novas. Se tiver o fator de utilização do catálogo da luminária, informe-o; sem ele, o cálculo usa uma estimativa.
+Repetir o comando no mesmo retângulo troca as luminárias anteriores pelas novas. Em **Opções avançadas** dá para informar o fluxo luminoso e a potência de uma luminária fora da lista, a iluminância personalizada, a altura do plano de trabalho e o fator de utilização do catálogo.
+
+## Formulários de cálculo
+
+Luminotécnico, Pressurização e Bomba de recalque usam o mesmo tipo de formulário:
+
+- poucas perguntas à vista, com listas de opções prontas;
+- **Opções avançadas**, fechadas no início, para quem tem os dados do catálogo ou do projeto;
+- uma dica em cada campo, ao parar o mouse sobre ele;
+- o resultado é recalculado a cada mudança;
+- os valores usados ficam guardados e voltam na próxima vez; **Restaurar padrões** volta aos iniciais.
 
 ## Notas do projeto
 

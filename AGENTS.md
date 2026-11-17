@@ -39,6 +39,7 @@ Circuits/                        pasta dentro de Mod/, raiz do repositório
     │   ├── simbolos.py          catálogo e geometria dos pontos elétricos
     │   ├── alinhamento.py       travas, alinhamento automático, alinhar e distribuir símbolos
     │   ├── identificacao.py     letra de comando, próximo circuito e texto de anotação
+    │   ├── formularios.py       campos dos formulários de cálculo: opções prontas, dicas, avançados
     │   ├── quadro.py            componentes do quadro: disjuntores, DR, DPS, barramentos, módulos
     │   ├── circuitos.py         circuitos a partir dos pontos: soma, cabo, disjuntor, fases
     │   ├── planilha.py          layout das planilhas de quadro e circuitos
@@ -187,7 +188,12 @@ Os comandos se encontram pelos objetos do documento, não por estado em Python:
 
 **Novo cálculo ou tabela de norma:** função pura em `core/functions/` ou dados em `core/tables/`, com teste em `tests/unit/`. Documente unidades no docstring.
 
-**Novo cálculo com formulário:** função `dimensionar(...)` e `relatorio(resultado)` em `core/functions/Predial/`, e um comando em `commands/calculos.py` com a lista `CAMPOS` e o `CalculoDialog`. As chaves de `CAMPOS` são os nomes dos argumentos de `dimensionar`.
+**Novo cálculo com formulário:** função `dimensionar(...)` e `relatorio(resultado)` em `core/functions/Predial/`, a lista de campos em `core/formularios.py` e um comando em `commands/calculos.py` que abre o `CalculoDialog`. As chaves dos campos são os nomes dos argumentos de `dimensionar`. Regras dos formulários, cobradas por `tests/unit/test_formularios.py`:
+- no máximo 4 campos fora das opções avançadas (`"avancado": True` nos demais);
+- todo campo tem `dica`; campos numéricos têm `minimo` e `maximo` do mesmo tipo do valor;
+- onde houver valores típicos, ofereça uma lista com `preenche`, que preenche os campos avançados (veja `LAMPADAS`).
+
+O `CalculoDialog` recalcula a cada mudança, guarda os valores usados em `BaseApp/Preferences/Mod/Circuits/Formularios/<chave>` e os traz de volta na próxima abertura; **Restaurar padrões** volta aos valores iniciais.
 
 **Novo objeto FeaturePython:** siga `objects/switch.py` (classe com `Type`, ViewProvider e `create_*`). Depois de usado em projetos, o nome do módulo e da classe ficam congelados.
 
@@ -239,11 +245,12 @@ Todos foram confirmados no código ou em execução e já existiam antes da reor
 - `core/functions/Predial/demanda.py`: fatores de demanda de guias de instalações residenciais, transcritos de memória e não conferidos com a fonte. Cada concessionária tem tabela própria. Não calcula a demanda do edifício (diversidade entre apartamentos).
 - `core/functions/Predial/pressurizacao.py`: áreas de fresta, número de portas abertas e acréscimos (25 % não identificados; 15 % duto metálico, 25 % alvenaria) precisam ser conferidos com a edição vigente da NBR 14880 e com o Corpo de Bombeiros.
 - `core/functions/Predial/recalque.py`: singularidades estimadas em 30 % do comprimento e rendimento da bomba de 50 % são suposições, editáveis só no código ou no formulário (rendimento).
+- `core/formularios.py`, `LAMPADAS`: fluxo e potência das lâmpadas da lista são valores aproximados de mercado, não de um fabricante.
 - `core/functions/Predial/luminotecnico.py`: o fator de utilização vem de uma curva genérica por índice do local, e as iluminâncias por ambiente são valores usuais, ambos não conferidos com a NBR ISO/CIE 8995-1 nem com catálogo. O ambiente é sempre tratado como retângulo reto.
 - `core/circuitos.py`, `dimensionar`: o disjuntor de motores é escolhido só pela corrente nominal, sem considerar a partida.
 - `services/circuitos.py`, `_de_tomada_sketch`: lê potência e tensão das tomadas em Sketch pelo número bruto, porque elas são gravadas sem unidade. Falta confirmar no FreeCAD e migrar para grandezas com unidade.
 - `core/quadro.py`: correntes comerciais de DR e de barramento, quantidade de DPS e módulos da caixa são regras gerais, não de um fabricante. O DR é sempre por circuito; não há DR geral nem agrupamento de circuitos em um DR.
-- O luminotécnico, as notas do projeto, a fiação em todos os pontos, a escala dos símbolos, os símbolos de quadro e medição, a lista de componentes do quadro, o medidor e os barramentos no unifilar, os botões de grupo (lista suspensa), as teclas da inserção (Espaço, R, L), os comandos Alinhar, Distribuir, Definir circuito, Ligar interruptor e Identificar pontos, os pontos novos, a legenda, `MontarCircuitos`, os cálculos prediais e as mudanças do unifilar têm teste unitário da lógica, mas ainda não foram executados no FreeCAD real: rode o `smoke_gui.py` e atualize este item.
+- O formulário de cálculo novo (opções avançadas, valores guardados, cálculo automático), o luminotécnico, as notas do projeto, a fiação em todos os pontos, a escala dos símbolos, os símbolos de quadro e medição, a lista de componentes do quadro, o medidor e os barramentos no unifilar, os botões de grupo (lista suspensa), as teclas da inserção (Espaço, R, L), os comandos Alinhar, Distribuir, Definir circuito, Ligar interruptor e Identificar pontos, os pontos novos, a legenda, `MontarCircuitos`, os cálculos prediais e as mudanças do unifilar têm teste unitário da lógica, mas ainda não foram executados no FreeCAD real: rode o `smoke_gui.py` e atualize este item.
 
 **Cálculos e tabelas, ainda sem uso na interface**
 - `core/functions/Barramento.py`: `Sec_tubular` gera `TypeError` (falta `*` em `math.pi(...)`) e não tem `return`. `Corrente_carga_maxima` usa `Qc*Qr-Qs`; conferir com a fonte, pois o balanço térmico sugere soma.
