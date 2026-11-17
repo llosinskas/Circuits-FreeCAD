@@ -4,7 +4,7 @@ import FreeCADGui as Gui
 
 from freecad.Circuits.commands._base import documento_ou_aviso, recursos
 from freecad.Circuits.qt import QtWidgets
-from freecad.Circuits.services import cabos, tomadas
+from freecad.Circuits.services import cabos, pavimentos, tomadas
 
 
 def _sem_tomadas_tug(titulo):
@@ -22,7 +22,7 @@ class ComponentEletric:
         ponto = App.Vector(0, 0, 0)
         if selecao and selecao[0].HasSubObjects:
             ponto = selecao[0].PickedPoints[0]
-        tomadas.criar_tomada_simples(doc, ponto)
+        pavimentos.arquivar(doc, tomadas.criar_tomada_simples(doc, ponto))
 
     def IsActive(self):
         return True

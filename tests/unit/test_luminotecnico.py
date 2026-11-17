@@ -11,6 +11,7 @@ from freecad.Circuits.core.functions.Predial import luminotecnico as lum
 
 MODULOS_FREECAD = ("FreeCAD", "FreeCADGui", "Part", "Draft", "Sketcher", "Spreadsheet")
 RECARREGAR = ("freecad.Circuits.services.luminotecnico", "freecad.Circuits.services.identificacao",
+              "freecad.Circuits.services.pavimentos",
               "freecad.Circuits.services.alinhamento", "freecad.Circuits.services.tomadas",
               "freecad.Circuits.services.documento", "freecad.Circuits.objects.ponto")
 
@@ -115,10 +116,12 @@ class TestServico(unittest.TestCase):
         doc.Objects = [antiga, de_outro]
         doc.getObject.return_value = None
         novos = [types.SimpleNamespace(Placement=types.SimpleNamespace(Base=None)) for _ in range(4)]
-        with mock.patch.object(self.servico, "create_ponto", side_effect=novos) as criar:
+        with mock.patch.object(self.servico, "create_ponto", side_effect=novos) as criar, \
+                mock.patch.object(self.servico.pavimentos, "arquivar") as arquivar:
             criados = self.servico.distribuir(
                 doc, retangulo, 1000, 2000, lum.posicoes(2, 2, 5, 4), "luz_teto", 20, 3,
             )
+        self.assertEqual([chamada.args[1] for chamada in arquivar.call_args_list], novos)  # cada luminária vai para a pasta
         doc.removeObject.assert_called_once_with("Ponto007")
         self.assertEqual(criar.call_count, 4)
         self.assertEqual([p.Placement.Base for p in criados],

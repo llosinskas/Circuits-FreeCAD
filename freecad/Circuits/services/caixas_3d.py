@@ -3,6 +3,7 @@ import FreeCAD as App
 import Part
 
 from freecad.Circuits.core.simbolos import CATALOGO, ENERGIA, QUADRO, TOMADA
+from freecad.Circuits.services import pavimentos
 from freecad.Circuits.services.tomadas import listar_tomadas
 
 COR_INTERRUPTOR = (0.9, 0.85, 0.7)
@@ -70,7 +71,8 @@ def gerar_caixas(doc, objetos, tomadas):
             label, cor = _rotulo_e_cor(obj)
             criadas += _criar_caixa(
                 doc, obj,
-                _valor(obj.CaixaLargura), _valor(obj.CaixaProfundidade), _valor(obj.CaixaAltura), _valor(obj.Altura3D),
+                _valor(obj.CaixaLargura), _valor(obj.CaixaProfundidade), _valor(obj.CaixaAltura),
+                _valor(obj.Altura3D) + pavimentos.elevacao_do_objeto(doc, obj),
                 label, cor,
             )
         except Exception as e:
@@ -83,7 +85,7 @@ def gerar_caixas(doc, objetos, tomadas):
                 float(getattr(obj, "CaixaLargura", 60.0)),
                 float(getattr(obj, "CaixaProfundidade", 40.0)),
                 float(getattr(obj, "CaixaAltura", 100.0)),
-                float(getattr(obj, "altura_piso", 30.0)),
+                float(getattr(obj, "altura_piso", 30.0)) + pavimentos.elevacao_do_objeto(doc, obj),
                 f"Caixa Tomada ({obj.Label})", COR_TOMADA,
             )
         except Exception as e:

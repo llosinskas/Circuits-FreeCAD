@@ -38,6 +38,7 @@ Circuits/                        pasta dentro de Mod/, raiz do repositório
     │   ├── tables/              tabelas NBR 5410, NBR 14039 e eletrodutos
     │   ├── simbolos.py          catálogo e geometria dos pontos elétricos
     │   ├── alinhamento.py       travas, alinhamento automático, alinhar e distribuir símbolos
+    │   ├── pavimentos.py        pastas dos símbolos por tipo, nome e cota dos pavimentos
     │   ├── identificacao.py     letra de comando, próximo circuito e texto de anotação
     │   ├── formularios.py       campos dos formulários de cálculo: opções prontas, dicas, avançados
     │   ├── quadro.py            componentes do quadro: disjuntores, DR, DPS, barramentos, módulos
@@ -91,6 +92,7 @@ Regras gerais:
 | `InsertSwitch`, `InsertSwitchParalelo`, `InsertSwitchIntermediario`, `InsertLighting`, `InsertOutlet` | `insert_component` | `objects/switch`, `lighting`, `outlet` |
 | `Ponto_<símbolo>` (um por entrada de `core.simbolos.CATALOGO`) | `pontos` | `objects/ponto`; `core/simbolos` |
 | `LegendaSimbolos` | `pontos` | `services/legenda` |
+| `DefinirPavimento`, `MoverParaPavimento` | `pavimentos` | `services/pavimentos`; `core/pavimentos`; `UI/dialogs/pavimento_dialog` |
 | `PlanilhaNotas`, `GerarNotas` | `pontos` | `services/notas`; `core/notas` |
 | `DefinirCircuito`, `LigarInterruptor`, `IdentificarPontos` | `identificacao` | `services/identificacao`; `core/identificacao`; `UI/dialogs/circuito_dialog` |
 | `AlinharPontos`, `DistribuirPontos`, `EscalaSimbolos` | `alinhar` | `services/alinhamento`, `escala`; `core/alinhamento` |
@@ -118,7 +120,7 @@ As barras ficam em `init_gui.py`. As três barras próprias são enxutas: os com
 
 | Grupo | Comandos |
 |---|---|
-| `Grupo_Projeto` | `newProjetctEletrical`, `newSpreadsheet`, `ImportQET` |
+| `Grupo_Projeto` | `newProjetctEletrical`, `DefinirPavimento`, `MoverParaPavimento`, `newSpreadsheet`, `ImportQET` |
 | `Grupo_Tomadas` | `Ponto_tomada_baixa`, `_media`, `_alta`, `_piso`; `InsertTugs` |
 | `Grupo_Energia` | `Ponto_chuveiro`, `_ar_condicionado`, `_ventilador`, `_ponto_forca` |
 | `Grupo_Iluminacao` | `Ponto_luz_teto`, `_arandela`, `_fluorescente`, `_embutida`, `_emergencia`; `DistribuirLuminarias` |
@@ -157,6 +159,7 @@ Todo símbolo 2D (pontos, interruptores, tomada TUG) é posicionado por `Compone
 
 Os comandos se encontram pelos objetos do documento, não por estado em Python:
 
+- **Pavimentos e pastas:** cada pavimento é um grupo (Label = nome) com as propriedades `Elevacao` (cota do piso, mm), `AlturaPavimento` (piso a piso, mm) e `Ativo`; só um é o ativo. Fica dentro de `Pontos_eletricos`, se existir. Dentro dele, uma subpasta por tipo de símbolo, marcada pela propriedade `pasta` (`tomadas`, `energia`, `iluminacao`, `interruptores`, `quadros`), com o nome mostrado de `core.pavimentos.PASTAS`. Todo símbolo novo (pontos, interruptores, tomada TUG e luminárias do luminotécnico) é criado na subpasta do tipo dele, dentro do pavimento ativo, e recebe a propriedade `Pavimento` com o nome. `Novo projeto` cria o `Térreo` e o ativa. O pavimento de um símbolo é o da pasta em que ele está; a propriedade `Pavimento` só vale se ele for tirado da pasta. As caixas 3D somam a cota do pavimento à altura de montagem. Objetos que não são símbolos (eletrodutos, textos) não são arquivados. Se o FreeCAD recusar o nome repetido de uma subpasta (preferência `DuplicateLabels` desligada), ela se chama `<pavimento> - <tipo>`.
 - **Tomada em Sketch:** propriedade `tipo == "tomada"`, além de `Fase`, `neutro`, `terra` e `altura_piso`.
 - **Objetos FeaturePython:** `obj.Proxy.Type` vale `Ponto`, `Switch`, `Lighting`, `Outlet` ou `ConduitPath`.
 - **Ponto elétrico (`Ponto`):** a propriedade `Simbolo` é a chave de `core.simbolos.CATALOGO`. `Potencia` em VA, `FatorPotencia`, `Tensao`, `Ligacao` (`F+N`, `F+F`, `3F`), `Circuito` e `Quadro` (vazio vale para qualquer quadro). `MontarCircuitos` também lê `Outlet`, `Lighting` e as tomadas em Sketch.
@@ -250,7 +253,7 @@ Todos foram confirmados no código ou em execução e já existiam antes da reor
 - `core/circuitos.py`, `dimensionar`: o disjuntor de motores é escolhido só pela corrente nominal, sem considerar a partida.
 - `services/circuitos.py`, `_de_tomada_sketch`: lê potência e tensão das tomadas em Sketch pelo número bruto, porque elas são gravadas sem unidade. Falta confirmar no FreeCAD e migrar para grandezas com unidade.
 - `core/quadro.py`: correntes comerciais de DR e de barramento, quantidade de DPS e módulos da caixa são regras gerais, não de um fabricante. O DR é sempre por circuito; não há DR geral nem agrupamento de circuitos em um DR.
-- O formulário de cálculo novo (opções avançadas, valores guardados, cálculo automático), o luminotécnico, as notas do projeto, a fiação em todos os pontos, a escala dos símbolos, os símbolos de quadro e medição, a lista de componentes do quadro, o medidor e os barramentos no unifilar, os botões de grupo (lista suspensa), as teclas da inserção (Espaço, R, L), os comandos Alinhar, Distribuir, Definir circuito, Ligar interruptor e Identificar pontos, os pontos novos, a legenda, `MontarCircuitos`, os cálculos prediais e as mudanças do unifilar têm teste unitário da lógica, mas ainda não foram executados no FreeCAD real: rode o `smoke_gui.py` e atualize este item.
+- Os pavimentos e as pastas dos símbolos, o formulário de cálculo novo (opções avançadas, valores guardados, cálculo automático), o luminotécnico, as notas do projeto, a fiação em todos os pontos, a escala dos símbolos, os símbolos de quadro e medição, a lista de componentes do quadro, o medidor e os barramentos no unifilar, os botões de grupo (lista suspensa), as teclas da inserção (Espaço, R, L), os comandos Alinhar, Distribuir, Definir circuito, Ligar interruptor e Identificar pontos, os pontos novos, a legenda, `MontarCircuitos`, os cálculos prediais e as mudanças do unifilar têm teste unitário da lógica, mas ainda não foram executados no FreeCAD real: rode o `smoke_gui.py` e atualize este item.
 
 **Cálculos e tabelas, ainda sem uso na interface**
 - `core/functions/Barramento.py`: `Sec_tubular` gera `TypeError` (falta `*` em `math.pi(...)`) e não tem `return`. `Corrente_carga_maxima` usa `Qc*Qr-Qs`; conferir com a fonte, pois o balanço térmico sugere soma.

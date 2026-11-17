@@ -8,7 +8,7 @@ from freecad.Circuits.objects.lighting import create_lighting
 from freecad.Circuits.objects.outlet import create_outlet
 from freecad.Circuits.objects.switch import create_switch
 from freecad.Circuits.qt import QtCore, QtWidgets
-from freecad.Circuits.services import alinhamento
+from freecad.Circuits.services import alinhamento, pavimentos
 from freecad.Circuits.services.tomadas import criar_tug
 from freecad.Circuits.UI.dialogs.ComponentInserter import ComponentInserter, ComponentInsertionMode
 
@@ -50,10 +50,12 @@ class _CriarEPosicionar:
     mensagem = ""
 
     def Activated(self):
-        if not documento_ou_aviso():
+        doc = documento_ou_aviso()
+        if not doc:
             return
         obj = type(self).criar()
         if obj:
+            pavimentos.arquivar(doc, obj)  # entra na pasta do tipo, dentro do pavimento ativo
             # O próximo só começa depois que o clique atual terminar de ser tratado.
             _posicionar_com_mouse(obj, self.mensagem, lambda: QtCore.QTimer.singleShot(0, self.Activated))
 
@@ -88,7 +90,9 @@ class Tugs:
     def Activated(self):
         doc = documento_ou_aviso()
         if doc:
-            _posicionar_com_mouse(criar_tug(doc), "Tomada criada.")
+            tug = criar_tug(doc)
+            pavimentos.arquivar(doc, tug)
+            _posicionar_com_mouse(tug, "Tomada criada.")
 
     def IsActive(self):
         return True

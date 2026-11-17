@@ -2,6 +2,7 @@
 import FreeCAD as App
 
 from freecad.Circuits.objects.ponto import create_ponto
+from freecad.Circuits.services import pavimentos
 from freecad.Circuits.services.identificacao import atualizar_anotacao
 
 MM_POR_M = 1000.0
@@ -53,7 +54,6 @@ def distribuir(doc, ambiente, x_min, y_min, posicoes, simbolo, potencia_va, circ
     try:
         for antigo in luminarias_do_ambiente(doc, ambiente):
             doc.removeObject(antigo.Name)
-        grupo = doc.getObject("Iluminacao")
         criados = []
         for x, y in posicoes:
             ponto = create_ponto(simbolo)
@@ -63,8 +63,7 @@ def distribuir(doc, ambiente, x_min, y_min, posicoes, simbolo, potencia_va, circ
             ponto.Potencia = float(potencia_va)
             ponto.Circuito = str(circuito)
             ponto.Ambiente = ambiente.Name
-            if grupo is not None:
-                grupo.addObject(ponto)
+            pavimentos.arquivar(doc, ponto)
             criados.append(ponto)
         doc.commitTransaction()
     except Exception:

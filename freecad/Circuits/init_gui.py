@@ -77,7 +77,7 @@ BIM_TOOLS = ["Arch_Wall", "BIM_Door", "Arch_Space", "BIM_Library"]
 BIM_EXTRA_TOOLS = ["BIM_Project", "BIM_Column", "BIM_Beam", "BIM_Slab"]
 
 # --- Comandos da bancada -------------------------------------------------------
-PROJECT_TOOLS = ["newProjetctEletrical", "newSpreadsheet", "ImportQET"]
+PROJECT_TOOLS = ["newProjetctEletrical", "DefinirPavimento", "MoverParaPavimento", "newSpreadsheet", "ImportQET"]
 OUTLET_TOOLS = ["Ponto_tomada_baixa", "Ponto_tomada_media", "Ponto_tomada_alta", "Ponto_tomada_piso", "InsertTugs"]
 POWER_TOOLS = ["Ponto_chuveiro", "Ponto_ar_condicionado", "Ponto_ventilador", "Ponto_ponto_forca"]
 LIGHTING_TOOLS = [
@@ -115,7 +115,7 @@ EXTRA_TOOLS = [
 # Botões com lista suspensa: ID do grupo -> (legenda, dica, comandos).
 # O botão mostra o ícone do último comando usado; a seta abre os demais.
 GROUPS = {
-    "Grupo_Projeto": ("Projeto", "Novo projeto, planilha de circuitos e importação do QElectroTech", PROJECT_TOOLS),
+    "Grupo_Projeto": ("Projeto", "Novo projeto, pavimentos, planilha de circuitos e importação do QElectroTech", PROJECT_TOOLS),
     "Grupo_Tomadas": ("Tomadas", "Tomadas baixa, média, alta, de piso e TUG", OUTLET_TOOLS),
     "Grupo_Energia": ("Energia", "Chuveiro, ar-condicionado, ventilador e ponto de força", POWER_TOOLS),
     "Grupo_Iluminacao": ("Iluminação", "Luz de teto, arandela, tubular, embutida, de emergência e o luminotécnico", LIGHTING_TOOLS),
@@ -232,6 +232,7 @@ class CircuitsWorkbench(gui.Workbench):
         from .commands import (  # noqa: F401
             alinhar,
             identificacao,
+            pavimentos,
             calculos,
             generate_3d,
             gerar_unifilar,

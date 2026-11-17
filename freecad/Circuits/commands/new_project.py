@@ -7,7 +7,7 @@ import FreeCADGui as Gui
 from freecad.Circuits import ELECTRIC_LIBRARY_PATH
 from freecad.Circuits.commands._base import documento_ou_aviso, recursos
 from freecad.Circuits.qt import QtWidgets
-from freecad.Circuits.services import biblioteca, planilhas
+from freecad.Circuits.services import biblioteca, pavimentos, planilhas
 from freecad.Circuits.services.documento import GRUPOS_PROJETO, criar_grupos
 from freecad.Circuits.UI.insert_circuit import InsertCircuit
 
@@ -16,12 +16,13 @@ class newProjetctEletrical:
     def Activated(self):
         doc = App.activeDocument() or App.newDocument("Projeto_eletrico")
         criar_grupos(doc, GRUPOS_PROJETO)
+        pavimentos.garantir_ativo(doc)  # os símbolos entram no Térreo até o usuário escolher outro pavimento
 
     def GetResources(self):
         return recursos(
             "newProject.svg",
             "Novo projeto",
-            "Cria os grupos do projeto elétrico (pontos, quadros, eletrodutos, diagramas), em um documento novo se preciso",
+            "Cria os grupos do projeto elétrico e o pavimento Térreo, em um documento novo se preciso",
         )
 
 

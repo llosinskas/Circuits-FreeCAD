@@ -10,7 +10,7 @@ from freecad.Circuits.commands._base import documento_ou_aviso, recursos
 from freecad.Circuits.core.simbolos import CATALOGO
 from freecad.Circuits.objects.ponto import create_ponto
 from freecad.Circuits.qt import QtCore, QtWidgets
-from freecad.Circuits.services import alinhamento, legenda, notas
+from freecad.Circuits.services import alinhamento, legenda, notas, pavimentos
 from freecad.Circuits.UI.dialogs.ComponentInserter import ComponentInsertionMode
 
 PREFIXO = "Ponto_"
@@ -23,11 +23,13 @@ class InserirPonto:
         self.simbolo = simbolo
 
     def Activated(self):
-        if not documento_ou_aviso():
+        doc = documento_ou_aviso()
+        if not doc:
             return
         obj = create_ponto(self.simbolo)
         if obj is None:
             return
+        pavimentos.arquivar(doc, obj)  # entra na pasta do tipo, dentro do pavimento ativo
         anterior = self._ultimo_fixado()
         if anterior is not None:  # o próximo ponto repete circuito, quadro e rotação
             obj.Circuito = anterior.Circuito

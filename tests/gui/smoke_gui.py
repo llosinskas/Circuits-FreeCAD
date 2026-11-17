@@ -169,6 +169,33 @@ def scenario(doc):
     doc.recompute()
     result["steps"]["inseridos"] = snapshot(doc)
 
+    # Pavimentos: os símbolos entram nas pastas do Térreo; um pavimento novo recebe os próximos e depois o ponto volta.
+    pav = importlib.import_module("freecad.Circuits.services.pavimentos")
+
+    def pastas(nome):
+        pavimento = pav.por_nome(doc, nome)
+        return {f.pasta: len(f.Group) for f in pavimento.Group} if pavimento else None
+
+    result["steps"]["pavimento_terreo"] = pastas("Térreo")
+    dialogo_pav = locate("freecad.Circuits.UI.dialogs.pavimento_dialog:DefinirPavimentoDialog")
+    dialogo_pav.exec_ = lambda self: 1
+    dialogo_pav.get_dados = lambda self: {"nome": "1º Pavimento", "elevacao_mm": 3000.0, "altura_mm": 3000.0}
+    run("DefinirPavimento")
+    run("Ponto_tomada_baixa")
+    stop_insertion_mode()
+    novo = [o for o in doc.Objects if getattr(o, "Pavimento", "") == "1º Pavimento" and hasattr(o, "Simbolo")]
+    result["steps"]["pavimento_primeiro"] = pastas("1º Pavimento")
+    getitem_original = QtWidgets.QInputDialog.getItem
+    QtWidgets.QInputDialog.getItem = staticmethod(lambda *a, **k: ("Térreo", True))
+    Gui.Selection.clearSelection()
+    for obj in novo:
+        Gui.Selection.addSelection(obj)
+    run("MoverParaPavimento")
+    Gui.Selection.clearSelection()
+    QtWidgets.QInputDialog.getItem = getitem_original
+    pav.definir(doc, "Térreo", 0.0, 3000.0)  # o Térreo volta a ser o ativo para os passos seguintes
+    result["steps"]["pavimento_depois_de_mover"] = {"terreo": pastas("Térreo"), "primeiro": pastas("1º Pavimento")}
+
     run("Cabo")
     run("Cabo")  # segunda execução: precisa substituir a fiação, não duplicar
     result["steps"]["fiacao"] = len([o for o in doc.Objects if hasattr(o, "fiacao_de")])

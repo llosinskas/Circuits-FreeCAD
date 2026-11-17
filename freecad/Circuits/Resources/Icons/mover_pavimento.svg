@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64">
+  <!-- Mover para pavimento: símbolo subindo para o piso de cima -->
+  <path d="M8 54L32 46L56 54L32 62Z M8 22L32 14L56 22L32 30Z M32 42V34M26 38L32 32L38 38" fill="none" stroke-linecap="round" stroke-linejoin="round" stroke="#ffffff" stroke-width="7" stroke-opacity="0.85"/>
+  <path d="M8 54L32 46L56 54L32 62Z M8 22L32 14L56 22L32 30Z" fill="none" stroke-linecap="round" stroke-linejoin="round" stroke="#5f6368" stroke-width="3"/>
+  <path d="M32 42V34M26 38L32 32L38 38" fill="none" stroke-linecap="round" stroke-linejoin="round" stroke="#1a73e8" stroke-width="3"/>
+</svg>

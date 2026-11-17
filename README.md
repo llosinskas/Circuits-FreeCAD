@@ -6,6 +6,7 @@ O projeto está em desenvolvimento. A seção [Limitações](#limitações) diz 
 
 ## O que a bancada faz
 
+- **Pavimentos:** cada pavimento é uma pasta, com subpastas de tomadas, energia, iluminação, interruptores e quadros; os símbolos novos entram sozinhos na pasta certa do pavimento ativo.
 - **Planta 2D:** botões separados para tomadas, pontos de energia, iluminação e interruptores. Cada ponto tem símbolo próprio e dados elétricos (potência, tensão, circuito) editáveis.
 - **Quadros na planta:** símbolos de quadro de distribuição, quadro de comando, quadro de medição e medição agrupada.
 - **Circuitos:** soma os pontos da planta por circuito, escolhe cabo e disjuntor, equilibra as fases e grava no quadro.
@@ -120,6 +121,29 @@ O botão **Circuitos** da barra *Planta elétrica* reúne três comandos:
 - **Ligar interruptor:** selecione um interruptor e os pontos de luz (ou ventilador) que ele comanda. Todos recebem a mesma letra de comando (a, b, c...) e o interruptor recebe o circuito da luz. Para interruptores paralelos, selecione os dois junto com as luzes.
 - **Identificar pontos:** escreve ao lado de cada símbolo o circuito, a letra do comando e a potência, por exemplo `C1 · a · 100 VA`. Depois de criada, a identificação se atualiza quando você usa os dois comandos acima. Se mudar uma propriedade à mão, clique em *Identificar pontos* de novo.
 
+## Pavimentos e pastas
+
+Cada pavimento é uma pasta do projeto, e dentro dela os símbolos ficam separados por tipo:
+
+```
+Pontos_eletricos
+├── Térreo
+│   ├── Tomadas
+│   ├── Pontos de energia
+│   ├── Iluminação
+│   ├── Interruptores
+│   └── Quadros e medição
+└── 1º Pavimento
+    └── ...
+```
+
+- **Novo projeto** cria o *Térreo* e o deixa ativo. Todo símbolo que você inserir (tomadas, pontos, interruptores, luminárias do luminotécnico) vai sozinho para a pasta do tipo dele, dentro do pavimento ativo.
+- **Projeto > Pavimento** escolhe o pavimento ativo ou cria um novo, com a cota do piso e a altura de piso a piso. O programa sugere o próximo (1º Pavimento, na cota seguinte).
+- **Projeto > Mover para pavimento** leva os símbolos selecionados para as pastas de outro pavimento.
+- Cada símbolo guarda o nome do pavimento na propriedade `Pavimento`, e as caixas 3D somam a cota do pavimento à altura de montagem.
+
+Os símbolos já existentes no projeto não são movidos sozinhos: selecione-os e use *Mover para pavimento*. Eletrodutos, textos e outros desenhos não entram nas pastas.
+
 ## Fiação e escala dos símbolos
 
 **Fiação** (botão *Eletrodutos > Fiação*) desenha, ao lado de cada tomada, ponto de energia e ponto de iluminação, os traços dos condutores: terra, neutro e uma, duas ou três fases, conforme a propriedade `Ligacao` do ponto. Clicar de novo apaga a fiação anterior e redesenha, então use depois de mudar os pontos. Quadros e interruptores não recebem fiação.
@@ -168,7 +192,7 @@ As barras da bancada têm poucos botões. Os que têm uma seta (▾) abrem uma l
 
 | Botão com lista | Itens |
 |---|---|
-| Projeto | Novo projeto, Planilha de circuitos, Importar QET |
+| Projeto | Novo projeto, Pavimento, Mover para pavimento, Planilha de circuitos, Importar QET |
 | Tomadas | Tomada baixa, média, alta, de piso, Tomada TUG |
 | Energia | Chuveiro, Ar-condicionado, Ventilador, Ponto de força |
 | Iluminação | Luz de teto, Arandela, Luminária tubular, Luz embutida, Luz de emergência, Luminotécnico |

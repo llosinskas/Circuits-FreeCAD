@@ -1,7 +1,6 @@
 """Tomadas representadas por Sketch com simbologia 2D e propriedades elétricas."""
 import Draft
 import FreeCAD as App
-import FreeCADGui as Gui
 import Part
 import Sketcher  # noqa: F401  (registra o tipo Sketcher::SketchObject)
 
@@ -93,12 +92,21 @@ def listar_tomadas(doc):
     return [obj for obj in doc.Objects if hasattr(obj, "tipo") and obj.tipo == "tomada"]
 
 
+def _tem_pasta(obj):
+    pegar = getattr(obj, "getParentGroup", None)
+    return bool(pegar and pegar())
+
+
 def gerar_caixas_tomadas(doc, tomadas):
     """Cria a caixa 3D de cada tomada e esconde o grupo com os símbolos 2D."""
     grupo_caixas = create_group("Equipamentos", doc)
-    grupo_tomadas = doc.getObject("Tomadas")
-    if grupo_tomadas is None:
-        grupo_tomadas = doc.addObject("App::DocumentObjectGroup", "Tomadas")
+    # Tomadas já guardadas em uma pasta de pavimento ficam onde estão; só as soltas vão para o grupo antigo.
+    soltas = [t for t in tomadas if not _tem_pasta(t)]
+    grupo_tomadas = None
+    if soltas:
+        grupo_tomadas = doc.getObject("Tomadas")
+        if grupo_tomadas is None:
+            grupo_tomadas = doc.addObject("App::DocumentObjectGroup", "Tomadas")
 
     for tomada in tomadas:
         caixa = doc.addObject("Part::Box", "tomada")
@@ -108,8 +116,6 @@ def gerar_caixas_tomadas(doc, tomadas):
         Draft.move([caixa], tomada.Placement.Base, copy=False)
         Draft.move([caixa], App.Vector(-15, -10, tomada.altura_piso), copy=False)
         grupo_caixas.addObject(caixa)
-        grupo_tomadas.addObject(tomada)
-
-    Gui.Selection.clearSelection()
-    Gui.Selection.addSelection(doc.Name, "Tomadas")
-    Gui.runCommand("Std_ToggleVisibility", 0)
+        if grupo_tomadas is not None and tomada in soltas:
+            grupo_tomadas.addObject(tomada)
+        tomada.Visibility = False  # esconde o símbolo 2D; a caixa 3D aparece no lugar
