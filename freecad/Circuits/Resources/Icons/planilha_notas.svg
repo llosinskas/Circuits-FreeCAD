@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64">
+  <!-- Planilha de notas: grade com um lápis -->
+  <path d="M6 12H46V52H6ZM6 24H46M6 38H46M20 12V52 M36 50L40 38L54 24L60 30L46 44Z" fill="none" stroke-linecap="round" stroke-linejoin="round" stroke="#ffffff" stroke-width="7" stroke-opacity="0.85"/>
+  <path d="M6 12H46V52H6ZM6 24H46M6 38H46M20 12V52" fill="none" stroke-linecap="round" stroke-linejoin="round" stroke="#5f6368" stroke-width="3"/>
+  <path d="M36 50L40 38L54 24L60 30L46 44Z" fill="none" stroke-linecap="round" stroke-linejoin="round" stroke="#1a73e8" stroke-width="3"/>
+</svg>

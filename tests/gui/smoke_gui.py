@@ -206,6 +206,11 @@ def scenario(doc):
     run("LegendaSimbolos")  # segunda execução: precisa substituir, não duplicar
     result["steps"]["legenda"] = [o["name"] for o in snapshot(doc) if o["name"].startswith("Legenda")]
 
+    run("PlanilhaNotas")
+    run("GerarNotas")
+    run("GerarNotas")  # segunda execução: precisa substituir, não duplicar
+    result["steps"]["notas"] = [o["name"] for o in snapshot(doc) if o["name"].startswith("Notas")]
+
     run("GerarPlanilha")
     run("AddCircuito")
     run("MontarCircuitos")

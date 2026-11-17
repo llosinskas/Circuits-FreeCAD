@@ -10,7 +10,7 @@ from freecad.Circuits.commands._base import documento_ou_aviso, recursos
 from freecad.Circuits.core.simbolos import CATALOGO
 from freecad.Circuits.objects.ponto import create_ponto
 from freecad.Circuits.qt import QtCore, QtWidgets
-from freecad.Circuits.services import alinhamento, legenda
+from freecad.Circuits.services import alinhamento, legenda, notas
 from freecad.Circuits.UI.dialogs.ComponentInserter import ComponentInsertionMode
 
 PREFIXO = "Ponto_"
@@ -83,6 +83,60 @@ class LegendaSimbolos:
         )
 
 
+class PlanilhaNotas:
+    """Abre a planilha de notas do projeto, criando-a na primeira vez."""
+
+    def Activated(self):
+        doc = documento_ou_aviso()
+        if not doc:
+            return
+        planilha = notas.planilha_de_notas(doc)
+        try:
+            planilha.ViewObject.doubleClicked()  # abre a planilha para edição
+        except Exception:
+            App.Console.PrintMessage(f"Abra a planilha '{planilha.Label}' na árvore do projeto para editar as notas.\n")
+
+    def IsActive(self):
+        return True
+
+    def GetResources(self):
+        return recursos(
+            "planilha_notas.svg",
+            "Planilha de notas",
+            "Abre a planilha onde você escreve as notas do projeto, uma por linha",
+        )
+
+
+class GerarNotas:
+    """Desenha na planta as notas escritas na planilha de notas."""
+
+    def Activated(self):
+        doc = documento_ou_aviso()
+        if not doc:
+            return
+        if notas.planilha_de_notas(doc, criar=False) is None:
+            notas.planilha_de_notas(doc)
+            QtWidgets.QMessageBox.information(
+                None, "Notas",
+                "Criei a planilha 'Notas' com exemplos. Escreva as suas notas nela (botão Planilha de notas) "
+                "e clique em Notas de novo.",
+            )
+        if not notas.gerar_notas(doc):
+            QtWidgets.QMessageBox.information(None, "Notas", "A planilha de notas está vazia.")
+
+    def IsActive(self):
+        return True
+
+    def GetResources(self):
+        return recursos(
+            "notas.svg",
+            "Notas",
+            "Desenha na planta, embaixo da legenda, as notas escritas na planilha de notas",
+        )
+
+
 for _simbolo in CATALOGO:
     Gui.addCommand(PREFIXO + _simbolo, InserirPonto(_simbolo))
 Gui.addCommand("LegendaSimbolos", LegendaSimbolos())
+Gui.addCommand("PlanilhaNotas", PlanilhaNotas())
+Gui.addCommand("GerarNotas", GerarNotas())

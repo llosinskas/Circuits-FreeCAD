@@ -90,6 +90,7 @@ Regras gerais:
 | `InsertSwitch`, `InsertSwitchParalelo`, `InsertSwitchIntermediario`, `InsertLighting`, `InsertOutlet` | `insert_component` | `objects/switch`, `lighting`, `outlet` |
 | `Ponto_<símbolo>` (um por entrada de `core.simbolos.CATALOGO`) | `pontos` | `objects/ponto`; `core/simbolos` |
 | `LegendaSimbolos` | `pontos` | `services/legenda` |
+| `PlanilhaNotas`, `GerarNotas` | `pontos` | `services/notas`; `core/notas` |
 | `DefinirCircuito`, `LigarInterruptor`, `IdentificarPontos` | `identificacao` | `services/identificacao`; `core/identificacao`; `UI/dialogs/circuito_dialog` |
 | `AlinharPontos`, `DistribuirPontos`, `EscalaSimbolos` | `alinhar` | `services/alinhamento`, `escala`; `core/alinhamento` |
 | `InsertConduit` | `insert_component` | `Draft_Wire` nativo |
@@ -125,7 +126,7 @@ As barras ficam em `init_gui.py`. As três barras próprias são enxutas: os com
 | `Grupo_Circuitos` | `DefinirCircuito`, `LigarInterruptor`, `IdentificarPontos` |
 | `Grupo_Infra` | `InsertConduit`, `Add_Node`, `Cabo` |
 | `Grupo_Calculos` | `CalcDemanda`, `CalcPressurizacao`, `CalcRecalque` |
-| `Grupo_Documentos` | `LegendaSimbolos`, `GenerateReport` |
+| `Grupo_Documentos` | `LegendaSimbolos`, `PlanilhaNotas`, `GerarNotas`, `GenerateReport` |
 | `Grupo_3D` | `Generate3DSwitches`, `Generate3DConduits`, `Gerar3D` |
 | `Grupo_Biblioteca` | `InsertEquipaments`, `InsertComponent`, `CreateModel`, `ListElements` |
 
@@ -170,6 +171,7 @@ Os comandos se encontram pelos objetos do documento, não por estado em Python:
 - **Motores calculados:** `CalcPressurizacao` e `CalcRecalque` podem inserir um `Ponto` do tipo `ponto_forca` com a potência aparente, a tensão e a ligação do motor; ele entra em `MontarCircuitos` como qualquer ponto.
 - **Diagrama:** grupo com Label `diagrama_<quadro>` e propriedade `quadro_origem` com o nome da planilha, recriado a cada geração. Os diagramas são empilhados, um por quadro.
 - **Legenda:** grupo `Legenda_simbolos`, recriado a cada geração na posição em que estava.
+- **Notas:** planilha com a propriedade `notas_do_projeto`, uma nota por linha na coluna A, da linha 3 em diante. `GerarNotas` recria o grupo `Notas_projeto` com o título e as notas numeradas, na posição em que estava ou embaixo da legenda.
 - **Caixas e tubos 3D:** objeto `<nome da origem>_3D`, substituído a cada geração.
 - **Unidades:** comprimentos em mm no FreeCAD; correntes em A; seções em mm².
 
@@ -238,7 +240,7 @@ Todos foram confirmados no código ou em execução e já existiam antes da reor
 - `core/circuitos.py`, `dimensionar`: o disjuntor de motores é escolhido só pela corrente nominal, sem considerar a partida.
 - `services/circuitos.py`, `_de_tomada_sketch`: lê potência e tensão das tomadas em Sketch pelo número bruto, porque elas são gravadas sem unidade. Falta confirmar no FreeCAD e migrar para grandezas com unidade.
 - `core/quadro.py`: correntes comerciais de DR e de barramento, quantidade de DPS e módulos da caixa são regras gerais, não de um fabricante. O DR é sempre por circuito; não há DR geral nem agrupamento de circuitos em um DR.
-- A fiação em todos os pontos, a escala dos símbolos, os símbolos de quadro e medição, a lista de componentes do quadro, o medidor e os barramentos no unifilar, os botões de grupo (lista suspensa), as teclas da inserção (Espaço, R, L), os comandos Alinhar, Distribuir, Definir circuito, Ligar interruptor e Identificar pontos, os pontos novos, a legenda, `MontarCircuitos`, os cálculos prediais e as mudanças do unifilar têm teste unitário da lógica, mas ainda não foram executados no FreeCAD real: rode o `smoke_gui.py` e atualize este item.
+- As notas do projeto, a fiação em todos os pontos, a escala dos símbolos, os símbolos de quadro e medição, a lista de componentes do quadro, o medidor e os barramentos no unifilar, os botões de grupo (lista suspensa), as teclas da inserção (Espaço, R, L), os comandos Alinhar, Distribuir, Definir circuito, Ligar interruptor e Identificar pontos, os pontos novos, a legenda, `MontarCircuitos`, os cálculos prediais e as mudanças do unifilar têm teste unitário da lógica, mas ainda não foram executados no FreeCAD real: rode o `smoke_gui.py` e atualize este item.
 
 **Cálculos e tabelas, ainda sem uso na interface**
 - `core/functions/Barramento.py`: `Sec_tubular` gera `TypeError` (falta `*` em `math.pi(...)`) e não tem `return`. `Corrente_carga_maxima` usa `Qc*Qr-Qs`; conferir com a fonte, pois o balanço térmico sugere soma.

@@ -13,6 +13,7 @@ O projeto está em desenvolvimento. A seção [Limitações](#limitações) diz 
 - **Componentes do quadro:** lista de disjuntores, DR, DPS, barramentos e tamanho da caixa em módulos.
 - **Cálculos prediais:** demanda do quadro, pré-dimensionamento do ventilador de pressurização de escada e da bomba de recalque, com o motor elétrico de cada um.
 - **Legenda:** desenha ao lado da planta a legenda dos símbolos usados.
+- **Notas:** você escreve as notas do projeto numa planilha e um botão as desenha na planta.
 - **Fiação:** um botão desenha os traços de fase, neutro e terra em todas as tomadas e pontos.
 - **Escala dos símbolos:** cada símbolo tem uma escala, e um comando muda a de todos de uma vez.
 - **Infraestrutura:** caminho de eletrodutos em planta.
@@ -129,6 +130,13 @@ O botão **Circuitos** da barra *Planta elétrica* reúne três comandos:
 
 A fiação e a identificação acompanham o tamanho do símbolo; gere-as de novo depois de mudar a escala.
 
+## Notas do projeto
+
+1. **Documentos > Planilha de notas** abre a planilha `Notas`, criada na primeira vez com três exemplos. Escreva uma nota por linha na coluna A, a partir da linha 3.
+2. **Documentos > Notas** desenha na planta o quadro "NOTAS", com as notas numeradas, embaixo da legenda. Notas longas são quebradas em várias linhas.
+
+Depois de editar a planilha, clique em **Notas** de novo para atualizar. O quadro fica onde você o deixou, se tiver movido.
+
 ## Barras de ferramentas
 
 As barras da bancada têm poucos botões. Os que têm uma seta (▾) abrem uma lista: o botão mostra o último item usado, e a seta mostra os outros.
@@ -151,7 +159,7 @@ As barras da bancada têm poucos botões. Os que têm uma seta (▾) abrem uma l
 | Circuitos | Definir circuito, Ligar interruptor, Identificar pontos |
 | Eletrodutos | Eletroduto, Dividir trecho, Fiação |
 | Cálculos | Demanda, Pressurização, Bomba de recalque |
-| Documentos | Legenda, Relatório PDF |
+| Documentos | Legenda, Planilha de notas, Notas, Relatório PDF |
 | Modelo 3D | Caixas 3D, Eletrodutos 3D, Tomadas 3D |
 | Biblioteca | Equipamento, Componente, Criar modelo, Importar modelo |
 
