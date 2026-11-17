@@ -37,9 +37,10 @@ class TestRegras(unittest.TestCase):
         self.assertEqual(regras.nome_do_pavimento("  2º   Pavimento "), "2º Pavimento")
         self.assertEqual(regras.nome_do_pavimento("   "), "Térreo")
 
-    def test_cota_de_desenho(self):
-        self.assertEqual(regras.cota_de_desenho(3000, 2000), 5000.0)  # tomada alta no pavimento de cota 3 m
-        self.assertEqual(regras.cota_de_desenho(0, 300), 300.0)
+    def test_cota_do_simbolo_e_do_3d(self):
+        self.assertEqual(regras.cota_de_desenho(3000), 3000.0)  # o símbolo 2D fica no piso do pavimento
+        self.assertEqual(regras.cota_3d(3000, 2000), 5000.0)  # a caixa 3D da tomada alta, no pavimento de 3 m
+        self.assertEqual(regras.cota_3d(0, 300), 300.0)
 
     def test_sugestao_do_proximo_pavimento(self):
         self.assertEqual(regras.sugerir_novo([]), ("Térreo", 0.0, 3000.0))
@@ -321,28 +322,31 @@ class TestServico(unittest.TestCase):
         obj.__dict__.update(props)
         return obj
 
-    def test_simbolo_fica_no_piso_mais_a_altura_de_montagem(self):
+    def test_simbolo_fica_no_piso_e_o_3d_na_altura_de_montagem(self):
         self.servico.definir(self.doc, "Térreo", 0, 3000)
         segundo = self.servico.definir(self.doc, "2º Pavimento", 3000, 3000)
         tomada = self.adicionar(self._com_posicao(ponto("T1", "tomada_alta"), Altura3D=2000.0, CotaPiso=0.0))
         self.servico.arquivar(self.doc, tomada, segundo)
-        self.assertEqual((tomada.Altura3D, tomada.CotaPiso, tomada.Placement.Base.z), (2000.0, 3000.0, 5000.0))
-        self.assertEqual(self.servico.cota_no_desenho(self.doc, tomada), 5000.0)
+        self.assertEqual((tomada.Altura3D, tomada.CotaPiso, tomada.Placement.Base.z), (2000.0, 3000.0, 3000.0))
+        self.assertEqual(self.servico.cota_no_desenho(self.doc, tomada), 3000.0)
+        self.assertEqual(self.servico.cota_3d(self.doc, tomada), 5000.0)
 
     def test_mover_leva_para_a_cota_do_outro_pavimento(self):
         terreo = self.servico.definir(self.doc, "Térreo", 0, 3000)
         segundo = self.servico.definir(self.doc, "2º Pavimento", 3000, 3000)
         tomada = self.adicionar(self._com_posicao(ponto("T1", "tomada_baixa"), Altura3D=300.0))
         self.servico.arquivar(self.doc, tomada, terreo)
-        self.assertEqual(tomada.Placement.Base.z, 300.0)
+        self.assertEqual(tomada.Placement.Base.z, 0.0)
         self.servico.mover(self.doc, [tomada], segundo)
-        self.assertEqual((tomada.Placement.Base.x, tomada.Placement.Base.z), (100.0, 3300.0))
+        self.assertEqual((tomada.Placement.Base.x, tomada.Placement.Base.z), (100.0, 3000.0))
+        self.assertEqual(self.servico.cota_3d(self.doc, tomada), 3300.0)
 
     def test_tomada_em_sketch_usa_altura_piso(self):
         primeiro = self.servico.definir(self.doc, "1º Pavimento", 3000, 3000)
         tug = self.adicionar(self._com_posicao(Objeto("Tomada", tipo="tomada", altura_piso=300.0)))
         self.servico.arquivar(self.doc, tug, primeiro)
-        self.assertEqual(tug.Placement.Base.z, 3300.0)
+        self.assertEqual(tug.Placement.Base.z, 3000.0)
+        self.assertEqual(self.servico.cota_3d(self.doc, tug), 3300.0)
 
     def test_eletroduto_mantem_o_proprio_z_ao_ser_guardado(self):
         primeiro = self.servico.definir(self.doc, "1º Pavimento", 3000, 3000)
@@ -359,7 +363,7 @@ class TestServico(unittest.TestCase):
             obj.Placement.Base.z = 0.0  # como estavam antes
         self.adicionar(Objeto("Linha"))
         self.assertEqual(self.servico.ajustar_cotas(self.doc), 2)
-        self.assertEqual((a.Placement.Base.z, b.Placement.Base.z), (4300.0, 4200.0))
+        self.assertEqual((a.Placement.Base.z, b.Placement.Base.z), (3000.0, 3000.0))
 
     def test_criar_nivel_do_bim(self):
         edificio = self.adicionar(Objeto("Building", IfcType="Building"))

@@ -1,4 +1,4 @@
-"""Os pontos e interruptores acompanham a cota: Z = CotaPiso + Altura3D."""
+"""Os símbolos 2D acompanham a cota do piso (CotaPiso); a altura de montagem não os move."""
 import importlib
 import sys
 import types
@@ -34,15 +34,15 @@ class TestAcompanharCota(unittest.TestCase):
             sys.modules.pop(nome, None)
         self.patch.stop()
 
-    def test_mudar_a_altura_move_o_simbolo(self):
+    def test_mudar_a_altura_nao_move_o_simbolo(self):
         fp = simbolo()
         self.ponto.acompanhar_cota(fp, "Altura3D")
-        self.assertEqual((fp.Placement.Base.x, fp.Placement.Base.y, fp.Placement.Base.z), (10.0, 20.0, 5000.0))
+        self.assertEqual(fp.Placement.Base.z, 0.0)
 
     def test_mudar_a_cota_do_piso_move_o_simbolo(self):
         fp = simbolo(cota_piso=6000.0, altura=300.0)
         self.ponto.acompanhar_cota(fp, "CotaPiso")
-        self.assertEqual(fp.Placement.Base.z, 6300.0)
+        self.assertEqual((fp.Placement.Base.x, fp.Placement.Base.y, fp.Placement.Base.z), (10.0, 20.0, 6000.0))
 
     def test_outras_propriedades_nao_movem(self):
         fp = simbolo()
@@ -51,13 +51,13 @@ class TestAcompanharCota(unittest.TestCase):
 
     def test_nao_move_ao_abrir_o_arquivo_nem_ao_criar_propriedades(self):
         for fp in (simbolo(estado=["Restore"]), simbolo(criando=True)):
-            self.ponto.acompanhar_cota(fp, "Altura3D")
+            self.ponto.acompanhar_cota(fp, "CotaPiso")
             self.assertEqual(fp.Placement.Base.z, 0.0)
 
     def test_switch_usa_a_mesma_regra(self):
         fp = simbolo(cota_piso=3000.0, altura=1200.0)
-        self.switch.Switch.onChanged(None, fp, "Altura3D")
-        self.assertEqual(fp.Placement.Base.z, 4200.0)
+        self.switch.Switch.onChanged(None, fp, "CotaPiso")
+        self.assertEqual(fp.Placement.Base.z, 3000.0)
 
 
 if __name__ == "__main__":

@@ -77,7 +77,7 @@ def gerar_caixas(doc, objetos, tomadas):
             criadas += _criar_caixa(
                 doc, obj,
                 _valor(obj.CaixaLargura), _valor(obj.CaixaProfundidade), _valor(obj.CaixaAltura),
-                _valor(obj.Altura3D) + pavimentos.elevacao_do_objeto(doc, obj),
+                pavimentos.cota_3d(doc, obj),  # piso do pavimento + altura de montagem
                 label, cor,
             )
         except Exception as e:
@@ -90,7 +90,7 @@ def gerar_caixas(doc, objetos, tomadas):
                 float(getattr(obj, "CaixaLargura", 60.0)),
                 float(getattr(obj, "CaixaProfundidade", 40.0)),
                 float(getattr(obj, "CaixaAltura", 100.0)),
-                float(getattr(obj, "altura_piso", 30.0)) + pavimentos.elevacao_do_objeto(doc, obj),
+                pavimentos.cota_3d(doc, obj),
                 f"Caixa Tomada ({obj.Label})", COR_TOMADA,
             )
         except Exception as e:

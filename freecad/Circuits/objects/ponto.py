@@ -43,15 +43,16 @@ def _mm(valor):
 
 
 def acompanhar_cota(fp, prop):
-    """Põe o símbolo no Z = CotaPiso + Altura3D quando uma das duas muda.
+    """Põe o símbolo 2D no Z do piso do pavimento (CotaPiso) quando ela muda.
 
+    A altura de montagem (Altura3D) não move o símbolo: só vale para o 3D.
     Não age enquanto o documento é aberto nem enquanto as propriedades são criadas.
     """
-    if prop not in ("Altura3D", "CotaPiso") or "Restore" in getattr(fp, "State", ()):
+    if prop != "CotaPiso" or "Restore" in getattr(fp, "State", ()):
         return
-    if getattr(fp.Proxy, "_criando", False) or not (hasattr(fp, "CotaPiso") and hasattr(fp, "Altura3D")):
+    if getattr(fp.Proxy, "_criando", False) or not hasattr(fp, "CotaPiso"):
         return
-    z = cota_de_desenho(_mm(fp.CotaPiso), _mm(fp.Altura3D))
+    z = cota_de_desenho(_mm(fp.CotaPiso))
     posicao = fp.Placement
     if abs(posicao.Base.z - z) > 1e-6:
         posicao.Base = App.Vector(posicao.Base.x, posicao.Base.y, z)
@@ -162,13 +163,13 @@ class PontoEletrico:
         if nova("App::PropertyDistance", "CaixaAltura", "Caixa 3D", "Altura da caixa (eixo Z)"):
             obj.CaixaAltura = altura
         if nova("App::PropertyDistance", "CotaPiso", "Caixa 3D",
-                "Cota do piso do pavimento, preenchida pela bancada. Z no desenho = CotaPiso + Altura3D"):
+                "Cota do piso do pavimento, preenchida pela bancada. O símbolo 2D fica nela; a caixa 3D, em CotaPiso + Altura3D"):
             obj.CotaPiso = 0.0
             obj.setEditorMode("CotaPiso", 1)  # só leitura no painel
         self._criando = False
 
     def onChanged(self, obj, prop):
-        """Mantém o Z do símbolo na cota do piso mais a altura de montagem."""
+        """Mantém o símbolo 2D na cota do piso do pavimento."""
         acompanhar_cota(obj, prop)
 
     def execute(self, obj):

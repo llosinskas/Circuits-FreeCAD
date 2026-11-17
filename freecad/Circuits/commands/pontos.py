@@ -43,7 +43,7 @@ class InserirPonto:
         ComponentInsertionMode(
             obj,
             ao_fixar=lambda: QtCore.QTimer.singleShot(0, self._repetir),
-            cota=pavimentos.cota_no_desenho(doc, obj, pavimento),  # piso do pavimento + altura de montagem
+            cota=pavimentos.cota_no_desenho(doc, obj, pavimento),  # símbolo 2D no piso do pavimento
             referencias=alinhamento.posicoes_dos_simbolos(App.activeDocument(), exceto=obj),
         ).start()
 

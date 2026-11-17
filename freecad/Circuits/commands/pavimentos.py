@@ -69,13 +69,13 @@ class AdicionarNivelBIM:
 
 
 class AjustarCotas:
-    """Recoloca todos os símbolos no Z = cota do piso do pavimento + altura de montagem."""
+    """Recoloca todos os símbolos 2D no Z do piso do pavimento."""
 
     def Activated(self):
         doc = documento_ou_aviso()
         if doc:
             ajustados = servico.ajustar_cotas(doc)
-            App.Console.PrintMessage(f"{ajustados} símbolo(s) na cota do pavimento mais a altura de montagem.\n")
+            App.Console.PrintMessage(f"{ajustados} símbolo(s) na cota do piso do pavimento.\n")
 
     def IsActive(self):
         return True
@@ -84,7 +84,7 @@ class AjustarCotas:
         return recursos(
             "ajustar_cotas.svg",
             "Ajustar cotas",
-            "Põe cada símbolo no Z = cota do piso do pavimento + altura de montagem (use em projetos antigos)",
+            "Põe cada símbolo 2D no Z do piso do seu pavimento; a altura de montagem fica só no 3D",
         )
 
 

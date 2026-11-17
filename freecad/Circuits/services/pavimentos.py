@@ -268,24 +268,28 @@ def altura_de_montagem(obj):
 
 
 def cota_no_desenho(doc, obj, pavimento=None):
-    """Z do símbolo no desenho [mm]: cota do piso do pavimento + altura de montagem."""
+    """Z do símbolo 2D na planta [mm]: a cota do piso do pavimento."""
     pavimento = pavimento or pavimento_do_objeto(doc, obj)
-    piso = elevacao(pavimento) if pavimento is not None else 0.0
-    return regras.cota_de_desenho(piso, altura_de_montagem(obj))
+    return regras.cota_de_desenho(elevacao(pavimento) if pavimento is not None else 0.0)
+
+
+def cota_3d(doc, obj):
+    """Z da caixa 3D do símbolo [mm]: a cota do piso do pavimento + a altura de montagem."""
+    return regras.cota_3d(elevacao_do_objeto(doc, obj), altura_de_montagem(obj))
 
 
 def ajustar_cota(doc, obj, pavimento=None):
-    """Põe o símbolo na cota do piso do pavimento mais a altura de montagem.
+    """Põe o símbolo 2D na cota do piso do pavimento.
 
     Pontos e interruptores guardam a cota do piso em ``CotaPiso`` e passam a
-    acompanhar as mudanças de altura sozinhos; nos demais, o Z é ajustado aqui.
+    acompanhar as mudanças dela sozinhos; nos demais, o Z é ajustado aqui.
     """
     pavimento = pavimento or pavimento_do_objeto(doc, obj)
     piso = elevacao(pavimento) if pavimento is not None else 0.0
     if hasattr(obj, "CotaPiso"):
         obj.CotaPiso = piso
     if hasattr(obj, "Placement"):
-        z = regras.cota_de_desenho(piso, altura_de_montagem(obj))
+        z = regras.cota_de_desenho(piso)
         base = obj.Placement.Base
         if abs(base.z - z) > 1e-6:
             posicao = obj.Placement

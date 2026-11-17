@@ -78,7 +78,7 @@ class Switch:
             self._criando = True  # criar a propriedade não move o interruptor
             obj.addProperty(
                 "App::PropertyDistance", "CotaPiso", "Caixa 3D",
-                "Cota do piso do pavimento, preenchida pela bancada. Z no desenho = CotaPiso + Altura3D"
+                "Cota do piso do pavimento, preenchida pela bancada. O símbolo 2D fica nela; a caixa 3D, em CotaPiso + Altura3D"
             ).CotaPiso = 0.0
             obj.setEditorMode("CotaPiso", 1)
             self._criando = False
@@ -146,7 +146,7 @@ class Switch:
         obj.Shape = compound
 
     def onChanged(self, fp, prop):
-        """Mantém o Z do interruptor na cota do piso mais a altura de montagem."""
+        """Mantém o símbolo 2D do interruptor na cota do piso do pavimento."""
         acompanhar_cota(fp, prop)
 
     def onDocumentRestored(self, obj):

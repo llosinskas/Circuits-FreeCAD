@@ -56,11 +56,20 @@ def pasta_do_objeto(tipo, simbolo=""):
     return _PASTA_DO_TIPO.get(tipo)
 
 
-def cota_de_desenho(cota_piso, altura_montagem):
-    """Z do símbolo no desenho [mm]: a cota do piso do pavimento mais a altura de montagem.
+def cota_de_desenho(cota_piso):
+    """Z do símbolo 2D na planta [mm]: a cota do piso do pavimento.
+
+    Todos os símbolos de um pavimento ficam no mesmo plano, o do piso; a altura
+    de montagem só vale para o modelo 3D (veja ``cota_3d``).
+    """
+    return float(cota_piso)
+
+
+def cota_3d(cota_piso, altura_montagem):
+    """Z da caixa no modelo 3D [mm]: a cota do piso mais a altura de montagem.
 
     A altura de montagem é sempre medida a partir do piso: a tomada alta tem 2000
-    em qualquer pavimento, e no pavimento de cota 3000 fica desenhada em 5000.
+    em qualquer pavimento, e no pavimento de cota 3000 a caixa 3D fica em 5000.
     """
     return float(cota_piso) + float(altura_montagem)
 
