@@ -69,7 +69,8 @@ class TestServico(unittest.TestCase):
     RECARREGAR = ("freecad.Circuits.services.unifilar", "freecad.Circuits.services.cabos",
                   "freecad.Circuits.services.planilhas", "freecad.Circuits.services.pavimentos",
                   "freecad.Circuits.services.estilo", "freecad.Circuits.services.tomadas",
-                  "freecad.Circuits.services.documento", "freecad.Circuits.objects.ponto")
+                  "freecad.Circuits.services.documento", "freecad.Circuits.objects.ponto",
+                  "freecad.Circuits.services.gerador")
 
     def setUp(self):
         self.patch = mock.patch.dict(sys.modules, {nome: mock.MagicMock(name=nome) for nome in self.MODULOS})
@@ -95,6 +96,44 @@ class TestServico(unittest.TestCase):
         self.assertEqual(part.ArcOfCircle.call_count, 1)
         grupo.addObject.assert_called_once_with(sketch)
         self.assertEqual(sorted(c.args[0] for c in texto.call_args_list), sorted(u.textos(TOMADA).values()))
+
+    def _doc(self, *objetos):
+        doc = mock.MagicMock()
+        doc.Objects = list(objetos)
+        criados = []
+
+        def add(tipo, nome):
+            obj = mock.MagicMock(name=nome, TypeId=tipo, Group=[])
+            criados.append(obj)
+            return obj
+        doc.addObject.side_effect = add
+        return doc, criados
+
+    def test_sem_gerador_calculado_nao_desenha(self):
+        doc, criados = self._doc()
+        with mock.patch.object(self.servico.servico_gerador, "planilha", return_value=None):
+            self.assertIsNone(self.servico.gerar_diagrama_gerador(doc))
+        self.assertEqual(criados, [])
+
+    def test_com_gerador_calculado_recria_o_diagrama_da_transferencia(self):
+        antigo = mock.MagicMock(spec=["Name", "Group", "removeObjectsFromDocument", "diagrama_gerador"], Group=[])
+        antigo.Name = "diagrama_antigo"
+        doc, criados = self._doc(antigo)
+        servico_gerador = self.servico.servico_gerador
+        resumo = {"Gerador [kVA]": "180", "Disjuntor [A]": "320"}
+        with mock.patch.object(servico_gerador, "planilha", return_value=mock.MagicMock(Name="Cargas_gerador")), \
+                mock.patch.object(servico_gerador, "ler_resumo", return_value=resumo), \
+                mock.patch.object(servico_gerador, "cargas_no_gerador", return_value=["QGBT"]), \
+                mock.patch.object(servico_gerador, "simbolo_do_gerador", return_value=None), \
+                mock.patch.object(self.servico, "add_texto") as texto:
+            grupo = self.servico.gerar_diagrama_gerador(doc, 10)
+        doc.removeObject.assert_called_once_with("diagrama_antigo")
+        self.assertEqual(grupo.diagrama_gerador, "Cargas_gerador")
+        self.assertEqual([c.args[0] for c in doc.addObject.call_args_list],
+                         ["App::DocumentObjectGroup", "Sketcher::SketchObject"])
+        escritos = [c.args[0] for c in texto.call_args_list]
+        self.assertIn("QTA 320 A", escritos)
+        self.assertIn("QGBT", escritos)
 
 
 if __name__ == "__main__":

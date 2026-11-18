@@ -187,6 +187,7 @@ class GerarUnifilar:
         doc = documento_ou_aviso()
         if doc:
             unifilar.gerar_diagramas(doc, _quadros_ou_criar(doc))
+            unifilar.gerar_diagrama_gerador(doc)  # só se o projeto tiver gerador calculado
 
     def IsActive(self):
         return True
@@ -195,7 +196,7 @@ class GerarUnifilar:
         return recursos(
             "unifilar.svg",
             "Unifilar",
-            "Gera o diagrama unifilar de cada quadro do projeto",
+            "Gera o diagrama unifilar de cada quadro do projeto e, se houver gerador calculado, o da transferência rede/gerador (QTA)",
         )
 
 

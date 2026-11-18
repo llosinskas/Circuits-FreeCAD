@@ -105,6 +105,37 @@ def ler_cargas(folha):
     return cargas
 
 
+def ler_resumo(folha):
+    """{rótulo: valor} do resultado gravado nas colunas K e L; vazio se o gerador não foi calculado."""
+    resumo = {}
+    for linha in range(regras.PRIMEIRA_LINHA, planilhas.ultima_linha(folha) + 1):
+        rotulo = _texto(folha, f"{COLUNA_ROTULO}{linha}")
+        if rotulo:
+            resumo[rotulo] = _texto(folha, f"{COLUNA_VALOR}{linha}")
+    return resumo if resumo.get("Gerador [kVA]") else {}
+
+
+def cargas_no_gerador(folha):
+    """Descrições das cargas marcadas para o gerador; linhas inválidas são ignoradas."""
+    descricoes = []
+    for linha in range(regras.PRIMEIRA_LINHA, planilhas.ultima_linha(folha) + 1):
+        celulas = {chave: _texto(folha, f"{coluna}{linha}") for coluna, chave, _ in regras.COLUNAS}
+        if not celulas["descricao"]:
+            continue
+        try:
+            if regras.carga_da_linha(celulas)["no_gerador"]:
+                descricoes.append(celulas["descricao"])
+        except ValueError:
+            continue
+    return descricoes
+
+
+def simbolo_do_gerador(doc):
+    """O primeiro símbolo de gerador da planta, ou None."""
+    return next((obj for obj in doc.Objects if getattr(getattr(obj, "Proxy", None), "Type", "") == "Ponto"
+                 and getattr(obj, "Simbolo", "") == "gerador"), None)
+
+
 def gravar_resultado(folha, resultado):
     """Grava o resumo do cálculo nas colunas K e L."""
     folha.set(f"{COLUNA_ROTULO}{regras.LINHA_TITULOS}", "'Resultado do cálculo")

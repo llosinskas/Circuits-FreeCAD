@@ -157,3 +157,97 @@ def condutores_do_circuito(circuito):
     neutro = _sim(circuito.get("Neutro", ""), padrao=fases == 1)
     terra = _sim(circuito.get("Terra", ""), padrao=True)
     return fases, neutro, terra
+
+
+# --- Gerador e transferência (QTA) -------------------------------------------
+
+MAXIMO_CARGAS_LISTADAS = 8
+
+
+def _senoide(cx, cy, raio):
+    meio = raio / 3
+    return [(cx - meio, cy, meio, 0.0, 180.0), (cx + meio, cy, meio, 180.0, 360.0)]
+
+
+def _disjuntor(x, y, h):
+    """Terminais e arco de um disjuntor de ``x`` a ``x + h``, como o geral do quadro."""
+    r = RAIO_TERMINAL * h
+    return ([(x, y, r), (x + h, y, r)], [(x + h / 2, y, h / 2, 0.0, 180.0)])
+
+
+def transferencia(dados, cargas, h):
+    """Diagrama da entrada com gerador: rede e gerador, cada um com disjuntor, chegando
+    ao quadro de transferência (QTA) por contatores intertravados (K1 e K2), e a
+    saída para as cargas do gerador.
+
+    Args:
+        dados: {rótulo: valor} de ``core.functions.Predial.gerador.resumo``.
+        cargas: descrições das cargas ligadas ao gerador.
+        h: altura do texto do diagrama [mm].
+    Returns:
+        Dicionário com ``linhas``, ``arcos`` e ``circulos`` (como ``geometria``) e
+        ``textos`` [(x, y, texto, altura)]. A entrada da rede fica na origem.
+    """
+    linhas, arcos, circulos, textos = [], [], [], []
+    r = RAIO_TERMINAL * h
+    texto = ALTURA_TEXTO * h
+    y_rede, y_gerador, x_barra = 0.0, -4 * h, 9 * h
+    for y in (y_rede, y_gerador):
+        linhas.append((0.0, y, 2 * h - r, y))
+        terminais, arco = _disjuntor(2 * h, y, h)
+        circulos += terminais
+        arcos += arco
+        linhas.append((3 * h + r, y, 6 * h, y))
+        linhas.append((6 * h, y, 7.1 * h, y + 0.5 * h))  # contato aberto do contator
+        linhas.append((7.2 * h, y, x_barra, y))
+    # Gerador: círculo com a senoide, ligado à linha do gerador
+    raio = 0.9 * h
+    circulos.append((-raio, y_gerador, raio))
+    arcos += _senoide(-raio, y_gerador, raio)
+    # Barra de saída do QTA e intertravamento mecânico (tracejado entre os contatos)
+    linhas.append((x_barra, y_rede, x_barra, y_gerador))
+    y = y_rede - 0.6 * h
+    while y > y_gerador + 0.8 * h:
+        linhas.append((6.6 * h, y, 6.6 * h, y - 0.25 * h))
+        y -= 0.5 * h
+    # Caixa do QTA
+    x1, x2, y1, y2 = 5.4 * h, 9.8 * h, 1.3 * h, y_gerador - 0.8 * h
+    linhas += [(x1, y1, x2, y1), (x2, y1, x2, y2), (x2, y2, x1, y2), (x1, y2, x1, y1)]
+    # Saída para as cargas, com seta
+    y_saida, fim = (y_rede + y_gerador) / 2, 15 * h
+    s = TAMANHO_SETA * h
+    linhas += [(x_barra, y_saida, fim, y_saida), (fim, y_saida, fim - s, y_saida + 0.6 * s),
+               (fim, y_saida, fim - s, y_saida - 0.6 * s)]
+
+    disjuntor = str(dados.get("Disjuntor [A]", "")).strip()
+    tensao = str(dados.get("Tensão [V]", "")).strip()
+    kva = str(dados.get("Gerador [kVA]", "")).strip()
+    kw = str(dados.get("Gerador [kW]", "")).strip()
+    textos.append((-4.2 * h, -0.15 * h, f"Rede{f' {tensao} V' if tensao else ''}", texto))
+    if disjuntor:
+        textos += [(1.8 * h, y_rede + 0.75 * h, f"{disjuntor}A", texto),
+                   (1.8 * h, y_gerador + 0.75 * h, f"{disjuntor}A", texto),
+                   (5.5 * h, y1 + 0.3 * h, f"QTA {disjuntor} A", texto * 1.25)]
+    else:
+        textos.append((5.5 * h, y1 + 0.3 * h, "QTA", texto * 1.25))
+    textos += [(7.3 * h, y_rede + 0.35 * h, "K1", texto), (7.3 * h, y_gerador + 0.35 * h, "K2", texto),
+               (5.6 * h, y2 + 0.3 * h, "K1 e K2 intertravados", texto * 0.8)]
+    if kva:
+        textos.append((-2 * raio, y_gerador - raio - 0.7 * h, f"GMG {kva} kVA", texto * 1.25))
+    if kw or tensao:
+        detalhe = " · ".join(t for t in (f"{kw} kW" if kw else "", f"{tensao} V" if tensao else "") if t)
+        textos.append((-2 * raio, y_gerador - raio - 1.4 * h, detalhe, texto))
+    cabos = [(f"Fases: {dados['Cabos por fase']}" if dados.get("Cabos por fase") else ""),
+             " · ".join(f"{nome}: {dados[chave]}" for nome, chave in (("N", "Neutro"), ("PE", "Proteção (PE)"))
+                        if dados.get(chave)),
+             str(dados.get("Cabo", "")).strip()]
+    for indice, linha in enumerate(t for t in cabos if t):
+        textos.append((2 * h, y2 - (0.8 + 0.6 * indice) * h, linha, texto))
+    textos.append((fim + 0.4 * h, y_saida + 0.15 * h, "Cargas do gerador", texto * 1.25))
+    cargas = [str(c) for c in cargas if str(c).strip()]
+    listadas = cargas[:MAXIMO_CARGAS_LISTADAS]
+    if len(cargas) > len(listadas):
+        listadas.append(f"e mais {len(cargas) - len(listadas)}")
+    for indice, descricao in enumerate(listadas):
+        textos.append((fim + 0.4 * h, y_saida - (0.6 + 0.55 * indice) * h, descricao, texto))
+    return {"linhas": linhas, "arcos": arcos, "circulos": circulos, "textos": textos}

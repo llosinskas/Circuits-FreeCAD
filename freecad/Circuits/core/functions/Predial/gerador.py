@@ -493,4 +493,6 @@ def resumo(r):
         ("Proteção (PE)", f"{cabo_['paralelos']} x {r['protecao']} mm²"),
         ("Queda de tensão [%]", f"{cabo_['queda']:.2f}"),
         ("Tanque de diesel [L]", str(r["tanque_l"])),
+        ("Tensão [V]", f"{r['tensao']:.0f}"),
+        ("Cabo", f"{r['isolacao']}, método {r['metodo']}, {r['comprimento']:.0f} m"),
     ]

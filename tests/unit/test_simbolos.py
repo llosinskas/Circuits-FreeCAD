@@ -50,7 +50,8 @@ class TestCatalogo(unittest.TestCase):
         siglas = {chave: dados["descricao"] for chave, dados in simbolos.CATALOGO.items()
                   if dados["categoria"] == simbolos.QUADRO}
         self.assertEqual(siglas, {"quadro_distribuicao": "QD", "quadro_comando": "QC",
-                                  "quadro_medicao": "QM", "medicao_agrupada": "CM"})
+                                  "quadro_medicao": "QM", "medicao_agrupada": "CM", "gerador": "GMG",
+                                  "qta": "QTA"})
         self.assertEqual(simbolos.CATALOGO["quadro_medicao"]["medidores"], 1)
         self.assertGreater(simbolos.CATALOGO["medicao_agrupada"]["medidores"], 1)
         self.assertNotIn("medidores", simbolos.CATALOGO["quadro_distribuicao"])

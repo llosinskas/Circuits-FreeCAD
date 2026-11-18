@@ -112,6 +112,16 @@ class TestPlanilhaDoGerador(unittest.TestCase):
         self.assertTrue(folha.celulas["L5"].strip("'").isdigit())
         self.assertEqual(len(self.servico.ler_cargas(folha)), len(cargas))  # K e L não viram cargas
 
+    def test_resumo_e_cargas_para_o_diagrama(self):
+        folha, _ = self.servico.criar(self.doc)
+        self.assertEqual(self.servico.ler_resumo(folha), {})  # ainda não calculado
+        folha.set("I3", "'N")
+        self.servico.gravar_resultado(folha, regras.dimensionar(self.servico.ler_cargas(folha)))
+        resumo = self.servico.ler_resumo(folha)
+        self.assertTrue(resumo["Gerador [kVA]"].isdigit())
+        self.assertEqual(resumo["Tensão [V]"], "380")
+        self.assertEqual(self.servico.cargas_no_gerador(folha), [e["descricao"] for e in regras.EXEMPLOS[1:]])
+
 
 if __name__ == "__main__":
     unittest.main()

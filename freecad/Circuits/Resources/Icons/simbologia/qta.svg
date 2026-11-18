@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64">
+  <!-- Quadro transferência: gerado por tools/gerar_icones_simbolos.py -->
+  <path d="M7.00 44.50L57.00 44.50M57.00 44.50L57.00 19.50M57.00 19.50L7.00 19.50M7.00 19.50L7.00 44.50M7.00 25.75L21.58 25.75M7.00 38.25L21.58 38.25M21.58 25.75L38.25 32.00M21.58 38.25L34.08 40.33M38.25 32.00L57.00 32.00" fill="none" stroke-linecap="round" stroke-linejoin="round" stroke="#ffffff" stroke-width="7" stroke-opacity="0.85"/>
+  <path d="M7.00 44.50L57.00 44.50M57.00 44.50L57.00 19.50M57.00 19.50L7.00 19.50M7.00 19.50L7.00 44.50M7.00 25.75L21.58 25.75M7.00 38.25L21.58 38.25M21.58 25.75L38.25 32.00M21.58 38.25L34.08 40.33M38.25 32.00L57.00 32.00" fill="none" stroke-linecap="round" stroke-linejoin="round" stroke="#188038" stroke-width="3"/>
+</svg>

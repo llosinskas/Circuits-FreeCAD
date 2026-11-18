@@ -8,6 +8,7 @@ import Part
 from freecad.Circuits.core import quadro as regras_quadro
 from freecad.Circuits.core import simbolos
 from freecad.Circuits.core import unifilar as desenho
+from freecad.Circuits.services import gerador as servico_gerador
 from freecad.Circuits.services import pavimentos, planilhas
 from freecad.Circuits.services.cabos import desenhar_cabo_unifilar
 from freecad.Circuits.services.estilo import pintar_sketch
@@ -283,3 +284,64 @@ def gerar_diagramas(doc, quadros, h=ALTURA_PADRAO):
         topo += (ALTURA_CABECALHO + max(circuitos, 1) * ESPACAMENTO_CIRCUITOS) * h
 
     doc.recompute()
+
+
+def _desenhar_forma(doc, forma, grupo, nome):
+    """Sketch com as linhas, arcos e círculos de uma forma de ``core.unifilar``, e os textos."""
+    sketch = doc.addObject("Sketcher::SketchObject", nome)
+    pintar_sketch(sketch)
+    eixo = App.Vector(0, 0, 1)
+    for x1, y1, x2, y2 in forma["linhas"]:
+        sketch.addGeometry(Part.LineSegment(App.Vector(x1, y1, 0), App.Vector(x2, y2, 0)), False)
+    for cx, cy, raio, inicio, fim in forma["arcos"]:
+        circulo = Part.Circle(App.Vector(cx, cy, 0), eixo, raio)
+        sketch.addGeometry(Part.ArcOfCircle(circulo, math.radians(inicio), math.radians(fim)), False)
+    for cx, cy, raio in forma["circulos"]:
+        sketch.addGeometry(Part.Circle(App.Vector(cx, cy, 0), eixo, raio), False)
+    grupo.addObject(sketch)
+    for x, y, texto, altura in forma["textos"]:
+        add_texto(texto, App.Vector(x, y, 0), 0, altura, grupo)
+
+
+POSICAO_GERADOR = (-32, 0)  # em alturas de texto: à esquerda dos diagramas dos quadros
+
+
+def gerar_diagrama_gerador(doc, h=ALTURA_PADRAO):
+    """Recria o diagrama da transferência rede/gerador (QTA), se o projeto tiver gerador.
+
+    O projeto tem gerador quando a planilha de cargas do gerador existe com o
+    resultado gravado. O diagrama (grupo com a propriedade ``diagrama_gerador``)
+    fica à esquerda dos diagramas dos quadros, ou onde o usuário o deixou, e na
+    pasta do símbolo do gerador, se houver um na planta.
+
+    Returns:
+        O grupo criado, ou None se o projeto não tem gerador calculado.
+    """
+    folha = servico_gerador.planilha(doc)
+    resumo = servico_gerador.ler_resumo(folha) if folha is not None else {}
+    posicao = App.Vector(POSICAO_GERADOR[0] * h, POSICAO_GERADOR[1] * h, 0)
+    for antigo in [obj for obj in doc.Objects if hasattr(obj, "diagrama_gerador")]:
+        sketch = next((o for o in antigo.Group if o.TypeId == "Sketcher::SketchObject"), None)
+        if sketch is not None:
+            posicao = sketch.Placement.Base  # mantém onde o usuário deixou
+        nome = antigo.Name
+        antigo.removeObjectsFromDocument()
+        doc.removeObject(nome)
+    if not resumo:
+        if servico_gerador.simbolo_do_gerador(doc) is not None:
+            App.Console.PrintWarning("Há um gerador na planta, mas ele ainda não foi calculado: use Cálculos > "
+                                     "Gerador diesel e Gravar na planilha para gerar o diagrama da transferência.\n")
+        doc.recompute()
+        return None
+    grupo = doc.addObject("App::DocumentObjectGroup", "diagrama_gerador")
+    grupo.Label = "diagrama_gerador_QTA"
+    grupo.addProperty("App::PropertyString", "diagrama_gerador", "Diagrama", "Diagrama da transferência rede/gerador")
+    grupo.diagrama_gerador = folha.Name
+    simbolo = servico_gerador.simbolo_do_gerador(doc)
+    if simbolo is not None:
+        pavimentos.guardar_junto(simbolo, grupo)
+    forma = desenho.transferencia(resumo, servico_gerador.cargas_no_gerador(folha), h)
+    _desenhar_forma(doc, forma, grupo, "Transferencia")
+    _deslocar(grupo, posicao)
+    doc.recompute()
+    return grupo

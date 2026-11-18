@@ -452,7 +452,8 @@ def scenario_extras(doc):
             module("core.formularios").valores_iniciais(module("core.formularios").GERADOR))
         resultado = regras.dimensionar(cargas, **argumentos)
         servico.gravar_resultado(folha, resultado)
-        return [len(cargas), resultado["gerador_kva"], folha.getContents("L5")]
+        diagrama = module("services.unifilar").gerar_diagrama_gerador(doc)
+        return [len(cargas), resultado["gerador_kva"], folha.getContents("L5"), len(diagrama.Group)]
     attempt("gerador", gerador)
     attempt("dialogo_relatorio", lambda: sorted(module("UI.dialogs.report_dialog").ReportDialog().get_opcoes()))
     attempt("dialogo_circuito", lambda: module("UI.insert_circuit").InsertCircuit().close())

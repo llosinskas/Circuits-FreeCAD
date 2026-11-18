@@ -9,6 +9,7 @@ from freecad.Circuits.core.functions.Predial import demanda, gerador, luminotecn
 from freecad.Circuits.qt import QtWidgets
 from freecad.Circuits.services import circuitos, pavimentos
 from freecad.Circuits.services import gerador as servico_gerador
+from freecad.Circuits.services import unifilar
 from freecad.Circuits.services import luminotecnico as servico_luminotecnico
 from freecad.Circuits.UI.dialogs.calculo_dialog import CalculoDialog
 from freecad.Circuits.UI.dialogs.ComponentInserter import ComponentInsertionMode
@@ -93,9 +94,10 @@ class CalcGerador:
             resultado = gerador.dimensionar(cargas, **formularios.argumentos_gerador(dados))
             return resultado, gerador.relatorio(resultado)
 
-        dialog = CalculoDialog(self.TITULO, formularios.GERADOR, calcular, "Gravar na planilha", "gerador")
+        dialog = CalculoDialog(self.TITULO, formularios.GERADOR, calcular, "Gravar e gerar diagrama", "gerador")
         if dialog.exec_() and dialog.resultado:
             servico_gerador.gravar_resultado(folha, dialog.resultado)
+            unifilar.gerar_diagrama_gerador(doc)
             App.Console.PrintMessage(f"Gerador: {dialog.resultado['gerador_kva']} kVA, gravado em {folha.Label}.\n")
 
     def IsActive(self):

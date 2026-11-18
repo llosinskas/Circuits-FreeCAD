@@ -85,6 +85,12 @@ CATALOGO.update({
     "medicao_agrupada": _quadro(
         "Medição agrupada", "Centro de medição agrupada, com vários medidores (CM)",
         "CM", 1200, (1500.0, 250.0, 1200.0), 6),
+    "gerador": _quadro(
+        "Grupo gerador", "Grupo motor-gerador diesel (GMG), dimensionado pelo botão Gerador diesel",
+        "GMG", 0, (2500.0, 1000.0, 1500.0)),
+    "qta": _quadro(
+        "Quadro transferência", "Quadro de transferência automática entre a rede e o gerador (QTA)",
+        "QTA", 1500, (800.0, 300.0, 1200.0)),
 })
 
 CATALOGO.update({
@@ -228,6 +234,18 @@ def _unitario(simbolo):
         return _retangulo(-0.45, -0.3, 0.45, 0.3) + _medidor(0.0)
     if simbolo == "medicao_agrupada":
         return _retangulo(-0.8, -0.3, 0.8, 0.3) + _medidor(-0.5) + _medidor(0.0) + _medidor(0.5)
+    if simbolo == "gerador":
+        # Círculo com a senoide da corrente alternada.
+        return [("circulo", 0, 0, 0.5), ("arco", -0.15, 0, 0.15, 0, 180), ("arco", 0.15, 0, 0.15, 180, 360)]
+    if simbolo == "qta":
+        # Retângulo com as duas entradas (rede e gerador) e a chave que escolhe uma delas.
+        return _retangulo(-0.6, -0.3, 0.6, 0.3) + [
+            ("linha", -0.6, 0.15, -0.25, 0.15),
+            ("linha", -0.6, -0.15, -0.25, -0.15),
+            ("linha", -0.25, 0.15, 0.15, 0.0),
+            ("linha", -0.25, -0.15, 0.05, -0.2),
+            ("linha", 0.15, 0.0, 0.6, 0.0),
+        ]
     if simbolo == "campainha":
         # Sino: cúpula com a base e o badalo embaixo.
         return [("arco", 0, 0, 0.45, 0, 180), ("linha", -0.5, 0, 0.5, 0), ("circulo", 0, -0.14, 0.1)]

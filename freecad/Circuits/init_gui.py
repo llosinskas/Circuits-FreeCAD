@@ -38,6 +38,7 @@ SNAP_EXTRA_TOOLS = [
     "Draft_Snap_WorkingPlane",
 ]
 DRAWING_TOOLS = [
+    "Draft_SelectPlane",  # plano de trabalho atual: planta, vista ou face selecionada
     "Draft_Line",
     "Draft_Wire",
     "Draft_Rectangle",
@@ -111,7 +112,10 @@ GROUNDING_TOOLS = [
     "CondutorAterramento",
     "CalcAterramento",
 ]
-BOARD_SYMBOL_TOOLS = ["Ponto_quadro_distribuicao", "Ponto_quadro_comando", "Ponto_quadro_medicao", "Ponto_medicao_agrupada"]
+BOARD_SYMBOL_TOOLS = [
+    "Ponto_quadro_distribuicao", "Ponto_quadro_comando", "Ponto_quadro_medicao", "Ponto_medicao_agrupada",
+    "Ponto_gerador", "Ponto_qta",
+]
 CIRCUIT_TOOLS = ["DefinirCircuito", "LigarInterruptor", "IdentificarPontos"]
 INFRA_TOOLS = [
     "InsertConduit", "Ponto_caixa_passagem", "ConectarEletrodutos", "Add_Node", "ListaVerticais",
@@ -159,7 +163,7 @@ GROUPS = {
         "Aterramento", "Haste, caixa de inspeção, BEP, condutor de cobre nu e resistência de aterramento",
         GROUNDING_TOOLS,
     ),
-    "Grupo_Quadros": ("Quadros", "Quadro de distribuição, de comando, de medição e medição agrupada, na planta", BOARD_SYMBOL_TOOLS),
+    "Grupo_Quadros": ("Quadros", "Quadro de distribuição, de comando, de medição, medição agrupada, gerador e QTA, na planta", BOARD_SYMBOL_TOOLS),
     "Grupo_DadosQuadro": ("Dados do quadro", "Planilha de dados do quadro, planilha de circuitos e circuito digitado em formulário", BOARD_DATA_TOOLS),
     "Grupo_Circuitos": ("Circuitos", "Definir o circuito dos pontos, ligar interruptores e identificar na planta", CIRCUIT_TOOLS),
     "Grupo_Infra": (

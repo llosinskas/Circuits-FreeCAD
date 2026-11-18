@@ -68,7 +68,7 @@ O relatório e o quantitativo em PDF usam a biblioteca `reportlab`, que já vem 
 | Comandos | Interruptor simples, paralelo, intermediário, botão de campainha, fotocélula |
 | Infraestrutura | Caixa de passagem (além das ferramentas de eletroduto, bandeja e suportes) |
 | Aterramento | Haste de aterramento, caixa de inspeção, BEP |
-| Quadros | Quadro de distribuição (QD), de comando (QC), de medição (QM), medição agrupada (CM) |
+| Quadros | Quadro de distribuição (QD), de comando (QC), de medição (QM), medição agrupada (CM), grupo gerador (GMG) e quadro de transferência (QTA) |
 
 - **Campainha:** o botão de campainha funciona como um interruptor: selecione o botão e a campainha e use **Ligar interruptor**. A **fotocélula** também: ligue-a às luminárias que ela acende ao anoitecer.
 - **Caixa de passagem:** é um nó da rede de eletrodutos, encaixado por **Conectar às caixas**; não tem carga nem circuito.
@@ -178,6 +178,7 @@ O comprimento e o agrupamento vêm da rede de eletrodutos e só entram quando el
 ### Unifilar e componentes
 
 - **Unifilar:** um diagrama por quadro, com medidor (quando a origem do quadro é uma medição), disjuntor geral, DPS, barramentos de fases, neutro e terra, e, em cada circuito, o disjuntor com os terminais e o arco, a proteção (`C16A`) e as fases, o DR com a sensibilidade, os traços de terra, neutro e fases, a seção (`#2,5 mm²`), a potência, o número e a descrição.
+- **Gerador e transferência:** se o projeto tiver o gerador calculado (planilha *Cargas do gerador* com o resultado gravado), o Unifilar também desenha, à esquerda dos quadros, a entrada com gerador: rede e gerador, cada um com disjuntor, os contatores K1 e K2 intertravados do QTA, a saída para as cargas do gerador e os dados do gerador e dos cabos. O botão Gerador diesel redesenha esse diagrama ao gravar o resultado. Se você mover o diagrama, ele é recriado no mesmo lugar.
 - **Componentes:** disjuntor geral, DPS, disjuntores e DR dos circuitos, barramentos com o número de terminais e o tamanho da caixa em módulos DIN, com a reserva de circuitos da NBR 5410. A lista fica numa planilha `Componentes <quadro>`.
 
 ## Eletrodutos, fios e verticais
@@ -331,7 +332,7 @@ O gerador escolhido é o primeiro da lista comercial que atende os três critér
 | Demanda em kW | o gerador é de FP 0,8: kW da demanda ÷ (0,8 × carregamento) |
 | Partida do maior motor | afundamento de tensão ΔV = x″d·Sp/(Sg + x″d·Sp) até o admissível (20 %); Sp = kVA do motor × 6 (direta), 2 (estrela-triângulo), 2,6 (compensadora), 3 (soft-starter) ou 1 (inversor) |
 
-A altitude acima de 1000 m e a temperatura da sala acima de 40 °C reduzem a potência disponível. Com o gerador, o cálculo dá a corrente nominal, o disjuntor, os cabos de cobre por fase (cabos em paralelo acima de 300 mm²; capacidade da NBR 5410 com temperatura e agrupamento, e queda até a transferência), neutro igual à fase, PE pela tabela 58, o curto estimado nos terminais e o tanque para a autonomia escolhida. **Gravar na planilha** escreve o resumo nas colunas K e L.
+A altitude acima de 1000 m e a temperatura da sala acima de 40 °C reduzem a potência disponível. Com o gerador, o cálculo dá a corrente nominal, o disjuntor, os cabos de cobre por fase (cabos em paralelo acima de 300 mm²; capacidade da NBR 5410 com temperatura e agrupamento, e queda até a transferência), neutro igual à fase, PE pela tabela 58, o curto estimado nos terminais e o tanque para a autonomia escolhida. **Gravar e gerar diagrama** escreve o resumo nas colunas K e L e desenha o diagrama da transferência rede/gerador (veja *Unifilar e componentes*). Para mostrar o gerador e o QTA na planta, use **Quadros ▾ > Grupo gerador** e **Quadro transferência**.
 
 Os formulários mostram poucas perguntas, com listas de opções prontas; o resto fica em **Opções avançadas**. O resultado é recalculado a cada mudança, e os valores usados voltam na próxima vez. Pressurização e bomba podem inserir o ponto de força do motor na planta, para entrar nos circuitos.
 
@@ -345,7 +346,7 @@ Os botões com seta (▾) abrem uma lista; o botão mostra o último item usado.
 | Quadros e documentos | Quadros ▾, Dados do quadro ▾, Montar circuitos, Componentes, Unifilar, Cálculos ▾, Documentos ▾ |
 | Modelo e biblioteca | Modelo 3D ▾, Biblioteca ▾ |
 
-As barras *Desenho*, *Modificador*, *Snap* e *Arquitetura* trazem as ferramentas do FreeCAD mais usadas em planta. Todos os comandos estão nos menus **Elétrica** e **Desenho 2D**. O texto embaixo dos ícones pode ser desligado pela preferência `LegendaBotoes` em `BaseApp/Preferences/Mod/Circuits`.
+As barras *Desenho*, *Modificador*, *Snap* e *Arquitetura* trazem as ferramentas do FreeCAD mais usadas em planta. O primeiro botão de *Desenho* é o **plano de trabalho** (`Draft_SelectPlane`): mostra o plano atual e troca para planta (topo), frente, lateral, a vista atual ou a face selecionada, para desenhar em elevação ou corte. Todos os comandos estão nos menus **Elétrica** e **Desenho 2D**. O texto embaixo dos ícones pode ser desligado pela preferência `LegendaBotoes` em `BaseApp/Preferences/Mod/Circuits`.
 
 ## Limitações
 
