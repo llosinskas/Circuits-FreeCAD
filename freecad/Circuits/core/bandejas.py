@@ -42,6 +42,13 @@ ALTURA_PADRAO_MM = 2800.0  # do piso à base da bandeja
 COMPRIMENTO_BARRA_MM = 3000.0
 VAO_SUPORTE = {"eletrocalha_perfurada": 1500.0, "eletrocalha_lisa": 1500.0, "leito": 2000.0}
 DISTANCIA_SUPORTE_CONEXAO = 500.0
+PENDENTE_PADRAO_MM = 0.0  # 0 = automático (da bandeja até a laje do pavimento)
+TIPOS_SUPORTE = {
+    "trapezio": "Suporte suspenso (trapézio - 2 tirantes)",
+    "pendural": "Suporte suspenso (pendural central - 1 tirante)",
+    "mao_francesa": "Mão francesa (parede)",
+}
+TIPO_SUPORTE_PADRAO = "trapezio"
 TOLERANCIA_MM = 50.0
 TOLERANCIA_JUNCAO_MM = 300.0  # ponta solta até esta distância de outra bandeja é encaixada nela
 RAIO_CURVA_FATOR = 1.0  # raio da linha de centro da curva, em larguras da bandeja
@@ -414,8 +421,12 @@ def analisar(caminhos, tolerancia=TOLERANCIA_MM):
         ``vertical`` = True).
     """
     rede = Rede(tolerancia)
+    chaves_caminho = (
+        "tipo", "largura", "aba", "altura", "tampa", "nome",
+        "tipo_suporte", "vao_suporte", "distancia_no", "pendente", "folga_perfilado",
+    )
     for caminho in caminhos:
-        dados = {chave: caminho.get(chave) for chave in ("tipo", "largura", "aba", "altura", "tampa", "nome")}
+        dados = {chave: caminho.get(chave) for chave in chaves_caminho}
         rede.adicionar(caminho["pontos"], dados)
     rede.dividir_derivacoes()
     rede.dividir_cruzamentos()
@@ -449,12 +460,20 @@ def analisar(caminhos, tolerancia=TOLERANCIA_MM):
             "altura": trecho["altura"], "comprimento": comprimento, "x1": x1, "y1": y1, "x2": x2, "y2": y2,
             "nome": trecho["nome"], "recuo_inicio": inicio, "recuo_fim": fim,
         })
-        vao = VAO_SUPORTE.get(trecho["tipo"], VAO_SUPORTE[TIPO_PADRAO])
-        for distancia in _suportes_do_trecho(comprimento, vao):
+        vao_padrao = VAO_SUPORTE.get(trecho["tipo"], VAO_SUPORTE[TIPO_PADRAO])
+        vao = float(trecho.get("vao_suporte") or 0.0) or vao_padrao
+        dist_no_val = trecho.get("distancia_no")
+        distancia_no = float(dist_no_val) if dist_no_val is not None and float(dist_no_val) > 0 else DISTANCIA_SUPORTE_CONEXAO
+        tipo_suporte = trecho.get("tipo_suporte") or TIPO_SUPORTE_PADRAO
+        pendente = float(trecho.get("pendente") or 0.0)
+        folga_val = trecho.get("folga_perfilado")
+        folga_perfilado = float(folga_val) if folga_val is not None and float(folga_val) >= 0 else FOLGA_PERFILADO_MM
+        for distancia in _suportes_do_trecho(comprimento, vao, distancia_no=distancia_no):
             t = distancia / comprimento
             suportes.append({
                 "x": x1 + (x2 - x1) * t, "y": y1 + (y2 - y1) * t, "angulo": angulo, "tipo": trecho["tipo"],
                 "largura": trecho["largura"], "altura": trecho["altura"], "nome": trecho["nome"],
+                "tipo_suporte": tipo_suporte, "pendente": pendente, "folga_perfilado": folga_perfilado,
             })
     for vertical in verticais:
         vao = VAO_SUPORTE.get(vertical["tipo"], VAO_SUPORTE[TIPO_PADRAO])
@@ -529,14 +548,28 @@ def materiais(resultado, pe_direito_mm=3000.0, com_suportes=True, sem_terminal=(
                 somar(GRUPO_SUPORTES, "Chumbador 3/8\"", "na parede", "un", 2)
                 somar(GRUPO_FIXACAO, PARAFUSO, "bandeja no suporte de parede", "un", 2)
                 continue
-            tirante = max(0.0, pe_direito_mm - float(suporte["altura"])) / 1000.0
-            perfilado = (largura + FOLGA_PERFILADO_MM) / 1000.0
-            somar(GRUPO_SUPORTES, "Suporte suspenso (trapézio)", f"para largura {largura:g} mm", "un", 1)
-            somar(GRUPO_SUPORTES, "Perfilado 38x38 mm", "", "m", perfilado)
-            somar(GRUPO_SUPORTES, "Vergalhão roscado 3/8\"", "tirante até a laje", "m", 2 * tirante)
-            somar(GRUPO_SUPORTES, "Chumbador 3/8\"", "na laje", "un", 2)
-            somar(GRUPO_SUPORTES, "Porca e arruela 3/8\"", "", "un", 4)
-            somar(GRUPO_FIXACAO, "Grampo de fixação da bandeja no perfilado", "com parafuso e porca", "un", 2)
+            tipo_suporte = suporte.get("tipo_suporte") or TIPO_SUPORTE_PADRAO
+            pendente_mm = float(suporte.get("pendente") or 0.0)
+            folga_val = suporte.get("folga_perfilado")
+            folga_mm = float(folga_val) if folga_val is not None else FOLGA_PERFILADO_MM
+            tirante = (pendente_mm if pendente_mm > 0 else max(0.0, pe_direito_mm - float(suporte["altura"]))) / 1000.0
+            if tipo_suporte == "mao_francesa":
+                somar(GRUPO_SUPORTES, "Mão francesa (parede)", f"para largura {largura:g} mm", "un", 1)
+                somar(GRUPO_SUPORTES, "Chumbador 3/8\"", "na parede", "un", 2)
+                somar(GRUPO_FIXACAO, PARAFUSO, "bandeja na mão francesa", "un", 2)
+            elif tipo_suporte == "pendural":
+                somar(GRUPO_SUPORTES, "Suporte suspenso (pendural central)", f"para largura {largura:g} mm", "un", 1)
+                somar(GRUPO_SUPORTES, "Vergalhão roscado 3/8\"", "tirante até a laje", "m", tirante)
+                somar(GRUPO_SUPORTES, "Chumbador 3/8\"", "na laje", "un", 1)
+                somar(GRUPO_SUPORTES, "Porca e arruela 3/8\"", "", "un", 2)
+            else:
+                perfilado = (largura + folga_mm) / 1000.0
+                somar(GRUPO_SUPORTES, "Suporte suspenso (trapézio)", f"para largura {largura:g} mm", "un", 1)
+                somar(GRUPO_SUPORTES, "Perfilado 38x38 mm", "", "m", perfilado)
+                somar(GRUPO_SUPORTES, "Vergalhão roscado 3/8\"", "tirante até a laje", "m", 2 * tirante)
+                somar(GRUPO_SUPORTES, "Chumbador 3/8\"", "na laje", "un", 2)
+                somar(GRUPO_SUPORTES, "Porca e arruela 3/8\"", "", "un", 4)
+                somar(GRUPO_FIXACAO, "Grampo de fixação da bandeja no perfilado", "com parafuso e porca", "un", 2)
 
     return [
         {"grupo": grupo, "item": item, "especificacao": especificacao, "unidade": unidade,
@@ -708,14 +741,38 @@ def blocos_do_trecho(comprimento, largura, aba, tipo, recuo_inicio=0.0, avanco_f
     return lados + travessas
 
 
-def blocos_do_suporte(largura, altura_bandeja, pe_direito):
-    """Blocos do suporte suspenso no sistema local da bandeja (x ao longo, y centrado, z do piso).
+def blocos_do_suporte(
+    largura,
+    altura_bandeja,
+    pe_direito,
+    pendente_mm=0.0,
+    folga_perfilado_mm=FOLGA_PERFILADO_MM,
+    tipo_suporte=TIPO_SUPORTE_PADRAO,
+):
+    """Blocos do suporte no sistema local da bandeja (x ao longo, y centrado, z do piso).
 
-    Perfilado 38x38 sob a bandeja e dois tirantes de 3/8" (quadrados de 10 mm)
-    até a laje.
+    - ``trapezio``: perfilado 38x38 sob a bandeja e dois tirantes de 3/8" até a laje (ou ``pendente_mm``).
+    - ``pendural``: travessa sob a bandeja e um tirante central de 3/8" até a laje (ou ``pendente_mm``).
+    - ``mao_francesa``: braço horizontal sob a bandeja e base vertical de fixação na parede.
     """
-    largura, base, laje = float(largura), float(altura_bandeja), float(pe_direito)
-    perfil = largura + FOLGA_PERFILADO_MM
+    largura, base = float(largura), float(altura_bandeja)
+    pendente = float(pendente_mm or 0.0)
+    laje = (base + pendente) if pendente > 0 else float(pe_direito)
+    folga = float(folga_perfilado_mm if folga_perfilado_mm is not None else FOLGA_PERFILADO_MM)
+
+    if tipo_suporte == "mao_francesa":
+        perfil = largura + max(30.0, folga / 2.0)
+        return [
+            (-19.0, -largura / 2.0, base - 38.0, 38.0, perfil, 38.0),
+            (-19.0, -largura / 2.0 - 10.0, base - 150.0, 38.0, 10.0, 150.0),
+        ]
+    if tipo_suporte == "pendural":
+        blocos = [(-19.0, -largura / 2.0, base - 38.0, 38.0, largura, 38.0)]
+        if laje > base:
+            blocos.append((-5.0, -5.0, base - 38.0, 10.0, 10.0, laje - base + 38.0))
+        return blocos
+
+    perfil = largura + folga
     blocos = [(-19.0, -perfil / 2.0, base - 38.0, 38.0, perfil, 38.0)]
     if laje > base:
         for y in (-perfil / 2.0 + 15.0, perfil / 2.0 - 25.0):

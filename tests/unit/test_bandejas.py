@@ -301,6 +301,38 @@ class TestSuportes(unittest.TestCase):
         self.assertGreater(len(eletrocalha), len(leito))
         self.assertEqual({s["angulo"] for s in eletrocalha}, {0.0})
 
+    def test_ajustes_personalizados_de_vao_pendente_e_tipo(self):
+        c = dict(
+            caminho([(0, 0), (6000, 0)], largura=200, altura=2200.0),
+            vao_suporte=1000.0,
+            distancia_no=300.0,
+            pendente=600.0,
+            folga_perfilado=150.0,
+            tipo_suporte="pendural",
+        )
+        resultado = regras.analisar([c])
+        suportes = resultado["suportes"]
+        # De 300 a 5700 mm (5400 mm) com vão máx 1000 mm -> 6 intervalos -> 7 suportes
+        self.assertEqual(len(suportes), 7)
+        self.assertAlmostEqual(suportes[0]["x"], 300.0)
+        self.assertAlmostEqual(suportes[-1]["x"], 5700.0)
+        self.assertEqual(suportes[0]["pendente"], 600.0)
+        self.assertEqual(suportes[0]["tipo_suporte"], "pendural")
+        self.assertEqual(suportes[0]["folga_perfilado"], 150.0)
+
+        itens = {(i["grupo"], i["item"]): i["quantidade"] for i in regras.materiais(resultado, pe_direito_mm=3000.0)}
+        self.assertEqual(itens[("Suportes", "Suporte suspenso (pendural central)")], 7)
+        # 7 suportes * 0,60 m de pendente fixo = 4,20 m
+        self.assertEqual(itens[("Suportes", "Vergalhão roscado 3/8\"")], 4.2)
+
+        blocos_pend = regras.blocos_do_suporte(200, 2200, 3000, pendente_mm=600.0, tipo_suporte="pendural")
+        self.assertEqual(len(blocos_pend), 2)
+        # Topo do tirante = base (2200) + pendente (600) = 2800
+        self.assertEqual(blocos_pend[1][2] + blocos_pend[1][5], 2800.0)
+
+        blocos_mf = regras.blocos_do_suporte(200, 2200, 3000, tipo_suporte="mao_francesa")
+        self.assertEqual(len(blocos_mf), 2)
+
 
 class TestMateriais(unittest.TestCase):
     def test_metros_conexoes_emendas_e_suportes(self):

@@ -12,5 +12,6 @@ sys.path.insert(0, ROOT)
 
 import freecad  # noqa: E402
 
-if PACKAGE_ROOT not in list(freecad.__path__):
-    freecad.__path__ = [*freecad.__path__, PACKAGE_ROOT]
+freecad.__path__ = [PACKAGE_ROOT, *[p for p in freecad.__path__ if p != PACKAGE_ROOT]]
+for _mod in [m for m in sys.modules if m == "freecad.Circuits" or m.startswith("freecad.Circuits.")]:
+    del sys.modules[_mod]

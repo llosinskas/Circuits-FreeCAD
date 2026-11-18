@@ -349,6 +349,8 @@ def scenario(doc):
 
     bandeja_dialogo = locate("freecad.Circuits.UI.dialogs.bandeja_dialog:BandejaDialog")
     bandeja_dialogo.exec_ = lambda self: 1
+    suportes_dialogo = locate("freecad.Circuits.UI.dialogs.bandeja_dialog:SuportesDialog")
+    suportes_dialogo.exec_ = lambda self: 1
     tronco = Draft.make_wire([App.Vector(0, 3000, 0), App.Vector(6000, 3000, 0), App.Vector(6000, 6000, 0)])
     ramal = Draft.make_wire([App.Vector(3000, 3000, 0), App.Vector(3000, 5000, 0)])
     descida = Draft.make_wire([App.Vector(6000, 6000, 0), App.Vector(8000, 6000, 0)])

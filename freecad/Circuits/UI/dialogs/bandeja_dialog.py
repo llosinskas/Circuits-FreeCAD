@@ -1,4 +1,4 @@
-"""Diálogo com o tipo, a seção e a altura das bandejas (eletrocalhas e leitos) selecionadas."""
+"""Diálogos de configuração das bandejas (eletrocalhas e leitos) e de seus suportes."""
 from freecad.Circuits.core import bandejas as regras
 from freecad.Circuits.qt import QtWidgets
 
@@ -77,4 +77,91 @@ class BandejaDialog(QtWidgets.QDialog):
             "aba": self._numero(self.aba.currentText(), regras.ABA_PADRAO_MM),
             "altura": round(self.altura.value() * 1000.0, 1),
             "tampa": self.tampa.isChecked(),
+        }
+
+
+class SuportesDialog(QtWidgets.QDialog):
+    """Diálogo de ajuste dos suportes das eletrocalhas e leitos (espaçamento, pendentes, tipo e folga)."""
+
+    def __init__(self, quantidade=0, atual=None):
+        super().__init__()
+        atual = atual or {}
+        self.setWindowTitle("Ajustes dos Suportes de Eletrocalha / Leito")
+        self.setMinimumWidth(420)
+        layout = QtWidgets.QFormLayout()
+
+        esc = f"{quantidade} bandeja(s) selecionada(s)" if quantidade else "Todas as bandejas do projeto"
+        layout.addRow(QtWidgets.QLabel(f"Aplicar em: {esc}"))
+
+        self.tipo_suporte = QtWidgets.QComboBox()
+        self._tipos_suporte = list(regras.TIPOS_SUPORTE)
+        self.tipo_suporte.addItems([regras.TIPOS_SUPORTE[t] for t in self._tipos_suporte])
+        tipo_atual = atual.get("tipo_suporte", regras.TIPO_SUPORTE_PADRAO)
+        if tipo_atual in self._tipos_suporte:
+            self.tipo_suporte.setCurrentIndex(self._tipos_suporte.index(tipo_atual))
+        self.tipo_suporte.setToolTip(
+            "Trapézio (perfilado + 2 tirantes), Pendural central (1 tirante) ou Mão francesa (fixada na parede)"
+        )
+        layout.addRow("Tipo de suporte:", self.tipo_suporte)
+
+        self.vao = QtWidgets.QDoubleSpinBox()
+        self.vao.setRange(0.30, 6.00)
+        self.vao.setDecimals(2)
+        self.vao.setSingleStep(0.25)
+        self.vao.setSuffix(" m")
+        vao_padrao_mm = float(atual.get("vao_suporte") or regras.VAO_SUPORTE[regras.TIPO_PADRAO])
+        self.vao.setValue(vao_padrao_mm / 1000.0)
+        self.vao.setToolTip("Espaçamento máximo (vão) entre suportes consecutivos ao longo do trecho")
+        layout.addRow("Espaçamento máximo (vão) [m]:", self.vao)
+
+        self.distancia_no = QtWidgets.QDoubleSpinBox()
+        self.distancia_no.setRange(0.10, 2.00)
+        self.distancia_no.setDecimals(2)
+        self.distancia_no.setSingleStep(0.10)
+        self.distancia_no.setSuffix(" m")
+        dist_mm = float(atual.get("distancia_no") if atual.get("distancia_no") is not None else regras.DISTANCIA_SUPORTE_CONEXAO)
+        self.distancia_no.setValue(dist_mm / 1000.0)
+        self.distancia_no.setToolTip("Distância do primeiro e do último suporte até as conexões (curvas, tês, pontas)")
+        layout.addRow("Distância às conexões/pontas [m]:", self.distancia_no)
+
+        self.pendente = QtWidgets.QDoubleSpinBox()
+        self.pendente.setRange(0.00, 20.00)
+        self.pendente.setDecimals(2)
+        self.pendente.setSingleStep(0.10)
+        self.pendente.setSuffix(" m")
+        self.pendente.setSpecialValueText("Automático (até a laje)")
+        pendente_mm = float(atual.get("pendente") or 0.0)
+        self.pendente.setValue(pendente_mm / 1000.0)
+        self.pendente.setToolTip(
+            "Comprimento dos pendentes/tirantes roscados. Em 0,00 m vai automaticamente da bandeja até a laje do pavimento"
+        )
+        layout.addRow("Comprimento dos pendentes [m]:", self.pendente)
+
+        self.folga_perfilado = QtWidgets.QSpinBox()
+        self.folga_perfilado.setRange(0, 500)
+        self.folga_perfilado.setSingleStep(10)
+        self.folga_perfilado.setSuffix(" mm")
+        folga_mm = int(round(float(atual.get("folga_perfilado") if atual.get("folga_perfilado") is not None else regras.FOLGA_PERFILADO_MM)))
+        self.folga_perfilado.setValue(folga_mm)
+        self.folga_perfilado.setToolTip("Sobra lateral total do perfilado 38x38 mm além da largura da eletrocalha (ex: 100 mm = 5 cm de cada lado)")
+        layout.addRow("Folga lateral do perfilado [mm]:", self.folga_perfilado)
+
+        botoes = QtWidgets.QHBoxLayout()
+        btn_ok = QtWidgets.QPushButton("Gerar suportes")
+        btn_ok.setDefault(True)
+        btn_ok.clicked.connect(self.accept)
+        btn_cancelar = QtWidgets.QPushButton("Cancelar")
+        btn_cancelar.clicked.connect(self.reject)
+        botoes.addWidget(btn_ok)
+        botoes.addWidget(btn_cancelar)
+        layout.addRow(botoes)
+        self.setLayout(layout)
+
+    def get_dados(self):
+        return {
+            "tipo_suporte": self._tipos_suporte[self.tipo_suporte.currentIndex()],
+            "vao_suporte": round(self.vao.value() * 1000.0, 1),
+            "distancia_no": round(self.distancia_no.value() * 1000.0, 1),
+            "pendente": round(self.pendente.value() * 1000.0, 1),
+            "folga_perfilado": float(self.folga_perfilado.value()),
         }

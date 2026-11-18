@@ -3,9 +3,10 @@ import FreeCAD as App
 import FreeCADGui as Gui
 
 from freecad.Circuits.commands._base import documento_ou_aviso, recursos
+from freecad.Circuits.core import bandejas as regras
 from freecad.Circuits.qt import QtWidgets
 from freecad.Circuits.services import bandejas
-from freecad.Circuits.UI.dialogs.bandeja_dialog import BandejaDialog
+from freecad.Circuits.UI.dialogs.bandeja_dialog import BandejaDialog, SuportesDialog
 
 
 def _valores(obj):
@@ -13,6 +14,20 @@ def _valores(obj):
         return None
     return {"tipo": str(obj.TipoBandeja), "largura": bandejas._mm(obj.Largura), "aba": bandejas._mm(obj.Aba),
             "altura": bandejas._mm(obj.AlturaBandeja), "tampa": bool(obj.Tampa)}
+
+
+def _valores_suporte(obj):
+    if obj is None or not bandejas.eh_bandeja(obj):
+        return {}
+    tipo_b = str(getattr(obj, "TipoBandeja", regras.TIPO_PADRAO))
+    vao_padrao = regras.VAO_SUPORTE.get(tipo_b, regras.VAO_SUPORTE[regras.TIPO_PADRAO])
+    return {
+        "tipo_suporte": str(getattr(obj, "TipoSuporte", regras.TIPO_SUPORTE_PADRAO) or regras.TIPO_SUPORTE_PADRAO),
+        "vao_suporte": bandejas._mm(obj.VaoSuporte) if hasattr(obj, "VaoSuporte") and obj.VaoSuporte is not None else vao_padrao,
+        "distancia_no": bandejas._mm(obj.DistanciaConexao) if hasattr(obj, "DistanciaConexao") and obj.DistanciaConexao is not None else regras.DISTANCIA_SUPORTE_CONEXAO,
+        "pendente": bandejas._mm(obj.ComprimentoPendente) if hasattr(obj, "ComprimentoPendente") and obj.ComprimentoPendente is not None else 0.0,
+        "folga_perfilado": bandejas._mm(obj.FolgaPerfilado) if hasattr(obj, "FolgaPerfilado") and obj.FolgaPerfilado is not None else regras.FOLGA_PERFILADO_MM,
+    }
 
 
 class CableTray:
@@ -63,19 +78,27 @@ class CableTray:
 
 
 class GerarSuportes:
-    """Posiciona os suportes ao longo das bandejas de cada pavimento."""
+    """Configura (vão, comprimento dos pendentes, distância às conexões, tipo) e posiciona os suportes."""
 
     def Activated(self):
         doc = documento_ou_aviso()
         if not doc:
             return
-        if not bandejas.listar(doc):
+        todas = bandejas.listar(doc)
+        if not todas:
             QtWidgets.QMessageBox.information(
                 None, "Suportes", "Nenhuma bandeja no projeto: use o botão Bandeja/leito primeiro."
             )
             return
+        selecionadas = [obj for obj in Gui.Selection.getSelection() if bandejas.eh_bandeja(obj)]
+        alvos = selecionadas or todas
+        dialogo = SuportesDialog(len(selecionadas), _valores_suporte(alvos[0]))
+        if not dialogo.exec_():
+            return
+        ajustes = dialogo.get_dados()
         doc.openTransaction("Suportes das bandejas")
         try:
+            bandejas.configurar_suportes(alvos, **ajustes)
             contagem = bandejas.gerar_suportes(doc)
             bandejas.anotar_conexoes(doc)
             doc.commitTransaction()
@@ -92,8 +115,8 @@ class GerarSuportes:
         return recursos(
             "suportes.svg",
             "Suportes",
-            "Suportes suspensos das bandejas: um perto de cada conexão e os intermediários pelo vão máximo, "
-            "com o traço na planta e o modelo 3D até a laje",
+            "Suportes das bandejas: ajusta espaçamento máximo (vão), comprimento dos pendentes/tirantes, "
+            "distância às conexões, folga do perfilado e tipo de suporte, gerando o traço 2D e o modelo 3D",
         )
 
 
