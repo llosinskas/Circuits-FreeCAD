@@ -8,7 +8,11 @@ Usa a mesma rede e o mesmo encaixe das bandejas (``core.bandejas.Rede`` e
 - dois eletrodutos: no rígido, curva pré-fabricada (90°, 45° ou o ângulo
   medido) ou luva, se alinhados; o flexível só dobra, sem peça;
 - três ou mais: derivação. Embutido pede uma caixa de passagem (criada pela
-  bancada); aparente leva condulete (T, X ou múltiplo).
+  bancada); aparente leva condulete (T, X ou múltiplo);
+- eletrodutos em alturas diferentes (ex.: do teto para o piso): **descida**.
+  A vertical vai da menor à maior altura, e cada eletroduto que termina no nó
+  sozinho na sua altura faz uma curva de 90° para dentro dela (``descidas``);
+  no rígido, a curva entra nas peças.
 
 O rígido leva luva entre as barras de 3 m; o aparente, abraçadeira a cada
 ``ESPACO_ABRACADEIRA_MM`` e uma na ponta de cada trecho.
@@ -35,10 +39,15 @@ TIPOS = ["Flexível", "Rígido"]
 MATERIAIS = ["PVC", "Aço galvanizado"]
 
 TOLERANCIA_MM = 50.0
+TOLERANCIA_ALTURA_MM = 10.0  # alturas mais próximas que isto são a mesma
+# Raio da curva na linha de centro, em raios externos do tubo (os mesmos do 3D horizontal)
+FATOR_RAIO_CURVA_RIGIDO = 6  # curva pré-fabricada: 3 diâmetros
+FATOR_RAIO_CURVA_FLEXIVEL = 15
 COMPRIMENTO_BARRA_MM = 3000.0
 ESPACO_ABRACADEIRA_MM = 1500.0
 
 CURVA = "Curva"
+CURVA_VERTICAL = "Curva 90° vertical"
 LUVA = "Luva"
 BUCHA = "Bucha e arruela"
 CONDULETE = "Condulete"
@@ -67,6 +76,55 @@ def _nome_da_curva(desvio):
     return CURVA + nome[len(bandejas.CURVA):]
 
 
+def raio_da_curva(diametro, tipo):
+    """Raio da curva na linha de centro [mm]: rígido pré-fabricado ou flexível dobrado."""
+    fator = FATOR_RAIO_CURVA_RIGIDO if tipo == "Rígido" else FATOR_RAIO_CURVA_FLEXIVEL
+    return _diametro_externo(diametro) / 2.0 * fator
+
+
+def _ponta(caminho, ponto):
+    """'inicio' ou 'fim' se o caminho termina no ponto; None se passa por ele."""
+    pontos = caminho["pontos"] if caminho else []
+    if pontos and math.dist(pontos[0], ponto) <= TOLERANCIA_MM:
+        return "inicio"
+    if pontos and math.dist(pontos[-1], ponto) <= TOLERANCIA_MM:
+        return "fim"
+    return None
+
+
+def _descida(rede, indice, ligados, por_nome):
+    """Descida no nó, se chegam eletrodutos em alturas diferentes; senão None.
+
+    Cada eletroduto que termina no nó sozinho na menor ou na maior altura faz
+    uma curva de 90° até a vertical; os que passam pelo nó, ou dividem a altura
+    com outro (derivação), chegam à vertical sem curva.
+    """
+    x, y = rede.nos[indice]
+    bracos = []
+    for t in ligados:
+        angulo = math.radians(rede.direcao(t, indice))
+        bracos.append({"nome": t["nome"], "ponta": _ponta(por_nome.get(t["nome"]), (x, y)),
+                       "ux": math.cos(angulo), "uy": math.sin(angulo), "altura": float(t["altura"] or 0),
+                       "diametro": t["diametro"], "tipo": t["tipo"], "material": t["material"],
+                       "instalacao": t["instalacao"], "comprimento": rede.comprimento(t), "curva": False})
+    alturas = [b["altura"] for b in bracos]
+    de, ate = min(alturas), max(alturas)
+    if ate - de <= TOLERANCIA_ALTURA_MM:
+        return None
+    principal = max(bracos, key=lambda b: _diametro_externo(b["diametro"]))
+    nas_pontas = []
+    for altura in (de, ate):
+        mesma = [b for b in bracos if abs(b["altura"] - altura) <= TOLERANCIA_ALTURA_MM]
+        if len(mesma) == 1 and mesma[0]["ponta"]:
+            mesma[0]["curva"] = True
+            nas_pontas.append(mesma[0])
+    raio = raio_da_curva(principal["diametro"], principal["tipo"])
+    if nas_pontas:  # a curva cabe na vertical e no trecho reto que chega
+        raio = min([raio, (ate - de) / len(nas_pontas)] + [0.9 * b["comprimento"] for b in nas_pontas])
+    return {"x": x, "y": y, "de": de, "ate": ate, "diametro": principal["diametro"], "tipo": principal["tipo"],
+            "raio": round(raio, 1), "bracos": bracos}
+
+
 def analisar(caminhos, caixas=()):
     """Peças, caixas de passagem que faltam e avisos dos eletrodutos de um pavimento.
 
@@ -79,8 +137,10 @@ def analisar(caminhos, caixas=()):
          'trechos': [{comprimento, diametro, tipo, material, instalacao, x1, y1, x2, y2, nome}],
          'caixas_novas': [{x, y, diametro}], 'avisos': [textos],
          'pontas_soltas': [{x, y, diametro, altura, nome}]} — pontas sem caixa, que podem
-        ser prumadas para outro pavimento (``core.verticais.ligacoes_entre_pavimentos``).
+        ser prumadas para outro pavimento (``core.verticais.ligacoes_entre_pavimentos``),
+         'descidas': [{x, y, de, ate, diametro, tipo, raio, bracos}]} — ver ``_descida``.
     """
+    por_nome = {c.get("nome"): c for c in caminhos}
     rede = bandejas.Rede(TOLERANCIA_MM)
     for caminho in caminhos:
         dados = {chave: caminho.get(chave) for chave in ("tipo", "material", "instalacao", "diametro", "altura", "nome")}
@@ -88,7 +148,7 @@ def analisar(caminhos, caixas=()):
         rede.adicionar(caminho["pontos"], dados)
     rede.dividir_derivacoes()
 
-    pecas, caixas_novas, avisos, pontas_soltas = [], [], [], []
+    pecas, caixas_novas, avisos, pontas_soltas, descidas = [], [], [], [], []
     for indice, (x, y) in enumerate(rede.nos):
         ligados = rede.ligados(indice)
         if not ligados:
@@ -101,7 +161,14 @@ def analisar(caminhos, caixas=()):
 
         if any(math.hypot(cx - x, cy - y) <= TOLERANCIA_MM for cx, cy in caixas):
             pecas += [peca(BUCHA, t) for t in ligados if t["tipo"] == "Rígido"]
-        elif len(ligados) == 1:
+            continue
+        descida = _descida(rede, indice, ligados, por_nome) if len(ligados) > 1 else None
+        if descida:
+            descidas.append(descida)
+            pecas += [peca(CURVA_VERTICAL, b) for b in descida["bracos"] if b["curva"] and b["tipo"] == "Rígido"]
+            if len(ligados) == 2:
+                continue  # as duas curvas e a vertical fazem a ligação
+        if len(ligados) == 1:
             pontas_soltas.append({"x": x, "y": y, "diametro": ligados[0]["diametro"],
                                   "altura": float(ligados[0]["altura"] or 0), "nome": ligados[0]["nome"]})
             avisos.append(f"Eletroduto {ligados[0]['nome']}: ponta solta em ({x / 1000:.2f}; {y / 1000:.2f}) m, "
@@ -131,7 +198,7 @@ def analisar(caminhos, caixas=()):
                               "tipo": trecho["tipo"], "material": trecho["material"],
                               "instalacao": trecho["instalacao"]})
     return {"pecas": pecas, "trechos": trechos, "caixas_novas": caixas_novas, "avisos": avisos,
-            "pontas_soltas": pontas_soltas}
+            "pontas_soltas": pontas_soltas, "descidas": descidas}
 
 
 def materiais(resultado):
@@ -188,6 +255,8 @@ def siglas(resultado):
     """
     por_no = {}
     for p in resultado["pecas"]:
+        if p["peca"] == CURVA_VERTICAL:
+            continue  # a descida tem o símbolo de subida e descida
         if p["peca"].startswith(CURVA):
             sigla = "C" + p["peca"][len(CURVA):].strip().rstrip("°")
         elif p["peca"].startswith(CONDULETE):

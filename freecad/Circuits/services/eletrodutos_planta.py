@@ -7,6 +7,8 @@ caixas), ``criar_caixas`` (caixa de passagem nas derivações embutidas sem
 caixa) e ``anotar`` (diâmetro de cada eletroduto e siglas das peças, textos com
 a propriedade ``rotulo_eletroduto`` na pasta Eletrodutos do pavimento).
 """
+import importlib
+
 import Draft
 import FreeCAD as App
 
@@ -184,3 +186,87 @@ def anotar(doc, resultados=None):
 def materiais_por_pavimento(doc):
     """[(pavimento, itens de ``core.pecas_eletroduto.materiais``)] das peças e da fixação."""
     return [(pav, regras.materiais(resultado)) for pav, resultado in analisar(doc).items()]
+
+
+# --- subidas e descidas entre eletrodutos de alturas diferentes ----------------
+
+def descidas(doc, resultados=None):
+    """[(nome do pavimento, descida de ``core.pecas_eletroduto``)] de todos os pavimentos."""
+    resultados = resultados if resultados is not None else analisar(doc)
+    return [(pav, d) for pav, resultado in resultados.items() for d in resultado.get("descidas", [])]
+
+
+def _mesma(altura, referencia):
+    return abs(float(altura) - float(referencia)) <= regras.TOLERANCIA_ALTURA_MM
+
+
+def editar_descida(doc, descida, de, ate):
+    """Muda as alturas da descida: os eletrodutos que chegam na altura de baixo vão para ``de``,
+    e os da altura de cima para ``ate`` (alturas a partir do piso, mm).
+
+    A altura é do eletroduto inteiro (``Altura3D``): a outra ponta dele também muda.
+
+    Returns:
+        Eletrodutos alterados.
+    """
+    alterados = []
+    for braco in descida["bracos"]:
+        obj = doc.getObject(braco["nome"])
+        if obj is None or not hasattr(obj, "Altura3D"):
+            continue
+        nova = de if _mesma(braco["altura"], descida["de"]) else ate if _mesma(braco["altura"], descida["ate"]) else None
+        if nova is None or _mesma(nova, braco["altura"]):
+            continue
+        obj.Altura3D = float(nova)
+        alterados.append(obj)
+    return alterados
+
+
+ALTURA_CAIXA_MINIMA = 300.0  # mm: caixa de passagem na parede, acima do rodapé
+
+
+def caixa_na_descida(doc, pav_nome, descida):
+    """Troca as curvas da descida por uma caixa de passagem no nó.
+
+    A caixa fica na altura do eletroduto de baixo (pelo menos ``ALTURA_CAIXA_MINIMA``);
+    os eletrodutos passam a descer até ela, como em qualquer caixa.
+
+    Returns:
+        A caixa criada, ou None.
+    """
+    caixa = create_ponto("caixa_passagem")
+    if caixa is None:
+        return None
+    posicao = caixa.Placement
+    posicao.Base = App.Vector(descida["x"], descida["y"], 0.0)
+    caixa.Placement = posicao
+    caixa.Label = "Caixa de passagem"
+    if hasattr(caixa, "Altura3D"):
+        caixa.Altura3D = max(float(descida["de"]), ALTURA_CAIXA_MINIMA)
+    pav = pavimentos.por_nome(doc, pav_nome) if pav_nome else None
+    pavimentos.arquivar(doc, caixa, pav)
+    return caixa
+
+
+def atualizar_depois_de_editar(doc, sempre=False):
+    """Refaz os tubos 3D (com as descidas) e os símbolos de subida e descida que já existiam.
+
+    Com ``sempre`` (eletrodutos acabados de ligar), os símbolos são desenhados e as
+    descidas ganham o 3D mesmo que ainda não houvesse nada: só as descidas, se os
+    tubos ainda não foram gerados.
+
+    Returns:
+        (refez o 3D, refez os símbolos).
+    """
+    verticais = importlib.import_module("freecad.Circuits.services.verticais")  # ela importa este módulo
+
+    tem_3d = any(doc.getObject(f"{obj.Name}_3D") is not None for obj in rede.listar_eletrodutos(doc))
+    if tem_3d:
+        eletrodutos.gerar_tubos(doc, rede.listar_eletrodutos(doc))
+    elif sempre:
+        tem_3d = eletrodutos.gerar_descidas(doc) > 0
+    tem_simbolos = sempre or any(hasattr(obj, "simbolo_vertical") for obj in doc.Objects)
+    if tem_simbolos:
+        verticais.desenhar_simbolos(doc)
+    doc.recompute()
+    return tem_3d, tem_simbolos

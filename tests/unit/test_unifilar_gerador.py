@@ -42,6 +42,23 @@ class TestTransferencia(unittest.TestCase):
         self.assertIn("e mais 4", textos)
         self.assertNotIn("Q8", textos)
 
+    def test_ligado_ao_quadro_geral_vai_ate_a_entrada_sem_seta(self):
+        forma = unifilar.transferencia(_resumo(), ["QGBT"], H, destino="QGBT", saida_ate=32 * H)
+        textos = [t for _, _, t, _ in forma["textos"]]
+        self.assertIn("Alimenta QGBT", textos)
+        self.assertNotIn("Cargas do gerador", textos)
+        self.assertEqual(forma["saida"], (32 * H, -2 * H))
+        self.assertIn((9 * H, -2 * H, 32 * H, -2 * H), forma["linhas"])
+        self.assertFalse([l for l in forma["linhas"] if l[0] == 32 * H])  # sem seta
+
+    def test_quadro_geral_pela_origem_pela_sigla_ou_pelas_cargas(self):
+        quadros = [("QD1", "QGBT"), ("QGBT", "QTA-1")]
+        self.assertEqual(gerador.quadro_geral(quadros), "QGBT")
+        self.assertEqual(gerador.quadro_geral([("QGBT", "TR1")], siglas_qta=["tr1"]), "QGBT")
+        self.assertEqual(gerador.quadro_geral([("QD1", ""), ("QGBT", "")], cargas=["qgbt", "Bombas"]), "QGBT")
+        self.assertIsNone(gerador.quadro_geral([("QD1", ""), ("QGBT", "")], cargas=["QD1", "QGBT"]))
+        self.assertIsNone(gerador.quadro_geral([("QD1", "Concessionária")]))
+
 
 if __name__ == "__main__":
     unittest.main()

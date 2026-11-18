@@ -1,14 +1,17 @@
-"""Tubos 3D de eletrodutos gerados a partir de linhas guia."""
+"""Tubos 3D de eletrodutos gerados a partir de linhas guia, e as descidas com curvas entre alturas."""
+import math
+
 import FreeCAD as App
 import Part
 
+from freecad.Circuits.core import pecas_eletroduto
 from freecad.Circuits.core.tables.eletrodutos import COR_PADRAO, CORES, DIAMETRO_PADRAO, DIAMETROS_EXTERNOS
 from freecad.Circuits.services import pavimentos
 from freecad.Circuits.services.tomadas import listar_tomadas
 
 TOLERANCIA_TOMADA_MM = 10.0
-FATOR_RAIO_CURVA_FLEXIVEL = 15
-FATOR_RAIO_CURVA_RIGIDO = 6  # curva pré-fabricada: raio de 3 diâmetros externos
+FATOR_RAIO_CURVA_FLEXIVEL = pecas_eletroduto.FATOR_RAIO_CURVA_FLEXIVEL
+FATOR_RAIO_CURVA_RIGIDO = pecas_eletroduto.FATOR_RAIO_CURVA_RIGIDO  # curva pré-fabricada: 3 diâmetros externos
 
 
 def listar_caminhos(doc):
@@ -91,8 +94,38 @@ def _descidas_para_tomadas(obj, tomadas, raio, cota_eletroduto=None, doc=None):
     return descidas
 
 
-def _gerar_tubo(doc, obj, tomadas):
-    """Gera o tubo de um caminho. Devolve True se o objeto 3D foi criado."""
+def _aparar(fio, cortes):
+    """Encurta as pontas do fio que estão sobre uma descida, pelo raio da curva.
+
+    Args:
+        cortes: [(x, y, comprimento)] — a ponta do fio a até ``TOLERANCIA_MM`` de (x, y),
+            em planta, perde ``comprimento`` mm, se o trecho da ponta for reto e mais longo.
+    """
+    arestas = list(fio.OrderedEdges)
+    vertices = [v.Point for v in fio.OrderedVertexes]
+    pontas = [(0, vertices[0]), (len(arestas) - 1, vertices[-1])]
+    for x, y, corte in cortes:
+        for indice, livre in pontas:
+            if math.hypot(livre.x - x, livre.y - y) > pecas_eletroduto.TOLERANCIA_MM:
+                continue
+            aresta = arestas[indice]
+            if aresta.Curve.__class__.__name__ not in ("Line", "LineSegment") or aresta.Length <= corte + 1.0:
+                break
+            a, b = aresta.Vertexes[0].Point, aresta.Vertexes[-1].Point
+            outra = b if (a - livre).Length < (b - livre).Length else a
+            direcao = outra - livre
+            direcao.normalize()
+            novo = livre + direcao * corte
+            arestas[indice] = Part.makeLine(novo, outra) if indice == 0 else Part.makeLine(outra, novo)
+            break
+    return Part.Wire(arestas)
+
+
+def _gerar_tubo(doc, obj, tomadas, cortes=()):
+    """Gera o tubo de um caminho. Devolve True se o objeto 3D foi criado.
+
+    ``cortes``: pontas a encurtar para a curva da descida (``_aparar``).
+    """
     if not hasattr(obj, "Shape") or obj.Shape.isNull() or len(obj.Shape.Edges) == 0:
         return False
 
@@ -108,6 +141,11 @@ def _gerar_tubo(doc, obj, tomadas):
     deslocamento = cota - fio.Vertexes[0].Point.z
     if abs(deslocamento) > 1e-4:
         fio.translate(App.Vector(0, 0, deslocamento))
+    if cortes:
+        try:
+            fio = _aparar(fio, cortes)
+        except Exception as e:
+            App.Console.PrintWarning(f"Não foi possível encurtar {obj.Name} para a curva da descida: {e}\n")
 
     primeira_aresta = fio.Edges[0]
     if primeira_aresta.Length < 1e-5:
@@ -153,9 +191,105 @@ def gerar_tubos(doc, caminhos):
     doc.recompute()  # as curvas dos Wires precisam estar atualizadas antes da varredura
 
     tomadas = listar_tomadas(doc)
-    criados = sum(1 for obj in caminhos if _gerar_tubo(doc, obj, tomadas))
+    descidas = _descidas_do_documento(doc)
+    cortes = {}
+    for _, descida in descidas:
+        for braco in descida["bracos"]:
+            if braco["curva"]:
+                cortes.setdefault(braco["nome"], []).append((descida["x"], descida["y"], descida["raio"]))
+    criados = sum(1 for obj in caminhos if _gerar_tubo(doc, obj, tomadas, cortes.get(obj.Name, ())))
+    gerar_descidas(doc, descidas)
     doc.recompute()
     return criados
+
+
+def _descidas_do_documento(doc):
+    """[(nome do pavimento, descida de ``core.pecas_eletroduto``)] de todos os pavimentos."""
+    from freecad.Circuits.services import eletrodutos_planta  # importa este módulo: só aqui, sem ciclo
+
+    try:
+        resultados = eletrodutos_planta.analisar(doc)
+    except Exception as e:
+        App.Console.PrintWarning(f"Não foi possível analisar as descidas dos eletrodutos: {e}\n")
+        return []
+    return [(pav, descida) for pav, resultado in resultados.items() for descida in resultado.get("descidas", [])]
+
+
+def _tubo_reto(raio, a, b):
+    eixo = b - a
+    if eixo.Length < 1e-3:
+        return None
+    return Part.makeCylinder(raio, eixo.Length, a, eixo)
+
+
+def _curva(raio_tubo, raio, no, ux, uy, z, sobe):
+    """Curva de 90° do trecho horizontal (chegando ao nó pela direção −u) para a vertical do nó."""
+    s = 1.0 if sobe else -1.0
+    inicio = App.Vector(no.x + ux * raio, no.y + uy * raio, z)
+    centro = inicio + App.Vector(0, 0, s * raio)
+    fim = App.Vector(no.x, no.y, z + s * raio)
+    meio = centro + App.Vector(-ux, -uy, -s) * (raio / math.sqrt(2.0))
+    arco = Part.Wire([Part.Arc(inicio, meio, fim).toShape()])
+    perfil = Part.Wire([Part.makeCircle(raio_tubo, inicio, App.Vector(-ux, -uy, 0))])
+    return arco.makePipeShell([perfil], True, True)
+
+
+def solidos_da_descida(descida, cota_piso):
+    """Sólidos de uma descida: as curvas de 90° dos eletrodutos que terminam nela e a vertical."""
+    raio_tubo = DIAMETROS_EXTERNOS.get(str(descida["diametro"]), DIAMETRO_PADRAO) / 2.0
+    raio = float(descida["raio"])
+    no = App.Vector(descida["x"], descida["y"], 0)
+    baixo, alto = cota_piso + descida["de"], cota_piso + descida["ate"]
+    com_curva = raio > 1.5 * raio_tubo
+    solidos = []
+    for braco in descida["bracos"]:
+        if not (braco["curva"] and com_curva):
+            continue
+        z = cota_piso + braco["altura"]
+        sobe = abs(braco["altura"] - descida["de"]) <= pecas_eletroduto.TOLERANCIA_ALTURA_MM
+        solidos.append(_curva(raio_tubo, raio, no, braco["ux"], braco["uy"], z, sobe))
+        if sobe:
+            baixo = z + raio
+        else:
+            alto = z - raio
+    vertical = _tubo_reto(raio_tubo, App.Vector(no.x, no.y, baixo), App.Vector(no.x, no.y, alto))
+    if vertical is not None:
+        solidos.append(vertical)
+    return solidos
+
+
+def gerar_descidas(doc, descidas=None):
+    """Recria o 3D das descidas (objetos com a propriedade ``descida_3d``).
+
+    Returns:
+        Quantidade de descidas desenhadas.
+    """
+    descidas = _descidas_do_documento(doc) if descidas is None else descidas
+    for obj in [o for o in doc.Objects if hasattr(o, "descida_3d")]:
+        doc.removeObject(obj.Name)
+    feitas = 0
+    for pav_nome, descida in descidas:
+        pav = pavimentos.por_nome(doc, pav_nome) if pav_nome else None
+        cota = pavimentos.elevacao(pav) if pav is not None else 0.0
+        try:
+            forma = Part.makeCompound(solidos_da_descida(descida, cota))
+        except Exception as e:
+            App.Console.PrintWarning(f"Falha ao gerar a descida em ({descida['x']:.0f}; {descida['y']:.0f}): {e}\n")
+            continue
+        objeto = doc.addObject("Part::Feature", "Descida_3D")
+        objeto.Shape = forma
+        objeto.Label = f"Descida 3D Ø{descida['diametro']}\""
+        objeto.addProperty("App::PropertyString", "descida_3d", "Conduit", "Descida entre eletrodutos de alturas diferentes")
+        objeto.descida_3d = f"{pav_nome}:{descida['x']:.0f};{descida['y']:.0f}"
+        origem = doc.getObject(descida["bracos"][0]["nome"])
+        try:
+            objeto.ViewObject.ShapeColor = CORES.get(getattr(origem, "Cor", ""), COR_PADRAO)
+        except Exception:
+            pass
+        if origem is not None:
+            pavimentos.guardar_3d(doc, origem, objeto)
+        feitas += 1
+    return feitas
 
 
 def subdividir_linha(doc, obj):

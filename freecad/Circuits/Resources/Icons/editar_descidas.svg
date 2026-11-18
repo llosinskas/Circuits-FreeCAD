@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64">
+  <!-- Editar descidas: eletroduto no teto que faz curva, desce e faz curva no piso; lápis -->
+  <path d="M4 12H18A8 8 0 0 1 26 20V44A8 8 0 0 0 34 52H48" fill="none" stroke-linecap="round" stroke-linejoin="round" stroke="#ffffff" stroke-width="9" stroke-opacity="0.85"/>
+  <path d="M4 12H18A8 8 0 0 1 26 20V44A8 8 0 0 0 34 52H48" fill="none" stroke-linecap="round" stroke-linejoin="round" stroke="#5f6368" stroke-width="5"/>
+  <path d="M40 34L54 20L60 26L46 40L39 41Z" fill="#ffffff" stroke="#1a73e8" stroke-width="3" stroke-linejoin="round"/>
+</svg>

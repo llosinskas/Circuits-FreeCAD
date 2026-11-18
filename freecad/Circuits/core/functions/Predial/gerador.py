@@ -496,3 +496,25 @@ def resumo(r):
         ("Tensão [V]", f"{r['tensao']:.0f}"),
         ("Cabo", f"{r['isolacao']}, método {r['metodo']}, {r['comprimento']:.0f} m"),
     ]
+
+
+def quadro_geral(quadros, siglas_qta=(), cargas=()):
+    """Quadro alimentado pelo QTA, ligado ao diagrama da transferência.
+
+    Args:
+        quadros: [(nome do quadro, origem escrita na planilha do quadro)].
+        siglas_qta: siglas (``Descricao``) dos símbolos de QTA da planta.
+        cargas: descrições das cargas ligadas ao gerador.
+    Returns:
+        O nome do quadro cuja origem é o QTA (começa com "QTA" ou é a sigla de um
+        QTA da planta); senão, o único quadro que está entre as cargas do gerador;
+        senão None.
+    """
+    siglas = {str(s).strip().lower() for s in siglas_qta if str(s).strip()}
+    for nome, origem in quadros:
+        texto = str(origem).strip().lower()
+        if texto and (texto.startswith("qta") or texto in siglas):
+            return nome
+    nas_cargas = {str(c).strip().lower() for c in cargas}
+    candidatos = [nome for nome, _ in quadros if str(nome).strip().lower() in nas_cargas]
+    return candidatos[0] if len(candidatos) == 1 else None

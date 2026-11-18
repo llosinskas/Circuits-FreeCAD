@@ -455,6 +455,8 @@ def scenario_extras(doc):
         diagrama = module("services.unifilar").gerar_diagrama_gerador(doc)
         return [len(cargas), resultado["gerador_kva"], folha.getContents("L5"), len(diagrama.Group)]
     attempt("gerador", gerador)
+    attempt("descidas", lambda: [len(module("services.eletrodutos_planta").descidas(doc)),
+                                 module("services.eletrodutos").gerar_descidas(doc)])
     attempt("dialogo_relatorio", lambda: sorted(module("UI.dialogs.report_dialog").ReportDialog().get_opcoes()))
     attempt("dialogo_circuito", lambda: module("UI.insert_circuit").InsertCircuit().close())
     attempt("seletor_componentes", lambda: module("UI.dialogs").ComponentSelectorDialog(

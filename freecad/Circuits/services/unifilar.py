@@ -6,6 +6,7 @@ import FreeCAD as App
 import Part
 
 from freecad.Circuits.core import quadro as regras_quadro
+from freecad.Circuits.core.functions.Predial import gerador as regras_gerador
 from freecad.Circuits.core import simbolos
 from freecad.Circuits.core import unifilar as desenho
 from freecad.Circuits.services import gerador as servico_gerador
@@ -281,6 +282,9 @@ def gerar_diagramas(doc, quadros, h=ALTURA_PADRAO):
 
         if topo:
             _deslocar(grupo, App.Vector(0, -topo, 0))
+        grupo.addProperty("App::PropertyVector", "base_diagrama", "Diagrama",
+                          "Onde fica a origem do diagrama: a entrada do quadro está 2,5 alturas de texto acima")
+        grupo.base_diagrama = App.Vector(0, -topo, 0)
         topo += (ALTURA_CABECALHO + max(circuitos, 1) * ESPACAMENTO_CIRCUITOS) * h
 
     doc.recompute()
@@ -304,6 +308,31 @@ def _desenhar_forma(doc, forma, grupo, nome):
 
 
 POSICAO_GERADOR = (-32, 0)  # em alturas de texto: à esquerda dos diagramas dos quadros
+
+
+def _quadro_geral(doc, cargas, h):
+    """(nome do quadro alimentado pelo QTA, ponto de entrada do diagrama dele) — ver
+    ``core.functions.Predial.gerador.quadro_geral``. Sem quadro, (None, None); sem
+    diagrama gerado, (nome, None)."""
+    quadros = planilhas.listar_quadros(doc)
+    origens = []
+    for quadro in quadros:
+        try:
+            origens.append((quadro.Label, planilhas.ler_quadro(quadro).get("origem", "")))
+        except Exception:
+            origens.append((quadro.Label, ""))
+    siglas = [obj.Descricao for obj in doc.Objects
+              if getattr(getattr(obj, "Proxy", None), "Type", "") == "Ponto" and getattr(obj, "Simbolo", "") == "qta"]
+    nome = regras_gerador.quadro_geral(origens, siglas, cargas)
+    if nome is None:
+        return None, None
+    quadro = next(q for q in quadros if q.Label == nome)
+    diagrama = next((obj for obj in doc.Objects if getattr(obj, "quadro_origem", None) == quadro.Name
+                     and hasattr(obj, "base_diagrama")), None)
+    if diagrama is None:
+        return nome, None
+    base = diagrama.base_diagrama
+    return nome, App.Vector(base.x, base.y + desenho.Y_ENTRADA_QUADRO * h, 0)
 
 
 def gerar_diagrama_gerador(doc, h=ALTURA_PADRAO):
@@ -340,7 +369,13 @@ def gerar_diagrama_gerador(doc, h=ALTURA_PADRAO):
     simbolo = servico_gerador.simbolo_do_gerador(doc)
     if simbolo is not None:
         pavimentos.guardar_junto(simbolo, grupo)
-    forma = desenho.transferencia(resumo, servico_gerador.cargas_no_gerador(folha), h)
+    cargas = servico_gerador.cargas_no_gerador(folha)
+    destino, entrada = _quadro_geral(doc, cargas, h)
+    saida_ate = None
+    if entrada is not None:  # alinha a saída do QTA com a entrada do quadro geral
+        posicao = App.Vector(posicao.x, entrada.y - desenho.Y_SAIDA_TRANSFERENCIA * h, 0)
+        saida_ate = entrada.x - posicao.x
+    forma = desenho.transferencia(resumo, cargas, h, destino=destino, saida_ate=saida_ate)
     _desenhar_forma(doc, forma, grupo, "Transferencia")
     _deslocar(grupo, posicao)
     doc.recompute()

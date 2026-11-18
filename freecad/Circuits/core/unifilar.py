@@ -162,6 +162,8 @@ def condutores_do_circuito(circuito):
 # --- Gerador e transferência (QTA) -------------------------------------------
 
 MAXIMO_CARGAS_LISTADAS = 8
+Y_SAIDA_TRANSFERENCIA = -2.0  # altura da saída do QTA, em alturas de texto
+Y_ENTRADA_QUADRO = 2.5  # entrada do diagrama do quadro (linha do disjuntor geral), em alturas de texto
 
 
 def _senoide(cx, cy, raio):
@@ -175,7 +177,7 @@ def _disjuntor(x, y, h):
     return ([(x, y, r), (x + h, y, r)], [(x + h / 2, y, h / 2, 0.0, 180.0)])
 
 
-def transferencia(dados, cargas, h):
+def transferencia(dados, cargas, h, destino=None, saida_ate=None):
     """Diagrama da entrada com gerador: rede e gerador, cada um com disjuntor, chegando
     ao quadro de transferência (QTA) por contatores intertravados (K1 e K2), e a
     saída para as cargas do gerador.
@@ -184,9 +186,14 @@ def transferencia(dados, cargas, h):
         dados: {rótulo: valor} de ``core.functions.Predial.gerador.resumo``.
         cargas: descrições das cargas ligadas ao gerador.
         h: altura do texto do diagrama [mm].
+        destino: quadro geral alimentado pelo QTA; com ele, a saída leva o nome do
+            quadro em vez da lista de cargas.
+        saida_ate: X [mm, neste sistema] onde a saída termina, na entrada do
+            diagrama do quadro geral; a linha vai até lá, sem seta.
     Returns:
-        Dicionário com ``linhas``, ``arcos`` e ``circulos`` (como ``geometria``) e
-        ``textos`` [(x, y, texto, altura)]. A entrada da rede fica na origem.
+        Dicionário com ``linhas``, ``arcos`` e ``circulos`` (como ``geometria``),
+        ``textos`` [(x, y, texto, altura)] e ``saida`` (x, y) do fim da saída. A
+        entrada da rede fica na origem.
     """
     linhas, arcos, circulos, textos = [], [], [], []
     r = RAIO_TERMINAL * h
@@ -213,11 +220,14 @@ def transferencia(dados, cargas, h):
     # Caixa do QTA
     x1, x2, y1, y2 = 5.4 * h, 9.8 * h, 1.3 * h, y_gerador - 0.8 * h
     linhas += [(x1, y1, x2, y1), (x2, y1, x2, y2), (x2, y2, x1, y2), (x1, y2, x1, y1)]
-    # Saída para as cargas, com seta
-    y_saida, fim = (y_rede + y_gerador) / 2, 15 * h
-    s = TAMANHO_SETA * h
-    linhas += [(x_barra, y_saida, fim, y_saida), (fim, y_saida, fim - s, y_saida + 0.6 * s),
-               (fim, y_saida, fim - s, y_saida - 0.6 * s)]
+    # Saída: até a entrada do quadro geral, ou para as cargas, com seta
+    y_saida = Y_SAIDA_TRANSFERENCIA * h
+    ligada = saida_ate is not None and saida_ate > x_barra + 2 * h
+    fim = saida_ate if ligada else 15 * h
+    linhas.append((x_barra, y_saida, fim, y_saida))
+    if not ligada:
+        s = TAMANHO_SETA * h
+        linhas += [(fim, y_saida, fim - s, y_saida + 0.6 * s), (fim, y_saida, fim - s, y_saida - 0.6 * s)]
 
     disjuntor = str(dados.get("Disjuntor [A]", "")).strip()
     tensao = str(dados.get("Tensão [V]", "")).strip()
@@ -243,6 +253,9 @@ def transferencia(dados, cargas, h):
              str(dados.get("Cabo", "")).strip()]
     for indice, linha in enumerate(t for t in cabos if t):
         textos.append((2 * h, y2 - (0.8 + 0.6 * indice) * h, linha, texto))
+    if destino:
+        textos.append((x_barra + 0.8 * h, y_saida + 0.3 * h, f"Alimenta {destino}", texto * 1.25))
+        return {"linhas": linhas, "arcos": arcos, "circulos": circulos, "textos": textos, "saida": (fim, y_saida)}
     textos.append((fim + 0.4 * h, y_saida + 0.15 * h, "Cargas do gerador", texto * 1.25))
     cargas = [str(c) for c in cargas if str(c).strip()]
     listadas = cargas[:MAXIMO_CARGAS_LISTADAS]
@@ -250,4 +263,4 @@ def transferencia(dados, cargas, h):
         listadas.append(f"e mais {len(cargas) - len(listadas)}")
     for indice, descricao in enumerate(listadas):
         textos.append((fim + 0.4 * h, y_saida - (0.6 + 0.55 * indice) * h, descricao, texto))
-    return {"linhas": linhas, "arcos": arcos, "circulos": circulos, "textos": textos}
+    return {"linhas": linhas, "arcos": arcos, "circulos": circulos, "textos": textos, "saida": (fim, y_saida)}

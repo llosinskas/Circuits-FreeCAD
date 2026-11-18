@@ -179,6 +179,7 @@ O comprimento e o agrupamento vêm da rede de eletrodutos e só entram quando el
 
 - **Unifilar:** um diagrama por quadro, com medidor (quando a origem do quadro é uma medição), disjuntor geral, DPS, barramentos de fases, neutro e terra, e, em cada circuito, o disjuntor com os terminais e o arco, a proteção (`C16A`) e as fases, o DR com a sensibilidade, os traços de terra, neutro e fases, a seção (`#2,5 mm²`), a potência, o número e a descrição.
 - **Gerador e transferência:** se o projeto tiver o gerador calculado (planilha *Cargas do gerador* com o resultado gravado), o Unifilar também desenha, à esquerda dos quadros, a entrada com gerador: rede e gerador, cada um com disjuntor, os contatores K1 e K2 intertravados do QTA, a saída para as cargas do gerador e os dados do gerador e dos cabos. O botão Gerador diesel redesenha esse diagrama ao gravar o resultado. Se você mover o diagrama, ele é recriado no mesmo lugar.
+- **Ligação ao quadro geral:** a saída do QTA vai até a entrada do diagrama do quadro geral, na mesma altura, com o texto "Alimenta QGBT". O quadro geral é o que tem a origem começando com **QTA** (ou igual à sigla do símbolo de QTA da planta) na planilha do quadro; sem isso, o único quadro que está entre as cargas do gerador. Gere o Unifilar para refazer a ligação depois de mudar os quadros.
 - **Componentes:** disjuntor geral, DPS, disjuntores e DR dos circuitos, barramentos com o número de terminais e o tamanho da caixa em módulos DIN, com a reserva de circuitos da NBR 5410. A lista fica numa planilha `Componentes <quadro>`.
 
 ## Eletrodutos, fios e verticais
@@ -222,6 +223,16 @@ O botão **Fiação** desenha na planta os traços de fase, neutro e terra ao la
 - **Infraestrutura > Detalhar verticais** desenha ao lado da planta um detalhe em elevação por tipo de vertical (V1, V2...): piso, laje, cotas de altura, trecho horizontal, caixa ou curvas verticais em arco (CVE e CVI; raio de 6 diâmetros no eletroduto e igual à largura na eletrocalha), a quantidade e onde ficam. Verticais iguais (mesmo diâmetro ou seção, sentido e alturas) dividem o mesmo detalhe.
 
 O encontro de dois eletrodutos em alturas diferentes entra nos quantitativos como eletroduto vertical.
+
+### Descidas entre eletrodutos de alturas diferentes
+
+Ligue no mesmo ponto da planta dois eletrodutos com alturas diferentes (por exemplo, um no teto e outro no piso) e marque-os com o botão **Eletroduto**. A bancada faz a descida sozinha:
+
+- **3D:** cada eletroduto que termina no ponto faz uma curva de 90° até a vertical, e o tubo horizontal é encurtado pelo raio da curva. O raio é de 3 diâmetros no rígido (curva pré-fabricada) e maior no flexível, reduzido se a vertical ou o trecho forem curtos. Se o 3D dos eletrodutos já existe, ele é refeito; se não, só a descida aparece.
+- **Planta:** o símbolo de subida ou descida é desenhado no ponto.
+- **Quantitativos:** a vertical entra como eletroduto, e cada curva do rígido como "Curva 90° vertical".
+
+Para mudar uma descida depois, use **Infraestrutura ▾ > Editar descidas**. A tabela mostra cada descida (pavimento, posição, eletrodutos e diâmetro) com a altura de cima e a de baixo, que você pode mudar. Clicar numa linha seleciona os eletrodutos dela. Na coluna *Ligação*, **Caixa de passagem** troca as curvas por uma caixa no ponto. Mudar a altura muda o eletroduto inteiro, inclusive a outra ponta dele. O 3D e os símbolos que já existiam são refeitos.
 
 ### Prumadas entre pavimentos (pelo teto ou pelo piso)
 

@@ -1,6 +1,7 @@
 """Desenho de um circuito do unifilar: disjuntor com arco, DR, condutores e textos."""
 import importlib
 import sys
+import types
 import unittest
 from unittest import mock
 
@@ -134,6 +135,27 @@ class TestServico(unittest.TestCase):
         escritos = [c.args[0] for c in texto.call_args_list]
         self.assertIn("QTA 320 A", escritos)
         self.assertIn("QGBT", escritos)
+
+    def test_transferencia_ligada_na_entrada_do_quadro_geral(self):
+        quadro = mock.MagicMock(spec=["Name", "Label", "quadro"])
+        quadro.Name, quadro.Label = "Sheet", "QGBT"
+        diagrama = mock.MagicMock(spec=["quadro_origem", "base_diagrama"], quadro_origem="Sheet")
+        diagrama.base_diagrama = types.SimpleNamespace(x=0.0, y=-1000.0)
+        doc, _ = self._doc(quadro, diagrama)
+        app = sys.modules["FreeCAD"]
+        app.Vector.side_effect = lambda x=0, y=0, z=0: types.SimpleNamespace(x=x, y=y, z=z)
+        servico_gerador = self.servico.servico_gerador
+        with mock.patch.object(servico_gerador, "planilha", return_value=mock.MagicMock(Name="Cargas_gerador")), \
+                mock.patch.object(servico_gerador, "ler_resumo", return_value={"Gerador [kVA]": "180"}), \
+                mock.patch.object(servico_gerador, "cargas_no_gerador", return_value=["QGBT"]), \
+                mock.patch.object(servico_gerador, "simbolo_do_gerador", return_value=None), \
+                mock.patch.object(self.servico.planilhas, "ler_quadro", return_value={"origem": "QTA"}), \
+                mock.patch.object(self.servico, "_deslocar") as deslocar, \
+                mock.patch.object(self.servico, "add_texto") as texto:
+            self.servico.gerar_diagrama_gerador(doc, 10)
+        posicao = deslocar.call_args.args[1]
+        self.assertEqual((posicao.x, posicao.y), (-320, -1000 + 25 + 20))  # saída (y = −2 h) na entrada (2,5 h)
+        self.assertIn("Alimenta QGBT", [c.args[0] for c in texto.call_args_list])
 
 
 if __name__ == "__main__":

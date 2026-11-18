@@ -4,7 +4,8 @@ import FreeCADGui as Gui
 
 from freecad.Circuits.commands._base import documento_ou_aviso, recursos
 from freecad.Circuits.qt import QtWidgets
-from freecad.Circuits.services import rede, verticais
+from freecad.Circuits.services import eletrodutos_planta, rede, verticais
+from freecad.Circuits.UI.dialogs.descidas_dialog import CAIXA, DescidasDialog
 
 
 class ConectarEletrodutos:
@@ -129,7 +130,70 @@ class DetalharVerticais:
         )
 
 
+class EditarDescidas:
+    """Lista as subidas e descidas entre eletrodutos de alturas diferentes para mudar alturas ou pôr caixa."""
+
+    TITULO = "Editar descidas"
+
+    def Activated(self):
+        doc = documento_ou_aviso()
+        if not doc:
+            return
+        descidas = eletrodutos_planta.descidas(doc)
+        if not descidas:
+            QtWidgets.QMessageBox.information(
+                None, self.TITULO,
+                "Nenhuma descida: ligue dois eletrodutos de alturas diferentes no mesmo ponto da planta "
+                "(ex.: um no teto e outro no piso) e marque-os com o botão Eletroduto.",
+            )
+            return
+
+        def selecionar(indice):
+            Gui.Selection.clearSelection()
+            for braco in descidas[indice][1]["bracos"]:
+                obj = doc.getObject(braco["nome"])
+                if obj is not None:
+                    Gui.Selection.addSelection(obj)
+
+        dialogo = DescidasDialog(descidas, selecionar)
+        if not dialogo.exec_():
+            return
+        mudancas = dialogo.get_dados()
+        if not mudancas:
+            return
+        doc.openTransaction(self.TITULO)
+        try:
+            alterados, caixas = 0, 0
+            for mudanca in mudancas:
+                pav, descida = descidas[mudanca["indice"]]
+                alterados += len(eletrodutos_planta.editar_descida(doc, descida, mudanca["de"], mudanca["ate"]))
+                if mudanca["forma"] == CAIXA and eletrodutos_planta.caixa_na_descida(doc, pav, descida):
+                    caixas += 1
+            if caixas:
+                rede.conectar(doc)
+            refez_3d, refez_simbolos = eletrodutos_planta.atualizar_depois_de_editar(doc)
+            doc.commitTransaction()
+        except Exception:
+            doc.abortTransaction()
+            raise
+        extras = [texto for feito, texto in ((refez_3d, "3D refeito"), (refez_simbolos, "símbolos refeitos")) if feito]
+        App.Console.PrintMessage(f"Descidas: {alterados} eletroduto(s) com altura nova, {caixas} caixa(s) de passagem"
+                                 f"{'; ' + ', '.join(extras) if extras else ''}.\n")
+
+    def IsActive(self):
+        return True
+
+    def GetResources(self):
+        return recursos(
+            "editar_descidas.svg",
+            "Editar descidas",
+            "Lista as subidas e descidas entre eletrodutos de alturas diferentes: muda a altura de cima e de "
+            "baixo, ou troca as curvas por uma caixa de passagem. Refaz o 3D e os símbolos que já existirem",
+        )
+
+
 Gui.addCommand("ConectarEletrodutos", ConectarEletrodutos())
+Gui.addCommand("EditarDescidas", EditarDescidas())
 Gui.addCommand("ListaVerticais", ListaVerticais())
 Gui.addCommand("SimbolosVerticais", SimbolosVerticais())
 Gui.addCommand("DetalharVerticais", DetalharVerticais())

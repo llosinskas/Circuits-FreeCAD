@@ -43,12 +43,21 @@ class Linha:
         return self
 
 
+def _esquecer():
+    """Tira os módulos de ``sys.modules`` e do pacote pai: ``from pacote import modulo`` usa o
+    atributo do pacote, se existir, e traria de volta a cópia importada por outro teste."""
+    for nome in RECARREGAR:
+        sys.modules.pop(nome, None)
+        pai, _, filho = nome.rpartition(".")
+        if pai in sys.modules and hasattr(sys.modules[pai], filho):
+            delattr(sys.modules[pai], filho)
+
+
 class TestServico(unittest.TestCase):
     def setUp(self):
         self.patch = mock.patch.dict(sys.modules, {n: mock.MagicMock(name=n) for n in MODULOS})
         self.patch.start()
-        for nome in RECARREGAR:
-            sys.modules.pop(nome, None)
+        _esquecer()
         sys.modules["FreeCAD"].Vector = Vetor
         self.servico = importlib.import_module("freecad.Circuits.services.eletrodutos_planta")
         self.nivel = object()
@@ -63,8 +72,7 @@ class TestServico(unittest.TestCase):
 
     def tearDown(self):
         self.pav.stop()
-        for nome in RECARREGAR:
-            sys.modules.pop(nome, None)
+        _esquecer()
         self.patch.stop()
 
     def test_marcar_grava_as_escolhas_arquiva_e_traceja_o_piso(self):
@@ -118,6 +126,42 @@ class TestServico(unittest.TestCase):
             self.assertEqual(self.servico.anotar(doc), 2)  # Ø3/4" e C90
         textos = [c.args[0] for c in draft.make_text.call_args_list]
         self.assertEqual(sorted(t[0] for t in textos), ["C90", 'Ø3/4"'])
+
+    def _teto_e_piso(self):
+        teto = Linha("A", [(0, 0), (3000, 0)], Diametro="3/4", Altura3D=2800.0, Tipo="Rígido")
+        piso = Linha("B", [(3000, 0), (3000, 2000)], Diametro="3/4", Altura3D=-50.0, Tipo="Rígido")
+        doc = types.SimpleNamespace(Objects=[teto, piso], getObject={"A": teto, "B": piso}.get)
+        return doc, teto, piso
+
+    def test_descidas_e_edicao_das_alturas(self):
+        doc, teto, piso = self._teto_e_piso()
+        with mock.patch.object(self.servico.rede, "listar_eletrodutos", return_value=[teto, piso]), \
+                mock.patch.object(self.servico.rede, "listar_caixas", return_value=[]):
+            descidas = self.servico.descidas(doc)
+        self.assertEqual(len(descidas), 1)
+        _, descida = descidas[0]
+        self.assertEqual((descida["de"], descida["ate"]), (-50.0, 2800.0))
+        alterados = self.servico.editar_descida(doc, descida, 0.0, 3000.0)
+        self.assertEqual(sorted(o.Name for o in alterados), ["A", "B"])
+        self.assertEqual((teto.Altura3D, piso.Altura3D), (3000.0, 0.0))
+        self.assertEqual(self.servico.editar_descida(doc, descida, -50.0, 2800.0 + 3), [])  # dentro da tolerância
+        self.assertEqual(teto.Altura3D, 3000.0)
+
+    def test_atualizar_refaz_so_o_que_existe_ou_tudo_ao_ligar(self):
+        doc, teto, piso = self._teto_e_piso()
+        doc.getObject = lambda nome: None  # sem tubos 3D
+        verticais = types.SimpleNamespace(desenhar_simbolos=mock.Mock())
+        doc.recompute = mock.Mock()
+        with mock.patch.object(self.servico.rede, "listar_eletrodutos", return_value=[teto, piso]), \
+                mock.patch.dict(sys.modules, {"freecad.Circuits.services.verticais": verticais}), \
+                mock.patch.object(self.servico.eletrodutos, "gerar_descidas", return_value=1) as descidas, \
+                mock.patch.object(self.servico.eletrodutos, "gerar_tubos") as tubos:
+            self.assertEqual(self.servico.atualizar_depois_de_editar(doc), (False, False))
+            descidas.assert_not_called()
+            self.assertEqual(self.servico.atualizar_depois_de_editar(doc, sempre=True), (True, True))
+            descidas.assert_called_once()
+            tubos.assert_not_called()
+            verticais.desenhar_simbolos.assert_called_once_with(doc)
 
 
 if __name__ == "__main__":
