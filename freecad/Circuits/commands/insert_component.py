@@ -227,6 +227,7 @@ class Conduit:
         try:
             marcados = eletrodutos_planta.marcar(doc, linhas, **dialogo.get_dados())
             juncoes = eletrodutos_planta.encaixar(doc, marcados)
+            juncoes += eletrodutos_planta.encaixar_nas_bandejas(doc, marcados)  # pontas que chegam à eletrocalha
             _, caixas_ligadas, _ = rede.conectar(doc, marcados)
             resultados = eletrodutos_planta.analisar(doc)
             caixas_novas = eletrodutos_planta.criar_caixas(doc, resultados)

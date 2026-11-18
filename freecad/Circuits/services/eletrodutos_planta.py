@@ -14,7 +14,7 @@ import FreeCAD as App
 
 from freecad.Circuits.core import pecas_eletroduto as regras
 from freecad.Circuits.objects.ponto import create_ponto
-from freecad.Circuits.services import eletrodutos, pavimentos, rede
+from freecad.Circuits.services import bandejas, eletrodutos, pavimentos, rede
 
 ALTURA_TEXTO = 120.0
 
@@ -97,8 +97,43 @@ def encaixar(doc, objetos=None):
     return juncoes
 
 
+def eletrocalhas_por_pavimento(doc):
+    """{nome do pavimento: caminhos das eletrocalhas (``services.bandejas``)}, para as saídas."""
+    por_pavimento = {}
+    for obj in bandejas.listar(doc):
+        try:
+            por_pavimento.setdefault(bandejas._nome_pavimento(doc, obj), []).append(bandejas._caminho(obj))
+        except Exception:
+            continue
+    return por_pavimento
+
+
+def encaixar_nas_bandejas(doc, objetos=None):
+    """Leva à eletrocalha do mesmo pavimento as pontas de eletroduto que pararam a até 300 mm dela
+    (``core.pecas_eletroduto.encaixar_nas_bandejas``).
+
+    Returns:
+        Quantidade de pontas movidas.
+    """
+    calhas = eletrocalhas_por_pavimento(doc)
+    alvo = {obj.Name for obj in objetos} if objetos is not None else None
+    movidas = 0
+    for obj in rede.listar_eletrodutos(doc):
+        if not hasattr(obj, "Points") or (alvo is not None and obj.Name not in alvo):
+            continue
+        lista = calhas.get(_nome_pavimento(doc, obj), [])
+        if not lista:
+            continue
+        dados = caminho(obj)
+        novos, feitas = regras.encaixar_nas_bandejas([dados], lista)
+        if feitas:
+            rede._gravar_pontos(obj, novos[0])
+            movidas += feitas
+    return movidas
+
+
 def analisar(doc):
-    """{nome do pavimento: resultado de ``core.pecas_eletroduto.analisar``}."""
+    """{nome do pavimento: resultado de ``core.pecas_eletroduto.analisar``}, com as saídas das eletrocalhas."""
     caixas = {}
     for caixa in rede.listar_caixas(doc):
         caixas.setdefault(caixa["pavimento"], []).append((caixa["x"], caixa["y"]))
@@ -110,7 +145,8 @@ def analisar(doc):
             caminhos.setdefault(_nome_pavimento(doc, obj), []).append(caminho(obj))
         except Exception:
             continue
-    return {pav: regras.analisar(lista, caixas.get(pav, []) + (caixas.get("", []) if pav else []))
+    calhas = eletrocalhas_por_pavimento(doc)
+    return {pav: regras.analisar(lista, caixas.get(pav, []) + (caixas.get("", []) if pav else []), calhas.get(pav, []))
             for pav, lista in caminhos.items()}
 
 
@@ -154,8 +190,21 @@ def _novo_texto(doc, pav_nome, x, y, z, conteudo, angulo=0.0):
     return texto
 
 
+def _ponto_de_saida(doc, pav_nome, x, y, z):
+    """Ponto cheio na eletrocalha onde sai o eletroduto (removido com os rótulos)."""
+    ponto = Draft.make_circle(radius=ALTURA_TEXTO * 0.35, placement=App.Placement(App.Vector(x, y, z), App.Rotation()),
+                              face=True)
+    ponto.addProperty("App::PropertyString", "rotulo_eletroduto", "Conduit", "Texto do eletroduto na planta")
+    ponto.rotulo_eletroduto = "saída de eletrocalha"
+    pav = pavimentos.por_nome(doc, pav_nome) if pav_nome else None
+    if pav is not None:
+        pavimentos.pasta(doc, pav, "eletrodutos").addObject(ponto)
+    return ponto
+
+
 def anotar(doc, resultados=None):
-    """Recria o diâmetro de cada eletroduto e as siglas das peças (C90, C45, CT, CX) na planta.
+    """Recria o diâmetro de cada eletroduto, as siglas das peças (C90, C45, CT, CX) e os pontos das
+    saídas de eletrocalha (SH horizontal, SV vertical) na planta.
 
     Returns:
         Quantidade de textos.
@@ -178,6 +227,10 @@ def anotar(doc, resultados=None):
             total += 1
         for x, y, sigla in siglas:
             _novo_texto(doc, pav_nome, x + ALTURA_TEXTO, y + ALTURA_TEXTO, z, sigla)
+            total += 1
+        for x, y, marca in regras.marcas_de_saida(resultados.get(pav_nome, {})):
+            _ponto_de_saida(doc, pav_nome, x, y, z)
+            _novo_texto(doc, pav_nome, x + ALTURA_TEXTO * 0.6, y + ALTURA_TEXTO * 0.6, z, marca)
             total += 1
     doc.recompute()
     return total

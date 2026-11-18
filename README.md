@@ -192,7 +192,7 @@ Depois de gravar, gere o Unifilar de novo para atualizar as fases no diagrama.
 ### Unifilar e componentes
 
 - **Unifilar:** um diagrama por quadro, com medidor (quando a origem do quadro é uma medição), disjuntor geral, DPS, barramentos de fases, neutro e terra, e, em cada circuito, o disjuntor com os terminais e o arco, a proteção (`C16A`) e as fases, o DR com a sensibilidade, os traços de terra, neutro e fases, a seção (`#2,5 mm²`), a potência, o número e a descrição.
-- **Multifilar:** o botão **Multifilar**, ao lado do Unifilar, desenha um diagrama por quadro com cada condutor separado: os barramentos R, S, T (conforme o número de fases do quadro), N e PE na horizontal, e cada circuito descendo deles com um condutor por fase, o neutro e o terra. Cada fase tem um polo do disjuntor (os polos de um mesmo disjuntor ligados por tracejado), o DR abraça as fases e o neutro, e o terra segue direto. A entrada vem pela esquerda, pelo disjuntor geral. Embaixo de cada circuito: número, proteção, DR, seção, potência e a descrição na vertical. Os multifilares ficam à direita dos unifilares e, se você os mover, voltam no mesmo lugar ao gerar de novo.
+- **Multifilar:** o botão **Multifilar**, no grupo **Diagramas ▾** junto com o Unifilar, desenha um diagrama por quadro com cada condutor separado: os barramentos R, S, T (conforme o número de fases do quadro), N e PE na horizontal, e cada circuito descendo deles com um condutor por fase, o neutro e o terra. Cada fase tem um polo do disjuntor (os polos de um mesmo disjuntor ligados por tracejado), o DR abraça as fases e o neutro, e o terra segue direto. A entrada vem pela esquerda, pelo disjuntor geral. Embaixo de cada circuito: número, proteção, DR, seção, potência e a descrição na vertical. Os multifilares ficam à direita dos unifilares e, se você os mover, voltam no mesmo lugar ao gerar de novo.
 - **Gerador e transferência:** se o projeto tiver o gerador calculado (planilha *Cargas do gerador* com o resultado gravado), o Unifilar também desenha, à esquerda dos quadros, a entrada com gerador: rede e gerador, cada um com disjuntor, os contatores K1 e K2 intertravados do QTA, a saída para as cargas do gerador e os dados do gerador e dos cabos. O botão Gerador diesel redesenha esse diagrama ao gravar o resultado. Se você mover o diagrama, ele é recriado no mesmo lugar.
 - **Ligação ao quadro geral:** a saída do QTA vai até a entrada do diagrama do quadro geral, na mesma altura, com o texto "Alimenta QGBT". O quadro geral é o que tem a origem começando com **QTA** (ou igual à sigla do símbolo de QTA da planta) na planilha do quadro; sem isso, o único quadro que está entre as cargas do gerador. Gere o Unifilar para refazer a ligação depois de mudar os quadros.
 - **Componentes:** disjuntor geral, DPS, disjuntores e DR dos circuitos, barramentos com o número de terminais e o tamanho da caixa em módulos DIN, com a reserva de circuitos da NBR 5410. A lista fica numa planilha `Componentes <quadro>`.
@@ -293,6 +293,20 @@ Nos quantitativos, entram no total e em cada pavimento:
 - *Suportes*: suportes suspensos, perfilado, vergalhão roscado, chumbadores, porcas e arruelas, e os suportes de parede dos trechos verticais;
 - *Fixação*: parafusos cabeça lentilha 1/4" x 5/8" com porca e arruela (8 por emenda, 4 por terminal, 2 por suporte de parede) e 2 grampos da bandeja no perfilado por suporte.
 
+
+### Saídas de eletroduto nas eletrocalhas
+
+Termine o eletroduto na eletrocalha (ou a até 30 cm dela) e marque-o com o botão **Eletroduto**; ou desenhe a eletrocalha depois, por cima das pontas. A bancada leva a ponta até a eletrocalha e cria a saída:
+
+| Altura do eletroduto | Saída | Na planta |
+|---|---|---|
+| Entre a base e o topo da aba da eletrocalha | **Horizontal**, pela lateral: a ponta vai para a borda | ponto cheio e `SH Ø3/4"` |
+| Abaixo (ou acima) da eletrocalha | **Vertical**, pelo fundo (ou por cima): o eletroduto faz curva de 90° e sobe até o fundo | ponto cheio e `SV Ø3/4"` |
+
+- A saída entra nos quantitativos (grupo *Bandejas e leitos*, "Saída horizontal/vertical para eletroduto" com o diâmetro); no rígido, também bucha e arruela e, na vertical, a curva. A vertical soma nos metros de eletroduto.
+- No 3D, a saída vertical aparece com a curva e o tubo até o fundo da eletrocalha; ela também aparece em **Editar descidas**.
+- A ponta que chega à eletrocalha deixa de ser avisada como ponta solta.
+
 ## Documentação
 
 ### Quantitativos
@@ -369,7 +383,7 @@ Os botões com seta (▾) abrem uma lista; o botão mostra o último item usado.
 | Barra | Botões |
 |---|---|
 | Planta elétrica | Projeto ▾, Tomadas ▾, Energia ▾, Iluminação ▾, Comandos ▾, Circuitos ▾, Infraestrutura ▾, Aterramento ▾ |
-| Quadros e documentos | Quadros ▾, Dados do quadro ▾, Montar circuitos, Componentes, Unifilar, Multifilar, Cálculos ▾, Documentos ▾ |
+| Quadros e documentos | Quadros ▾, Dados do quadro ▾, Montar circuitos, Componentes, Diagramas ▾ (Unifilar e Multifilar), Cálculos ▾, Documentos ▾ |
 | Modelo e biblioteca | Modelo 3D ▾, Biblioteca ▾ |
 
 As barras *Desenho*, *Modificador*, *Snap* e *Arquitetura* trazem as ferramentas do FreeCAD mais usadas em planta. O primeiro botão de *Desenho* é o **plano de trabalho** (`Draft_SelectPlane`): mostra o plano atual e troca para planta (topo), frente, lateral, a vista atual ou a face selecionada, para desenhar em elevação ou corte. Todos os comandos estão nos menus **Elétrica** e **Desenho 2D**. O texto embaixo dos ícones pode ser desligado pela preferência `LegendaBotoes` em `BaseApp/Preferences/Mod/Circuits`.

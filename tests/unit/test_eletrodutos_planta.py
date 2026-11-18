@@ -163,6 +163,21 @@ class TestServico(unittest.TestCase):
             tubos.assert_not_called()
             verticais.desenhar_simbolos.assert_called_once_with(doc)
 
+    def test_ponta_perto_da_eletrocalha_vai_para_a_borda_e_vira_saida(self):
+        eletroduto = Linha("E", [(2000, 3000), (2000, 300)], Diametro="3/4", Altura3D=2650.0, Tipo="Rígido")
+        calha = {"nome": "B", "pontos": [(0, 0), (6000, 0)], "largura": 300.0, "aba": 100.0, "altura": 2600.0}
+        doc = types.SimpleNamespace(Objects=[eletroduto])
+        with mock.patch.object(self.servico.rede, "listar_eletrodutos", return_value=[eletroduto]), \
+                mock.patch.object(self.servico.rede, "listar_caixas", return_value=[]), \
+                mock.patch.object(self.servico.bandejas, "listar", return_value=["B"]), \
+                mock.patch.object(self.servico.bandejas, "_caminho", return_value=calha), \
+                mock.patch.object(self.servico.bandejas, "_nome_pavimento", return_value=""):
+            self.assertEqual(self.servico.encaixar_nas_bandejas(doc), 1)
+            self.assertEqual((eletroduto.Points[-1].x, eletroduto.Points[-1].y), (2000.0, 150.0))
+            resultado = self.servico.analisar(doc)[""]
+        self.assertEqual([s["tipo"] for s in resultado["saidas"]], ["horizontal"])
+        self.assertEqual(len(resultado["avisos"]), 1)  # só a outra ponta, que não chega a nada
+
 
 if __name__ == "__main__":
     unittest.main()

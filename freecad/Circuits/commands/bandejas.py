@@ -5,7 +5,7 @@ import FreeCADGui as Gui
 from freecad.Circuits.commands._base import documento_ou_aviso, recursos
 from freecad.Circuits.core import bandejas as regras
 from freecad.Circuits.qt import QtWidgets
-from freecad.Circuits.services import bandejas
+from freecad.Circuits.services import bandejas, eletrodutos_planta, rede
 from freecad.Circuits.UI.dialogs.bandeja_dialog import BandejaDialog, SuportesDialog
 
 
@@ -55,13 +55,19 @@ class CableTray:
             bandejas.gerar_3d(doc)  # todas: uma junção nova muda o recorte das vizinhas
             bandejas.desenhar_contorno(doc)
             conexoes = bandejas.anotar_conexoes(doc)
+            saidas = 0
+            if rede.listar_eletrodutos(doc):  # eletrodutos que chegam às bandejas: saídas
+                eletrodutos_planta.encaixar_nas_bandejas(doc)
+                resultados = eletrodutos_planta.analisar(doc)
+                saidas = sum(len(r.get("saidas", [])) for r in resultados.values())
+                eletrodutos_planta.anotar(doc, resultados)
             doc.commitTransaction()
         except Exception:
             doc.abortTransaction()
             raise
         App.Console.PrintMessage(
             f"{len(marcadas)} bandeja(s) marcada(s), {juncoes} junção(ões) feita(s); "
-            f"{conexoes} ponto(s) com peça identificada na planta.\n"
+            f"{conexoes} ponto(s) com peça identificada na planta; {saidas} saída(s) de eletroduto.\n"
         )
 
     def IsActive(self):

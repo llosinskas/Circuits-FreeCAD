@@ -127,6 +127,7 @@ BOARD_TOOLS = [
     "GerarPlanilha", "CircuitosQuadro", "AddCircuito", "BalancearFases", "MontarCircuitos", "ComponentesQuadro",
     "GerarUnifilar", "GerarMultifilar",
 ]
+DIAGRAM_TOOLS = ["GerarUnifilar", "GerarMultifilar"]
 CALC_TOOLS = ["CalcDemanda", "CalcGerador", "CalcPressurizacao", "CalcRecalque"]
 DOCUMENT_TOOLS = [
     "GerarQuantitativos",
@@ -175,6 +176,7 @@ GROUPS = {
         "bandejas e leitos com conexões e suportes",
         INFRA_TOOLS,
     ),
+    "Grupo_Diagramas": ("Diagramas", "Diagramas unifilar e multifilar de cada quadro", DIAGRAM_TOOLS),
     "Grupo_Calculos": ("Cálculos", "Demanda do quadro, gerador diesel, pressurização de escada e bomba de recalque", CALC_TOOLS),
     "Grupo_Documentos": ("Documentos", "Quantitativos, legenda de símbolos, notas, Sketches em preto e relatório em PDF", DOCUMENT_TOOLS),
     "Grupo_3D": (
@@ -205,8 +207,7 @@ ELECTRIC_TOOLBARS = [
             "Grupo_DadosQuadro",
             "MontarCircuitos",
             "ComponentesQuadro",
-            "GerarUnifilar",
-            "GerarMultifilar",
+            "Grupo_Diagramas",
             "Grupo_Calculos",
             "Grupo_Documentos",
         ],

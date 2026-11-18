@@ -166,6 +166,17 @@ def _prumadas(doc):
     return verticais_eletroduto, list(por_pavimento.items())
 
 
+def _saidas_verticais(doc):
+    """Verticais de eletroduto das saídas pelo fundo (ou pelo topo) das eletrocalhas: [{diametro, comprimento m, pavimento}]."""
+    try:
+        resultados = eletrodutos_planta.analisar(doc)
+    except Exception:
+        return []
+    return [{"diametro": s["descida"]["diametro"], "pavimento": pav,
+             "comprimento": round((s["descida"]["ate"] - s["descida"]["de"]) / 1000.0, 3)}
+            for pav, r in resultados.items() for s in r.get("saidas", []) if s.get("descida")]
+
+
 def _pecas_eletrodutos(doc):
     """(pavimento, itens) das curvas, luvas, buchas, conduletes e abraçadeiras (``services.eletrodutos_planta``)."""
     try:
@@ -220,7 +231,7 @@ def levantar_por_pavimento(doc, fiacao=None):
     for pavimento, fios in fiacao.get("fios_por_pavimento", {}).items():
         de(pavimento)["fios"] = fios
     # as verticais até as caixas, as mudanças de altura entre eletrodutos e as prumadas (no pavimento de baixo)
-    for vertical in fiacao["verticais"] + fiacao.get("transicoes", []) + prumadas_eletroduto:
+    for vertical in fiacao["verticais"] + fiacao.get("transicoes", []) + prumadas_eletroduto + _saidas_verticais(doc):
         de(vertical.get("pavimento", ""))["verticais"].append(vertical)
 
     resultado = []
@@ -250,7 +261,8 @@ def levantar(doc):
                                  for item in itens]
     linhas = regras.montar(
         coletar_pontos(doc), coletar_eletrodutos(doc), componentes,
-        fios=fiacao["fios"], verticais=fiacao["verticais"] + fiacao.get("transicoes", []) + prumadas_eletroduto,
+        fios=fiacao["fios"],
+        verticais=fiacao["verticais"] + fiacao.get("transicoes", []) + prumadas_eletroduto + _saidas_verticais(doc),
         aterramento=condutores,
     )
     return linhas, fiacao

@@ -48,6 +48,11 @@ ESPACO_ABRACADEIRA_MM = 1500.0
 
 CURVA = "Curva"
 CURVA_VERTICAL = "Curva 90° vertical"
+SAIDA_HORIZONTAL = "Saída horizontal para eletroduto"  # na lateral (aba) da eletrocalha
+SAIDA_VERTICAL = "Saída vertical para eletroduto"  # no fundo da eletrocalha
+GRUPO_BANDEJAS = "Bandejas e leitos"
+TOLERANCIA_SAIDA_MM = 50.0  # ponta a até isto da borda da eletrocalha é saída
+TOLERANCIA_ENCAIXE_BANDEJA_MM = 300.0  # ponta a até isto da borda vai para a eletrocalha
 LUVA = "Luva"
 BUCHA = "Bucha e arruela"
 CONDULETE = "Condulete"
@@ -125,21 +130,145 @@ def _descida(rede, indice, ligados, por_nome):
             "raio": round(raio, 1), "bracos": bracos}
 
 
-def analisar(caminhos, caixas=()):
+def _na_bandeja(ponto, bandejas, folga):
+    """Trecho de eletrocalha mais perto do ponto, com o ponto a até ``folga`` da borda.
+
+    Returns:
+        (bandeja, projeção na linha de centro, normal (nx, ny) apontando para o lado
+        do ponto, distância à linha de centro) ou None.
+    """
+    melhor = None
+    for bandeja in bandejas:
+        for a, b in zip(bandeja["pontos"], bandeja["pontos"][1:]):
+            dx, dy = b[0] - a[0], b[1] - a[1]
+            comprimento = math.hypot(dx, dy)
+            if comprimento < 1e-9:
+                continue
+            ux, uy = dx / comprimento, dy / comprimento
+            t = (ponto[0] - a[0]) * ux + (ponto[1] - a[1]) * uy
+            if t < -1e-6 or t > comprimento + 1e-6:
+                continue
+            projecao = (a[0] + ux * t, a[1] + uy * t)
+            lado = (ponto[0] - projecao[0]) * -uy + (ponto[1] - projecao[1]) * ux
+            distancia = abs(lado)
+            if distancia > float(bandeja["largura"]) / 2.0 + folga:
+                continue
+            normal = (-uy, ux) if lado >= 0 else (uy, -ux)
+            if melhor is None or distancia < melhor[3]:
+                melhor = (bandeja, projecao, normal, distancia)
+    return melhor
+
+
+def saidas(caminhos, bandejas):
+    """Saídas de eletrocalha: pontas de eletroduto que chegam a uma eletrocalha do mesmo pavimento.
+
+    Na altura da eletrocalha (da base até o topo da aba), a saída é **horizontal**,
+    na lateral, e o ponto da saída fica na borda. Fora dessa altura é **vertical**:
+    o eletroduto faz curva de 90° e sobe até o fundo (ou desce até o topo da aba)
+    no ponto da ponta, e a saída vira uma ``descida``.
+
+    Args:
+        caminhos: eletrodutos, como em ``analisar``.
+        bandejas: dicionários com ``pontos``, ``largura``, ``aba``, ``altura`` (da base) e ``nome``.
+    Returns:
+        [{x, y (ponto da saída), tipo 'horizontal' ou 'vertical', peca, eletroduto,
+          bandeja, diametro, tipo_eletroduto, material, instalacao, ponta (x, y),
+          'descida' (só na vertical, como em ``_descida``)}].
+    """
+    resultado = []
+    for caminho in caminhos:
+        pontos = caminho["pontos"]
+        if len(pontos) < 2:
+            continue
+        for ponta, vizinho, nome_ponta in ((pontos[0], pontos[1], "inicio"), (pontos[-1], pontos[-2], "fim")):
+            achado = _na_bandeja(ponta, bandejas, TOLERANCIA_SAIDA_MM)
+            if achado is None:
+                continue
+            bandeja, projecao, normal, _ = achado
+            altura = float(caminho.get("altura") or 0)
+            base, topo = float(bandeja["altura"]), float(bandeja["altura"]) + float(bandeja.get("aba") or 0)
+            horizontal = base - TOLERANCIA_ALTURA_MM <= altura <= topo + TOLERANCIA_ALTURA_MM
+            saida = {"tipo": "horizontal" if horizontal else "vertical",
+                     "peca": SAIDA_HORIZONTAL if horizontal else SAIDA_VERTICAL,
+                     "eletroduto": caminho.get("nome"), "bandeja": bandeja.get("nome"),
+                     "diametro": caminho.get("diametro"), "tipo_eletroduto": caminho.get("tipo"),
+                     "material": caminho.get("material"), "instalacao": caminho.get("instalacao"),
+                     "ponta": (float(ponta[0]), float(ponta[1]))}
+            if horizontal:
+                meia = float(bandeja["largura"]) / 2.0
+                saida["x"], saida["y"] = projecao[0] + normal[0] * meia, projecao[1] + normal[1] * meia
+            else:
+                saida["x"], saida["y"] = float(ponta[0]), float(ponta[1])
+                comprimento = math.hypot(vizinho[0] - ponta[0], vizinho[1] - ponta[1]) or 1.0
+                de, ate = (altura, base) if altura < base else (topo, altura)
+                raio = min(raio_da_curva(caminho.get("diametro"), caminho.get("tipo")), ate - de,
+                           0.9 * comprimento)
+                saida["descida"] = {
+                    "x": saida["x"], "y": saida["y"], "de": de, "ate": ate, "diametro": caminho.get("diametro"),
+                    "tipo": caminho.get("tipo"), "raio": round(raio, 1), "bandeja": bandeja.get("nome"),
+                    "bracos": [{"nome": caminho.get("nome"), "ponta": nome_ponta,
+                                "ux": (vizinho[0] - ponta[0]) / comprimento, "uy": (vizinho[1] - ponta[1]) / comprimento,
+                                "altura": altura, "diametro": caminho.get("diametro"), "tipo": caminho.get("tipo"),
+                                "material": caminho.get("material"), "instalacao": caminho.get("instalacao"),
+                                "comprimento": comprimento, "curva": True}],
+                }
+            resultado.append(saida)
+    return resultado
+
+
+def encaixar_nas_bandejas(caminhos, bandejas, tolerancia=TOLERANCIA_ENCAIXE_BANDEJA_MM):
+    """Leva à eletrocalha as pontas de eletroduto que pararam perto dela.
+
+    A ponta a até ``tolerancia`` da borda vai para a borda, se o eletroduto está na
+    altura da eletrocalha (saída horizontal), ou para a linha de centro, se está
+    acima ou abaixo (saída vertical) e caiu fora da largura. Pontas que já estão
+    sobre a eletrocalha, na saída vertical, ficam onde estão.
+
+    Returns:
+        (novos pontos de cada caminho, quantidade de pontas movidas).
+    """
+    novos, movidas = [], 0
+    for caminho in caminhos:
+        pontos = [(float(x), float(y)) for x, y in caminho["pontos"]]
+        for indice in ((0, len(pontos) - 1) if len(pontos) > 1 else ()):
+            achado = _na_bandeja(pontos[indice], bandejas, tolerancia)
+            if achado is None:
+                continue
+            bandeja, projecao, normal, distancia = achado
+            meia = float(bandeja["largura"]) / 2.0
+            altura = float(caminho.get("altura") or 0)
+            base, topo = float(bandeja["altura"]), float(bandeja["altura"]) + float(bandeja.get("aba") or 0)
+            if base - TOLERANCIA_ALTURA_MM <= altura <= topo + TOLERANCIA_ALTURA_MM:
+                alvo = (projecao[0] + normal[0] * meia, projecao[1] + normal[1] * meia)
+            elif distancia > meia:
+                alvo = projecao
+            else:
+                continue
+            if math.dist(alvo, pontos[indice]) > 1e-3:
+                pontos[indice] = (round(alvo[0], 6), round(alvo[1], 6))
+                movidas += 1
+        novos.append(pontos)
+    return novos, movidas
+
+
+def analisar(caminhos, caixas=(), eletrocalhas=()):
     """Peças, caixas de passagem que faltam e avisos dos eletrodutos de um pavimento.
 
     Args:
         caminhos: dicionários com ``pontos`` [(x, y)], ``tipo`` ('Flexível' ou
             'Rígido'), ``material``, ``instalacao``, ``diametro``, ``altura`` e ``nome``.
         caixas: posições (x, y) das caixas da planta (pontos, quadros, passagens).
+        eletrocalhas: eletrocalhas do pavimento, para as saídas (``saidas``).
     Returns:
         {'pecas': [{x, y, peca, diametro, tipo, material, instalacao}],
          'trechos': [{comprimento, diametro, tipo, material, instalacao, x1, y1, x2, y2, nome}],
          'caixas_novas': [{x, y, diametro}], 'avisos': [textos],
          'pontas_soltas': [{x, y, diametro, altura, nome}]} — pontas sem caixa, que podem
         ser prumadas para outro pavimento (``core.verticais.ligacoes_entre_pavimentos``),
-         'descidas': [{x, y, de, ate, diametro, tipo, raio, bracos}]} — ver ``_descida``.
+         'descidas': [{x, y, de, ate, diametro, tipo, raio, bracos}]} — ver ``_descida``, mais
+         as das saídas verticais de eletrocalha, e 'saidas' — ver ``saidas``.
     """
+    lista_saidas = saidas(caminhos, eletrocalhas)
     por_nome = {c.get("nome"): c for c in caminhos}
     rede = bandejas.Rede(TOLERANCIA_MM)
     for caminho in caminhos:
@@ -168,6 +297,8 @@ def analisar(caminhos, caixas=()):
             pecas += [peca(CURVA_VERTICAL, b) for b in descida["bracos"] if b["curva"] and b["tipo"] == "Rígido"]
             if len(ligados) == 2:
                 continue  # as duas curvas e a vertical fazem a ligação
+        if len(ligados) == 1 and any(math.dist(s["ponta"], (x, y)) <= TOLERANCIA_MM for s in lista_saidas):
+            continue  # a ponta chega a uma eletrocalha: é saída, não ponta solta
         if len(ligados) == 1:
             pontas_soltas.append({"x": x, "y": y, "diametro": ligados[0]["diametro"],
                                   "altura": float(ligados[0]["altura"] or 0), "nome": ligados[0]["nome"]})
@@ -197,8 +328,18 @@ def analisar(caminhos, caixas=()):
                 pecas.append({"x": x1 + ux * d, "y": y1 + uy * d, "peca": LUVA, "diametro": trecho["diametro"],
                               "tipo": trecho["tipo"], "material": trecho["material"],
                               "instalacao": trecho["instalacao"]})
+    for s in lista_saidas:
+        base = {"x": s["x"], "y": s["y"], "diametro": s["diametro"], "tipo": s["tipo_eletroduto"],
+                "material": s["material"], "instalacao": s["instalacao"]}
+        pecas.append(dict(base, peca=s["peca"]))
+        if s["tipo_eletroduto"] == "Rígido":
+            pecas.append(dict(base, peca=BUCHA))
+            if s["tipo"] == "vertical":
+                pecas.append(dict(base, peca=CURVA_VERTICAL))
+        if s.get("descida"):
+            descidas.append(s["descida"])
     return {"pecas": pecas, "trechos": trechos, "caixas_novas": caixas_novas, "avisos": avisos,
-            "pontas_soltas": pontas_soltas, "descidas": descidas}
+            "pontas_soltas": pontas_soltas, "descidas": descidas, "saidas": lista_saidas}
 
 
 def materiais(resultado):
@@ -210,7 +351,10 @@ def materiais(resultado):
         somas[chave] = somas.get(chave, 0) + quantidade
 
     for p in resultado["pecas"]:
-        somar(GRUPO, p["peca"], especificacao(p), "un", 1)
+        if p["peca"] in (SAIDA_HORIZONTAL, SAIDA_VERTICAL):
+            somar(GRUPO_BANDEJAS, p["peca"], f'Ø{p["diametro"]}"', "un", 1)
+        else:
+            somar(GRUPO, p["peca"], especificacao(p), "un", 1)
     for t in resultado["trechos"]:
         if t["instalacao"] == APARENTE and t["comprimento"] > 0:
             quantidade = math.ceil(t["comprimento"] / ESPACO_ABRACADEIRA_MM - 1e-9) + 1
@@ -245,6 +389,14 @@ def rotulos(caminhos, afastamento=120.0, evitar=(), distancia_minima=500.0):
         resultado.append((round(mx - uy * afastamento, 6), round(my + ux * afastamento, 6),
                           math.degrees(math.atan2(uy, ux)), f'Ø{caminho["diametro"]}"'))
     return resultado
+
+
+SIGLA_SAIDA = {"horizontal": "SH", "vertical": "SV"}
+
+
+def marcas_de_saida(resultado):
+    """Pontos das saídas de eletrocalha na planta: [(x, y, 'SH Ø3/4"')] (SH horizontal, SV vertical)."""
+    return [(s["x"], s["y"], f'{SIGLA_SAIDA[s["tipo"]]} Ø{s["diametro"]}"') for s in resultado.get("saidas", [])]
 
 
 def siglas(resultado):
