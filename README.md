@@ -222,6 +222,23 @@ O botão **Fiação** desenha na planta os traços de fase, neutro e terra ao la
 
 O encontro de dois eletrodutos em alturas diferentes entra nos quantitativos como eletroduto vertical.
 
+### Prumadas entre pavimentos (pelo teto ou pelo piso)
+
+Para levar um eletroduto ou uma eletrocalha de um pavimento a outro, desenhe o trecho de cada pavimento normalmente e deixe uma **ponta solta no mesmo ponto em planta** nos dois (a até 10 cm; use o snap). No eletroduto, ponta solta é a que não chega a uma caixa; na eletrocalha, a ponta que seria terminal. A bancada liga as duas pontas como prumada, com a vertical calculada pelas cotas dos pavimentos e pelas alturas de cada trecho, e trata cada pavimento assim:
+
+| Onde | Eletroduto | Eletrocalha | Texto |
+|---|---|---|---|
+| No pavimento (sobe ou desce até a caixa, teto ↔ piso) | círculo com seta | seção com uma diagonal e seta | `Ø3/4" desce 2,50 m` |
+| Pavimento de baixo: sai pelo **teto** | círculo duplo, seta saindo | seção com X, seta saindo | `Ø1" sobe ao 1º Pavimento 3,20 m` |
+| Pavimento de cima: entra pelo **piso** | círculo duplo, seta entrando | seção com X, seta entrando | `Ø1" desce ao Térreo 3,20 m` |
+| Pavimentos do meio: só **passa** | círculo duplo, seta atravessando | seção com X, seta atravessando | `Ø1" passa (Térreo → 2º Pavimento)` |
+
+- **Legenda:** ganha uma linha para cada um desses casos que aparece no projeto.
+- **Detalhar verticais:** desenha a prumada uma vez, com os pisos de todos os pavimentos que ela atravessa.
+- **Quantitativo:** conta a prumada uma vez, no pavimento de baixo: eletroduto vertical; na eletrocalha, metros, curvas verticais, emendas e suportes de parede. A ponta da eletrocalha que vira prumada deixa de contar terminal.
+- **Modelo 3D completo:** desenha a prumada atravessando a laje.
+- **Avisos:** o Eletroduto deixa de avisar "ponta solta" para as pontas que são prumada.
+
 ## Bandejas e leitos
 
 1. Desenhe o trajeto com linhas (o botão **Bandeja/leito** sem nada selecionado abre a ferramenta de linha). Um ramal que sai do meio de outra bandeja é desenhado com a ponta sobre ela.

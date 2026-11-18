@@ -77,7 +77,9 @@ def analisar(caminhos, caixas=()):
     Returns:
         {'pecas': [{x, y, peca, diametro, tipo, material, instalacao}],
          'trechos': [{comprimento, diametro, tipo, material, instalacao, x1, y1, x2, y2, nome}],
-         'caixas_novas': [{x, y, diametro}], 'avisos': [textos]}.
+         'caixas_novas': [{x, y, diametro}], 'avisos': [textos],
+         'pontas_soltas': [{x, y, diametro, altura, nome}]} — pontas sem caixa, que podem
+        ser prumadas para outro pavimento (``core.verticais.ligacoes_entre_pavimentos``).
     """
     rede = bandejas.Rede(TOLERANCIA_MM)
     for caminho in caminhos:
@@ -86,7 +88,7 @@ def analisar(caminhos, caixas=()):
         rede.adicionar(caminho["pontos"], dados)
     rede.dividir_derivacoes()
 
-    pecas, caixas_novas, avisos = [], [], []
+    pecas, caixas_novas, avisos, pontas_soltas = [], [], [], []
     for indice, (x, y) in enumerate(rede.nos):
         ligados = rede.ligados(indice)
         if not ligados:
@@ -100,6 +102,8 @@ def analisar(caminhos, caixas=()):
         if any(math.hypot(cx - x, cy - y) <= TOLERANCIA_MM for cx, cy in caixas):
             pecas += [peca(BUCHA, t) for t in ligados if t["tipo"] == "Rígido"]
         elif len(ligados) == 1:
+            pontas_soltas.append({"x": x, "y": y, "diametro": ligados[0]["diametro"],
+                                  "altura": float(ligados[0]["altura"] or 0), "nome": ligados[0]["nome"]})
             avisos.append(f"Eletroduto {ligados[0]['nome']}: ponta solta em ({x / 1000:.2f}; {y / 1000:.2f}) m, "
                           "sem caixa.")
         elif len(ligados) == 2:
@@ -126,7 +130,8 @@ def analisar(caminhos, caixas=()):
                 pecas.append({"x": x1 + ux * d, "y": y1 + uy * d, "peca": LUVA, "diametro": trecho["diametro"],
                               "tipo": trecho["tipo"], "material": trecho["material"],
                               "instalacao": trecho["instalacao"]})
-    return {"pecas": pecas, "trechos": trechos, "caixas_novas": caixas_novas, "avisos": avisos}
+    return {"pecas": pecas, "trechos": trechos, "caixas_novas": caixas_novas, "avisos": avisos,
+            "pontas_soltas": pontas_soltas}
 
 
 def materiais(resultado):

@@ -4,9 +4,10 @@ import os
 
 from freecad.Circuits.core import exportar as gravacao
 from freecad.Circuits.core import quantitativos as regras
+from freecad.Circuits.core import verticais as regras_verticais
 from freecad.Circuits.core import quadro as regras_quadro
 from freecad.Circuits.core.simbolos import ATERRAMENTO, CATALOGO, COMANDO, PASSAGEM, QUADRO
-from freecad.Circuits.services import bandejas, eletrodutos_planta, pavimentos, planilhas, rede
+from freecad.Circuits.services import bandejas, eletrodutos_planta, pavimentos, planilhas, rede, verticais
 from freecad.Circuits.services.tomadas import listar_tomadas
 
 EXTENSOES = (".csv", ".xlsx", ".pdf")
@@ -146,11 +147,23 @@ def _componentes_por_quadro(doc):
 
 
 def _bandejas(doc):
-    """(pavimento, itens) das bandejas, conexões e suportes (``services.bandejas``)."""
+    """(pavimento, itens) das bandejas, conexões e suportes (``services.bandejas``), sem terminal nas prumadas."""
     try:
-        return bandejas.materiais_por_pavimento(doc)
+        return bandejas.materiais_por_pavimento(doc, sem_terminal=verticais.pontas_de_prumada(doc, "eletrocalha"))
     except Exception:
         return []
+
+
+def _prumadas(doc):
+    """(verticais de eletroduto, [(pavimento, componentes de eletrocalha)]) das prumadas entre pavimentos."""
+    try:
+        verticais_eletroduto, componentes = regras_verticais.materiais_prumadas(verticais.prumadas(doc))
+    except Exception:
+        return [], []
+    por_pavimento = {}
+    for c in componentes:
+        por_pavimento.setdefault(c["pavimento"], []).append({k: v for k, v in c.items() if k != "pavimento"})
+    return verticais_eletroduto, list(por_pavimento.items())
 
 
 def _pecas_eletrodutos(doc):
@@ -196,7 +209,8 @@ def levantar_por_pavimento(doc, fiacao=None):
         de(ponto.get("pavimento", ""))["pontos"].append(ponto)
     for pavimento, diametro, comprimento in _eletrodutos(doc):
         de(pavimento)["eletrodutos"].append((diametro, comprimento))
-    for pavimento, itens in _componentes_por_quadro(doc) + _bandejas(doc) + _pecas_eletrodutos(doc):
+    prumadas_eletroduto, prumadas_eletrocalha = _prumadas(doc)
+    for pavimento, itens in _componentes_por_quadro(doc) + _bandejas(doc) + _pecas_eletrodutos(doc) + prumadas_eletrocalha:
         de(pavimento)["componentes"].extend(itens)
     condutores, conectores = _aterramento(doc)
     for pavimento, secao, comprimento in condutores:
@@ -205,7 +219,8 @@ def levantar_por_pavimento(doc, fiacao=None):
         de(pavimento)["componentes"].append(_conector(quantidade))
     for pavimento, fios in fiacao.get("fios_por_pavimento", {}).items():
         de(pavimento)["fios"] = fios
-    for vertical in fiacao["verticais"] + fiacao.get("transicoes", []):  # e as mudanças de altura entre eletrodutos
+    # as verticais até as caixas, as mudanças de altura entre eletrodutos e as prumadas (no pavimento de baixo)
+    for vertical in fiacao["verticais"] + fiacao.get("transicoes", []) + prumadas_eletroduto:
         de(vertical.get("pavimento", ""))["verticais"].append(vertical)
 
     resultado = []
@@ -230,10 +245,13 @@ def levantar(doc):
     componentes = coletar_componentes_quadros(doc)
     if conectores:
         componentes = componentes + [_conector(conectores)]
-    componentes = componentes + [item for _, itens in _bandejas(doc) + _pecas_eletrodutos(doc) for item in itens]
+    prumadas_eletroduto, prumadas_eletrocalha = _prumadas(doc)
+    componentes = componentes + [item for _, itens in _bandejas(doc) + _pecas_eletrodutos(doc) + prumadas_eletrocalha
+                                 for item in itens]
     linhas = regras.montar(
         coletar_pontos(doc), coletar_eletrodutos(doc), componentes,
-        fios=fiacao["fios"], verticais=fiacao["verticais"] + fiacao.get("transicoes", []), aterramento=condutores,
+        fios=fiacao["fios"], verticais=fiacao["verticais"] + fiacao.get("transicoes", []) + prumadas_eletroduto,
+        aterramento=condutores,
     )
     return linhas, fiacao
 

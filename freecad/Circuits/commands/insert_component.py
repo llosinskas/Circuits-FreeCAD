@@ -8,7 +8,7 @@ from freecad.Circuits.objects.lighting import create_lighting
 from freecad.Circuits.objects.outlet import create_outlet
 from freecad.Circuits.objects.switch import create_switch
 from freecad.Circuits.qt import QtCore, QtWidgets
-from freecad.Circuits.services import alinhamento, eletrodutos_planta, pavimentos, rede
+from freecad.Circuits.services import alinhamento, eletrodutos_planta, pavimentos, rede, verticais
 from freecad.Circuits.services.tomadas import criar_tug
 from freecad.Circuits.UI.dialogs.ComponentInserter import ComponentInserter, ComponentInsertionMode
 from freecad.Circuits.UI.dialogs.eletroduto_dialog import EletrodutoDialog
@@ -237,7 +237,7 @@ class Conduit:
         except Exception:
             doc.abortTransaction()
             raise
-        avisos = [a for r in eletrodutos_planta.analisar(doc).values() for a in r["avisos"]]
+        avisos = verticais.avisos_de_pontas_soltas(doc)  # a ponta que é prumada para outro pavimento não é aviso
         linhas_msg = [f"{len(marcados)} eletroduto(s); {juncoes} junção(ões) entre eletrodutos; "
                       f"{caixas_ligadas} caixa(s) ligada(s); {caixas_novas} caixa(s) de passagem criada(s); "
                       f"{textos} texto(s) na planta."]

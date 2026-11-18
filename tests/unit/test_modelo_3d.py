@@ -31,9 +31,11 @@ class TestModelo3D(unittest.TestCase):
                 mock.patch.object(s.eletrodutos, "gerar_tubos", return_value=1) as tubos, \
                 mock.patch.object(s.bandejas, "listar", return_value=["b"]), \
                 mock.patch.object(s.bandejas, "gerar_3d", return_value=1) as bandejas_3d, \
-                mock.patch.object(s.bandejas, "gerar_suportes", return_value={"Térreo": 4}) as suportes:
+                mock.patch.object(s.bandejas, "gerar_suportes", return_value={"Térreo": 4}) as suportes, \
+                mock.patch.object(s.verticais, "gerar_3d_prumadas", return_value=3) as prumadas:
             feito = s.gerar_tudo("doc")
-        self.assertEqual(feito, {"caixas": 2, "eletrodutos": 1, "bandejas": 1, "suportes": 4})
+        self.assertEqual(feito, {"caixas": 2, "eletrodutos": 1, "bandejas": 1, "suportes": 4, "prumadas": 3})
+        prumadas.assert_called_once_with("doc")
         caixas.assert_called_once_with("doc", ["p1", "p2"], [tug])  # a TUG em Sketch já tem caixa aqui
         tubos.assert_called_once_with("doc", [conduite])  # também as linhas marcadas, não só ConduitPath
         bandejas_3d.assert_called_once_with("doc")
@@ -46,7 +48,8 @@ class TestModelo3D(unittest.TestCase):
                 mock.patch.object(s.rede, "listar_eletrodutos", return_value=[]), \
                 mock.patch.object(s.eletrodutos, "gerar_tubos") as tubos, \
                 mock.patch.object(s.bandejas, "listar", return_value=[]), \
-                mock.patch.object(s.bandejas, "gerar_3d") as bandejas_3d:
+                mock.patch.object(s.bandejas, "gerar_3d") as bandejas_3d, \
+                mock.patch.object(s.verticais, "gerar_3d_prumadas", return_value=0):
             self.assertEqual(sum(s.gerar_tudo("doc").values()), 0)
         caixas.assert_not_called()
         tubos.assert_not_called()

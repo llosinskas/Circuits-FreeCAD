@@ -330,6 +330,23 @@ def scenario(doc):
     }
     result["steps"]["eletrodutos"] = [o for o in snapshot(doc) if o["name"].startswith("Wire")]
 
+    # Prumada: ponta solta no Térreo e outra no mesmo ponto em planta no 1º Pavimento
+    sobe = Draft.make_wire([App.Vector(-3000, -2000, 0), App.Vector(-3000, -4000, 0)])
+    doc.recompute()
+    Gui.Selection.addSelection(sobe)
+    run("InsertConduit")
+    Gui.Selection.clearSelection()
+    pav.definir(doc, "1º Pavimento", 3000.0, 3000.0)  # ativa o de cima para a próxima linha
+    chega = Draft.make_wire([App.Vector(-3000, -4000, 3000), App.Vector(-1000, -4000, 3000)])
+    doc.recompute()
+    Gui.Selection.addSelection(chega)
+    run("InsertConduit")
+    Gui.Selection.clearSelection()
+    pav.definir(doc, "Térreo", 0.0, 3000.0)
+    verticais_servico = importlib.import_module("freecad.Circuits.services.verticais")
+    result["steps"]["prumadas"] = sorted((i["pavimento"], i["nivel"], i["destino"])
+                                         for i in verticais_servico.prumadas(doc))
+
     bandeja_dialogo = locate("freecad.Circuits.UI.dialogs.bandeja_dialog:BandejaDialog")
     bandeja_dialogo.exec_ = lambda self: 1
     tronco = Draft.make_wire([App.Vector(0, 3000, 0), App.Vector(6000, 3000, 0), App.Vector(6000, 6000, 0)])

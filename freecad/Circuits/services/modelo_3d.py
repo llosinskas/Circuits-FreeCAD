@@ -1,5 +1,5 @@
 """Modelo 3D completo num botão só: caixas, eletrodutos, eletrocalhas e suportes."""
-from freecad.Circuits.services import bandejas, caixas_3d, eletrodutos, rede
+from freecad.Circuits.services import bandejas, caixas_3d, eletrodutos, rede, verticais
 
 
 def gerar_tudo(doc):
@@ -8,12 +8,13 @@ def gerar_tudo(doc):
     - caixas de todos os símbolos e das tomadas TUG antigas (``caixas_3d``):
       tomadas dentro da parede, atrás do ponto de inserção;
     - tubos de todos os eletrodutos, inclusive as linhas do Draft marcadas;
-    - eletrocalhas e leitos com as curvas, tês e reduções, e os suportes.
+    - eletrocalhas e leitos com as curvas, tês e reduções, e os suportes;
+    - prumadas entre pavimentos, atravessando a laje.
 
     Returns:
-        {'caixas', 'eletrodutos', 'bandejas', 'suportes'}: quantidades geradas.
+        {'caixas', 'eletrodutos', 'bandejas', 'suportes', 'prumadas'}: quantidades geradas.
     """
-    feito = {"caixas": 0, "eletrodutos": 0, "bandejas": 0, "suportes": 0}
+    feito = {"caixas": 0, "eletrodutos": 0, "bandejas": 0, "suportes": 0, "prumadas": 0}
     objetos, em_sketch = caixas_3d.listar_alvos(doc)
     if objetos or em_sketch:
         feito["caixas"] = caixas_3d.gerar_caixas(doc, objetos, em_sketch)
@@ -23,4 +24,5 @@ def gerar_tudo(doc):
     if bandejas.listar(doc):
         feito["bandejas"] = bandejas.gerar_3d(doc)
         feito["suportes"] = sum(bandejas.gerar_suportes(doc).values())
+    feito["prumadas"] = verticais.gerar_3d_prumadas(doc)
     return feito

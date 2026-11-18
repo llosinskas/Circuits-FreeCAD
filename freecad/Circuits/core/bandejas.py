@@ -472,7 +472,7 @@ def _lados(peca):
     return {TE: 3, CRUZETA: 4}.get(peca, 2)
 
 
-def materiais(resultado, pe_direito_mm=3000.0, com_suportes=True):
+def materiais(resultado, pe_direito_mm=3000.0, com_suportes=True, sem_terminal=()):
     """Itens do quantitativo das bandejas, no formato dos componentes de ``core.quantitativos.montar``.
 
     Grupos: "Bandejas e leitos" (metros, peças, emendas, tampa), "Suportes"
@@ -483,6 +483,7 @@ def materiais(resultado, pe_direito_mm=3000.0, com_suportes=True):
         resultado: saída de ``analisar``.
         pe_direito_mm: do piso à laje de cima; o tirante vai da laje à base da bandeja.
         com_suportes: inclui os materiais dos suportes e da fixação deles.
+        sem_terminal: posições (x, y) de pontas que são prumadas: não levam terminal.
     """
     somas = {}
 
@@ -503,6 +504,9 @@ def materiais(resultado, pe_direito_mm=3000.0, com_suportes=True):
         if trecho.get("tampa"):
             somar(GRUPO, "Tampa de encaixe", f"largura {float(trecho['largura']):g} mm", "m", metros)
     for conexao in resultado["conexoes"]:
+        if conexao["peca"] == TERMINAL and any(math.hypot(conexao["x"] - x, conexao["y"] - y) <= TOLERANCIA_MM
+                                               for x, y in sem_terminal):
+            continue  # a ponta continua como prumada para outro pavimento
         secao = medida(conexao["largura"], conexao["aba"])
         especificacao = f"{nome_do_tipo(conexao['tipo'])} {secao}"
         if conexao["peca"] == REDUCAO:

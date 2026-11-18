@@ -98,9 +98,15 @@ def pe_direito(doc, nome):
     return pavimentos.altura(pav) if pav is not None else regras.ALTURA_PADRAO_MM + 200.0
 
 
-def materiais_por_pavimento(doc):
-    """[(pavimento, itens de ``core.bandejas.materiais``)] das bandejas, conexões e suportes."""
-    return [(pav, regras.materiais(resultado, pe_direito(doc, pav))) for pav, resultado in analisar(doc).items()]
+def materiais_por_pavimento(doc, sem_terminal=None):
+    """[(pavimento, itens de ``core.bandejas.materiais``)] das bandejas, conexões e suportes.
+
+    Args:
+        sem_terminal: {pavimento: [(x, y)]} das pontas que são prumadas (sem terminal).
+    """
+    sem_terminal = sem_terminal or {}
+    return [(pav, regras.materiais(resultado, pe_direito(doc, pav), sem_terminal=sem_terminal.get(pav, ())))
+            for pav, resultado in analisar(doc).items()]
 
 
 # --- 3D ----------------------------------------------------------------------

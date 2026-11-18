@@ -6,6 +6,9 @@
   do pavimento. Recriados a cada uso.
 - ``desenhar_detalhes``: grupo ``Detalhes_verticais`` com um detalhe em
   elevação por tipo de vertical (V1, V2...), recriado na posição em que estava.
+- Prumadas: pontas soltas de eletroduto e terminais de eletrocalha no mesmo
+  ponto em planta, em pavimentos diferentes (``prumadas``); ``gerar_3d_prumadas``
+  faz o 3D delas, com a propriedade ``prumada_3d``.
 """
 import math
 
@@ -14,7 +17,7 @@ import FreeCAD as App
 import Part
 
 from freecad.Circuits.core import verticais as regras
-from freecad.Circuits.services import bandejas, legenda, parametros, pavimentos, rede
+from freecad.Circuits.services import bandejas, eletrodutos_planta, legenda, parametros, pavimentos, rede
 
 GRUPO_DETALHES = "Detalhes_verticais"
 TAMANHO_SIMBOLO = 300.0
@@ -23,8 +26,87 @@ ESPACO_ENTRE_DETALHES = 500.0
 _PASTA_DO_TIPO = {"eletroduto": "eletrodutos", "eletrocalha": "bandejas"}
 
 
+def _cotas(doc):
+    """{nome do pavimento: cota do piso [mm]}."""
+    return {pav.Label: pavimentos.elevacao(pav) for pav in pavimentos.listar(doc)}
+
+
+def _pontas(doc):
+    """Pontas soltas de eletrodutos e terminais de eletrocalhas, em todos os pavimentos."""
+    pontas = []
+    for pav, resultado in eletrodutos_planta.analisar(doc).items():
+        pontas += [dict(p, tipo="eletroduto", pavimento=pav) for p in resultado.get("pontas_soltas", [])]
+    for pav, resultado in bandejas.analisar(doc).items():
+        for c in resultado.get("conexoes", []):
+            if c["peca"] == regras.bandejas.TERMINAL:
+                pontas.append({"tipo": "eletrocalha", "x": c["x"], "y": c["y"], "pavimento": pav, "altura": c["altura"],
+                               "largura": float(c["largura"]), "aba": float(c["aba"]), "tipo_bandeja": c["tipo"],
+                               "angulo": c["angulo"], "nome": f"{regras.bandejas.nome_do_tipo(c['tipo'])}"})
+    return pontas
+
+
+def prumadas(doc):
+    """Itens das prumadas entre pavimentos (``core.verticais.ligacoes_entre_pavimentos``)."""
+    return regras.ligacoes_entre_pavimentos(_pontas(doc), _cotas(doc))
+
+
+def pontas_de_prumada(doc, tipo=None):
+    """{pavimento: [(x, y)]} das pontas que viraram prumada (para não contar terminal nem avisar)."""
+    resultado = {}
+    for item in prumadas(doc):
+        if item["nivel"] in (regras.TETO, regras.PISO) and tipo in (None, item["tipo"]):
+            resultado.setdefault(item["pavimento"], []).append((item["x"], item["y"]))
+    return resultado
+
+
+def avisos_de_pontas_soltas(doc):
+    """Avisos das pontas de eletroduto sem caixa que também não são prumada."""
+    em_prumada = pontas_de_prumada(doc, "eletroduto")
+    avisos = []
+    for pav, resultado in eletrodutos_planta.analisar(doc).items():
+        for p in resultado.get("pontas_soltas", []):
+            if any(abs(p["x"] - x) <= regras.TOLERANCIA_PRUMADA_MM and abs(p["y"] - y) <= regras.TOLERANCIA_PRUMADA_MM
+                   for x, y in em_prumada.get(pav, [])):
+                continue
+            avisos.append(f"Eletroduto {p['nome']}: ponta solta em ({p['x'] / 1000:.2f}; {p['y'] / 1000:.2f}) m"
+                          f"{' no ' + pav if pav else ''}, sem caixa e sem prumada.")
+    return avisos
+
+
+def gerar_3d_prumadas(doc):
+    """Recria o 3D de cada prumada: tubo do eletroduto ou eletrocalha vertical, atravessando a laje.
+
+    Returns:
+        Quantidade de prumadas modeladas.
+    """
+    _remover_marcados(doc, "prumada_3d")
+    cotas = _cotas(doc)
+    feitas = 0
+    for item in prumadas(doc):
+        if item["nivel"] != regras.TETO:
+            continue
+        piso = cotas.get(item["pavimento"], 0.0)
+        if item["tipo"] == "eletroduto":
+            raio = regras.DIAMETROS_EXTERNOS.get(item["diametro"], regras.DIAMETRO_PADRAO) / 2
+            forma = Part.makeCylinder(raio, item["ate"] - item["de"], App.Vector(item["x"], item["y"], piso + item["de"]))
+        else:
+            blocos = regras.blocos_da_vertical(item["largura"], item["aba"], item["de"], item["ate"])
+            forma = Part.makeCompound(bandejas._solido(blocos, item["x"], item["y"], piso, item["angulo"]))
+        objeto = doc.addObject("Part::Feature", f"Prumada_{feitas}")
+        objeto.Shape = forma
+        objeto.Label = f"Prumada {regras.texto(item)}"
+        objeto.addProperty("App::PropertyString", "prumada_3d", "Verticais", "Prumada entre pavimentos")
+        objeto.prumada_3d = f"{item['pavimento']} → {item['destino']}"
+        pav = pavimentos.por_nome(doc, item["pavimento"]) if item["pavimento"] else None
+        if pav is not None:
+            pavimentos.pasta(doc, pav, _PASTA_DO_TIPO[item["tipo"]]).addObject(objeto)
+        feitas += 1
+    doc.recompute()
+    return feitas
+
+
 def coletar(doc, com_caixas=None):
-    """Itens verticais do documento (``core.verticais``).
+    """Itens verticais do documento (``core.verticais``): no pavimento e prumadas entre pavimentos.
 
     Args:
         com_caixas: inclui as descidas e subidas até as caixas; None segue o
@@ -36,7 +118,7 @@ def coletar(doc, com_caixas=None):
     itens = regras.itens_de_eletroduto(fiacao["verticais"] if com_caixas else [], fiacao.get("transicoes", []))
     for pav, resultado in bandejas.analisar(doc).items():
         itens += regras.itens_de_eletrocalha([dict(v, pavimento=pav) for v in resultado["verticais"]])
-    return itens
+    return itens + prumadas(doc)
 
 
 def _pavimento(doc, nome):

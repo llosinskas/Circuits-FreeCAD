@@ -37,7 +37,19 @@ def itens_da_legenda(doc, tamanho=TAMANHO_PADRAO):
         legenda, dica = simbolos.INTERRUPTORES[tipo]
         chave = "interruptor_" + {"Simples": "simples", "Paralelo": "paralelo"}.get(tipo, "intermediario")
         itens.append((chave, simbolos.geometria_interruptor(tipo, tamanho), f"{legenda} - {dica}"))
-    return itens
+    return itens + _itens_de_verticais(doc, tamanho)
+
+
+def _itens_de_verticais(doc, tamanho):
+    """Tipos de subida, descida e prumada usados (``core.verticais.itens_de_legenda``)."""
+    from freecad.Circuits.core import verticais as regras_verticais
+    from freecad.Circuits.services import verticais  # aqui, porque verticais também usa a legenda
+    try:
+        itens = verticais.coletar(doc)
+    except Exception as erro:  # sem rede legível, a legenda sai só com os símbolos
+        App.Console.PrintWarning(f"Legenda sem as verticais: {erro}\n")
+        return []
+    return regras_verticais.itens_de_legenda(itens, tamanho * 1.5)
 
 
 def _canto_livre(doc):
