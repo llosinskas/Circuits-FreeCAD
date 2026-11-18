@@ -5,6 +5,7 @@ import Draft
 import FreeCAD as App
 import Part
 
+from freecad.Circuits.core import multifilar as desenho_multifilar
 from freecad.Circuits.core import quadro as regras_quadro
 from freecad.Circuits.core.functions.Predial import gerador as regras_gerador
 from freecad.Circuits.core import simbolos
@@ -303,8 +304,8 @@ def _desenhar_forma(doc, forma, grupo, nome):
     for cx, cy, raio in forma["circulos"]:
         sketch.addGeometry(Part.Circle(App.Vector(cx, cy, 0), eixo, raio), False)
     grupo.addObject(sketch)
-    for x, y, texto, altura in forma["textos"]:
-        add_texto(texto, App.Vector(x, y, 0), 0, altura, grupo)
+    for x, y, texto, altura, *angulo in forma["textos"]:
+        add_texto(texto, App.Vector(x, y, 0), angulo[0] if angulo else 0, altura, grupo)
 
 
 POSICAO_GERADOR = (-32, 0)  # em alturas de texto: à esquerda dos diagramas dos quadros
@@ -380,3 +381,48 @@ def gerar_diagrama_gerador(doc, h=ALTURA_PADRAO):
     _deslocar(grupo, posicao)
     doc.recompute()
     return grupo
+
+
+X_MULTIFILAR = 60  # em alturas de texto: os multifilares ficam à direita dos unifilares
+
+
+def gerar_multifilares(doc, quadros, h=ALTURA_PADRAO):
+    """Recria o diagrama multifilar de cada quadro (``core.multifilar``).
+
+    Cada um é um grupo ``multifilar_<quadro>`` com a propriedade ``multifilar_de``
+    (nome da planilha do quadro) e ``base_diagrama``, na pasta do quadro. Ficam
+    empilhados à direita dos unifilares; o que o usuário moveu volta no mesmo lugar.
+
+    Returns:
+        Quantidade de diagramas desenhados.
+    """
+    topo, feitos = 0.0, 0
+    for quadro in quadros:
+        posicao = App.Vector(X_MULTIFILAR * h, -topo, 0)
+        for antigo in [o for o in doc.Objects if getattr(o, "multifilar_de", None) == quadro.Name]:
+            sketch = next((o for o in antigo.Group if o.TypeId == "Sketcher::SketchObject"), None)
+            if sketch is not None:
+                posicao = sketch.Placement.Base  # mantém onde o usuário deixou
+            nome = antigo.Name
+            antigo.removeObjectsFromDocument()
+            doc.removeObject(nome)
+        try:
+            dados = planilhas.ler_quadro(quadro)
+            circuitos = planilhas.ler_circuitos_completos(quadro)
+            forma = desenho_multifilar.geometria(dados, circuitos, h)
+        except Exception as e:
+            App.Console.PrintWarning(f"Não foi possível montar o multifilar do quadro {quadro.Label}: {e}\n")
+            continue
+        grupo = doc.addObject("App::DocumentObjectGroup", "multifilar")
+        grupo.Label = f"multifilar_{quadro.Label}"
+        grupo.addProperty("App::PropertyString", "multifilar_de", "Diagrama", "Planilha do quadro que gerou o diagrama")
+        grupo.multifilar_de = quadro.Name
+        grupo.addProperty("App::PropertyVector", "base_diagrama", "Diagrama", "Origem do diagrama")
+        grupo.base_diagrama = posicao
+        pavimentos.guardar_junto(quadro, grupo)
+        _desenhar_forma(doc, forma, grupo, "Multifilar")
+        _deslocar(grupo, posicao)
+        topo += forma["altura"] + 4 * h
+        feitos += 1
+    doc.recompute()
+    return feitos

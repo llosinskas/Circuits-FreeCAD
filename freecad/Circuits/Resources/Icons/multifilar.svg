@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64">
+  <!-- Multifilar: barramentos R, S, T, N e circuitos descendo com um condutor por fase -->
+  <path d="M4 8H60M4 15H60M4 22H60M4 29H60M14 8V58M22 29V58M42 15V58M50 22V58" fill="none" stroke-linecap="round" stroke="#ffffff" stroke-width="6" stroke-opacity="0.85"/>
+  <path d="M4 8H60M4 15H60M4 22H60M4 29H60" fill="none" stroke-linecap="round" stroke="#5f6368" stroke-width="2.5"/>
+  <path d="M14 8V36M14 46V58M22 29V58M42 15V36M42 46V58M50 22V36M50 46V58" fill="none" stroke-linecap="round" stroke="#1a73e8" stroke-width="2.5"/>
+  <path d="M14 36A5 5 0 0 1 14 46M42 36A5 5 0 0 1 42 46M50 36A5 5 0 0 1 50 46" fill="none" stroke="#1a73e8" stroke-width="2.5"/>
+</svg>

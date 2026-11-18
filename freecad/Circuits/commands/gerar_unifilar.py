@@ -250,6 +250,27 @@ class BalancearFases:
         )
 
 
+class GerarMultifilar:
+    """Gera o diagrama multifilar de cada quadro: um condutor por fase, neutro e terra."""
+
+    def Activated(self):
+        doc = documento_ou_aviso()
+        if doc:
+            feitos = unifilar.gerar_multifilares(doc, _quadros_ou_criar(doc))
+            App.Console.PrintMessage(f"{feitos} diagrama(s) multifilar(es) gerado(s).\n")
+
+    def IsActive(self):
+        return True
+
+    def GetResources(self):
+        return recursos(
+            "multifilar.svg",
+            "Multifilar",
+            "Gera o diagrama multifilar de cada quadro: barramentos R, S, T, N e PE, e cada circuito com um "
+            "condutor por fase, neutro e terra, os polos do disjuntor e o DR",
+        )
+
+
 class AddCircuito:
     def Activated(self):
         doc = documento_ou_aviso()
@@ -274,6 +295,7 @@ class AddCircuito:
 
 Gui.addCommand("AddCircuito", AddCircuito())
 Gui.addCommand("BalancearFases", BalancearFases())
+Gui.addCommand("GerarMultifilar", GerarMultifilar())
 Gui.addCommand("CircuitosQuadro", CircuitosQuadro())
 Gui.addCommand("MontarCircuitos", MontarCircuitos())
 Gui.addCommand("ComponentesQuadro", ComponentesQuadro())

@@ -457,6 +457,8 @@ def scenario_extras(doc):
     attempt("gerador", gerador)
     attempt("balancear_fases", lambda: [sorted(r["depois"].items()) if r else None for r in (
         module("services.planilhas").balancear_fases(q) for q in module("services.planilhas").listar_quadros(doc))])
+    attempt("multifilar", lambda: module("services.unifilar").gerar_multifilares(
+        doc, module("services.planilhas").listar_quadros(doc)))
     attempt("descidas", lambda: [len(module("services.eletrodutos_planta").descidas(doc)),
                                  module("services.eletrodutos").gerar_descidas(doc)])
     attempt("dialogo_relatorio", lambda: sorted(module("UI.dialogs.report_dialog").ReportDialog().get_opcoes()))

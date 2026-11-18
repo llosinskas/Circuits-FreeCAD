@@ -157,6 +157,29 @@ class TestServico(unittest.TestCase):
         self.assertEqual((posicao.x, posicao.y), (-320, -1000 + 25 + 20))  # saída (y = −2 h) na entrada (2,5 h)
         self.assertIn("Alimenta QGBT", [c.args[0] for c in texto.call_args_list])
 
+    def test_multifilar_recria_um_grupo_por_quadro(self):
+        quadro = mock.MagicMock(spec=["Name", "Label", "quadro"])
+        quadro.Name, quadro.Label = "Sheet", "QD1"
+        antigo = mock.MagicMock(spec=["Name", "Group", "removeObjectsFromDocument", "multifilar_de"], Group=[],
+                                multifilar_de="Sheet")
+        antigo.Name = "multifilar_velho"
+        doc, criados = self._doc(antigo)
+        circuito = {"N_circuito": "1", "Destino": "Tomadas", "Potencia": "1000", "Fase_R": "True", "Fase_S": "False",
+                    "Fase_T": "False", "DR": "True", "Neutro": "True", "Terra": "True", "Cabo": "2.5",
+                    "Disjuntor": "16", "Curva": "C", "Corrente_DR": "30"}
+        with mock.patch.object(self.servico.planilhas, "ler_quadro", return_value={"numero_fases": "3"}), \
+                mock.patch.object(self.servico.planilhas, "ler_circuitos_completos", return_value=[circuito]), \
+                mock.patch.object(self.servico, "add_texto") as texto:
+            self.assertEqual(self.servico.gerar_multifilares(doc, [quadro], 10), 1)
+        doc.removeObject.assert_called_once_with("multifilar_velho")
+        grupo = criados[0]
+        self.assertEqual(grupo.multifilar_de, "Sheet")
+        escritos = [c.args[0] for c in texto.call_args_list]
+        self.assertIn("C1", escritos)
+        self.assertIn("DR 30mA", escritos)
+        descricao = next(c for c in texto.call_args_list if c.args[0] == "Tomadas")
+        self.assertEqual(descricao.args[2], -90.0)
+
 
 if __name__ == "__main__":
     unittest.main()

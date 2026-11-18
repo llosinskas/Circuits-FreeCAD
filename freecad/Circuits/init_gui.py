@@ -125,7 +125,7 @@ INFRA_TOOLS = [
 BOARD_DATA_TOOLS = ["GerarPlanilha", "CircuitosQuadro", "AddCircuito", "BalancearFases"]
 BOARD_TOOLS = [
     "GerarPlanilha", "CircuitosQuadro", "AddCircuito", "BalancearFases", "MontarCircuitos", "ComponentesQuadro",
-    "GerarUnifilar",
+    "GerarUnifilar", "GerarMultifilar",
 ]
 CALC_TOOLS = ["CalcDemanda", "CalcGerador", "CalcPressurizacao", "CalcRecalque"]
 DOCUMENT_TOOLS = [
@@ -206,6 +206,7 @@ ELECTRIC_TOOLBARS = [
             "MontarCircuitos",
             "ComponentesQuadro",
             "GerarUnifilar",
+            "GerarMultifilar",
             "Grupo_Calculos",
             "Grupo_Documentos",
         ],
