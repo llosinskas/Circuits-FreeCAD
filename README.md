@@ -7,7 +7,7 @@ Bancada **Engenharia** para o FreeCAD 1.1: do desenho dos pontos na planta até 
 - Planilha de circuitos por quadro, diagrama unifilar e lista de componentes do quadro.
 - Rede de eletrodutos ligada às caixas, com contagem de fios e lista de verticais.
 - Quantitativo de materiais em CSV, XLSX e PDF.
-- Cálculos prediais: demanda, luminotécnico, pressurização de escada e bomba de recalque.
+- Cálculos prediais: demanda, gerador diesel, luminotécnico, pressurização de escada e bomba de recalque.
 - Integração com os níveis da bancada BIM e geração 3D de caixas e eletrodutos.
 
 > **Estado do projeto:** em desenvolvimento. A lógica tem testes automáticos, mas boa parte das funções novas ainda não foi validada no FreeCAD por um usuário. Os dimensionamentos são simplificados: leia [Limitações](#limitações) antes de usar um resultado em projeto real.
@@ -311,10 +311,27 @@ O botão **Aterramento** da barra *Planta elétrica* reúne:
 | Cálculo | O que faz |
 |---|---|
 | Demanda | Aplica fatores de demanda residenciais aos circuitos e grava no quadro |
+| Gerador diesel | Potência do gerador pelas cargas, demanda, diversidade e partida do maior motor; disjuntor, cabos, neutro, PE e tanque de diesel |
 | Luminotécnico | Método dos lúmens: quantidade, malha e iluminância; distribui as luminárias no retângulo selecionado |
 | Pressurização | Vazão de ar da escada (portas fechadas e abertas), ventilador e motor |
 | Bomba de recalque | Vazão, tubo, altura manométrica e motor |
 | Resistência de terra | Resistência das hastes em linha e número de hastes (no botão Aterramento) |
+
+### Gerador diesel
+
+1. Clique em **Cálculos > Gerador diesel**. Na primeira vez, a bancada cria a planilha **Cargas do gerador**, com uma linha por quadro do projeto (a potência instalada e o fator de demanda vêm do botão Demanda; sem ele, da soma dos circuitos) ou, sem quadros, com cargas de exemplo.
+2. Revise a planilha, uma carga por linha: descrição, tipo, quantidade, potência de cada uma, unidade (kW, kVA ou cv), fator de potência, fator de demanda, partida do motor e se vai no gerador (S/N). Em branco valem quantidade 1, o fator de potência típico do tipo, demanda 1 e partida direta. Ponha N nas cargas que não são essenciais.
+3. Clique de novo. O formulário pede tensão, regime (emergência ou prime), fator de diversidade e comprimento do cabo até o quadro de transferência; o resto fica nas opções avançadas.
+
+O gerador escolhido é o primeiro da lista comercial que atende os três critérios, e o relatório mostra qual decidiu:
+
+| Critério | Conta |
+|---|---|
+| Demanda em kVA | soma das demandas ÷ diversidade, com as cargas não lineares (nobreak, eletrônica, inversores) valendo 1,5 vez, dividida pelo carregamento máximo (80 % em emergência, 70 % em prime) |
+| Demanda em kW | o gerador é de FP 0,8: kW da demanda ÷ (0,8 × carregamento) |
+| Partida do maior motor | afundamento de tensão ΔV = x″d·Sp/(Sg + x″d·Sp) até o admissível (20 %); Sp = kVA do motor × 6 (direta), 2 (estrela-triângulo), 2,6 (compensadora), 3 (soft-starter) ou 1 (inversor) |
+
+A altitude acima de 1000 m e a temperatura da sala acima de 40 °C reduzem a potência disponível. Com o gerador, o cálculo dá a corrente nominal, o disjuntor, os cabos de cobre por fase (cabos em paralelo acima de 300 mm²; capacidade da NBR 5410 com temperatura e agrupamento, e queda até a transferência), neutro igual à fase, PE pela tabela 58, o curto estimado nos terminais e o tanque para a autonomia escolhida. **Gravar na planilha** escreve o resumo nas colunas K e L.
 
 Os formulários mostram poucas perguntas, com listas de opções prontas; o resto fica em **Opções avançadas**. O resultado é recalculado a cada mudança, e os valores usados voltam na próxima vez. Pressurização e bomba podem inserir o ponto de força do motor na planta, para entrar nos circuitos.
 
@@ -333,9 +350,10 @@ As barras *Desenho*, *Modificador*, *Snap* e *Arquitetura* trazem as ferramentas
 ## Limitações
 
 - **Dimensionamento:** o método de instalação é sempre B1 (eletroduto), porque as bandejas ainda não entram na rede dos circuitos. A capacidade de interrupção dos disjuntores não é verificada, e o curto-circuito só quando o tempo de atuação é informado (disjuntores limitadores: confira o I²t no catálogo). Tabelas transcritas da NBR 5410:2004, a conferir com a norma.
-- **Fios e verticais:** dependem de a rede de eletrodutos estar conectada às caixas. Prumadas entre pavimentos ainda não entram.
+- **Fios e verticais:** dependem de a rede de eletrodutos estar conectada às caixas. Os fios não são roteados pelas prumadas entre pavimentos (cada pavimento é calculado à parte).
 - **Demanda:** fatores de guias residenciais, não conferidos com a fonte; cada concessionária tem a sua tabela, e a demanda do edifício inteiro não é calculada.
 - **Aterramento:** resistividades de solo típicas e fórmulas para hastes em linha; meça o solo e confira o valor máximo com a NBR 5410 e a NBR 5419.
+- **Gerador diesel:** pré-dimensionamento com valores típicos (x″d, redução por altitude e temperatura, consumo, fator das cargas não lineares, potências comerciais): confirme com o catálogo do fabricante. Não calcula a sequência de partida de vários motores, o paralelismo de geradores nem a transferência (QTA); a capacidade dos cabos acima de 120 mm² é da NBR 5410, a conferir.
 - **Pressurização, recalque e luminotécnico:** pré-dimensionamentos com parâmetros genéricos, a conferir com as normas, o Corpo de Bombeiros, o projeto hidráulico e os catálogos.
 - **Padrões:** pontos em 127 V (220 V para chuveiro, ar-condicionado e ponto de força); DR marcado em todos os circuitos de tomadas e de uso específico.
 - **Símbolos:** convenção da bancada, não cópia de uma norma.

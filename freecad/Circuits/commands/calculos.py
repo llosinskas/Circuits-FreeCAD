@@ -1,13 +1,14 @@
-"""Comandos de cálculos prediais: demanda, pressurização, bomba de recalque e luminotécnico."""
+"""Comandos de cálculos prediais: demanda, gerador diesel, pressurização, bomba de recalque e luminotécnico."""
 import FreeCAD as App
 import FreeCADGui as Gui
 
 from freecad.Circuits.commands._base import documento_ou_aviso, recursos
 from freecad.Circuits.commands.gerar_unifilar import _escolher_quadro
 from freecad.Circuits.core import formularios
-from freecad.Circuits.core.functions.Predial import demanda, luminotecnico, pressurizacao, recalque
+from freecad.Circuits.core.functions.Predial import demanda, gerador, luminotecnico, pressurizacao, recalque
 from freecad.Circuits.qt import QtWidgets
 from freecad.Circuits.services import circuitos, pavimentos
+from freecad.Circuits.services import gerador as servico_gerador
 from freecad.Circuits.services import luminotecnico as servico_luminotecnico
 from freecad.Circuits.UI.dialogs.calculo_dialog import CalculoDialog
 from freecad.Circuits.UI.dialogs.ComponentInserter import ComponentInsertionMode
@@ -56,6 +57,56 @@ class CalcDemanda:
             "demanda.svg",
             "Demanda",
             "Calcula a demanda do quadro pelos pontos da planta e grava na planilha",
+        )
+
+
+class CalcGerador:
+    """Dimensiona o gerador diesel, o disjuntor, os cabos e o tanque pelas cargas da planilha."""
+
+    TITULO = "Gerador diesel"
+
+    def Activated(self):
+        doc = documento_ou_aviso()
+        if not doc:
+            return
+        folha = servico_gerador.planilha(doc)
+        if folha is None:
+            folha, quadros = servico_gerador.criar(doc)
+            origem = (f"com os {quadros} quadros do projeto" if quadros
+                      else "com cargas de exemplo (não há quadros no projeto)")
+            Gui.Selection.clearSelection()
+            Gui.Selection.addSelection(folha)
+            QtWidgets.QMessageBox.information(
+                None, self.TITULO,
+                f"Criei a planilha \"{folha.Label}\" {origem}.\n\n"
+                "Revise as cargas (uma por linha): tipo, potência, unidade (kW, kVA ou cv), fator de demanda, "
+                "partida dos motores e se a carga vai no gerador (S/N). Depois clique de novo em Gerador.",
+            )
+            return
+        try:
+            cargas = servico_gerador.ler_cargas(folha)
+        except ValueError as erro:
+            QtWidgets.QMessageBox.warning(None, self.TITULO, str(erro))
+            return
+
+        def calcular(dados):
+            resultado = gerador.dimensionar(cargas, **formularios.argumentos_gerador(dados))
+            return resultado, gerador.relatorio(resultado)
+
+        dialog = CalculoDialog(self.TITULO, formularios.GERADOR, calcular, "Gravar na planilha", "gerador")
+        if dialog.exec_() and dialog.resultado:
+            servico_gerador.gravar_resultado(folha, dialog.resultado)
+            App.Console.PrintMessage(f"Gerador: {dialog.resultado['gerador_kva']} kVA, gravado em {folha.Label}.\n")
+
+    def IsActive(self):
+        return True
+
+    def GetResources(self):
+        return recursos(
+            "gerador.svg",
+            "Gerador diesel",
+            "Dimensiona o gerador diesel pelas cargas, demanda e diversidade: potência, disjuntor, cabos e tanque. "
+            "Na primeira vez cria a planilha de cargas com os quadros do projeto",
         )
 
 
@@ -165,6 +216,7 @@ class DistribuirLuminarias:
 
 
 Gui.addCommand("CalcDemanda", CalcDemanda())
+Gui.addCommand("CalcGerador", CalcGerador())
 Gui.addCommand("DistribuirLuminarias", DistribuirLuminarias())
 Gui.addCommand("CalcPressurizacao", CalcPressurizacao())
 Gui.addCommand("CalcRecalque", CalcRecalque())

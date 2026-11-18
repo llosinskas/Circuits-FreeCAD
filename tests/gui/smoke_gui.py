@@ -442,6 +442,18 @@ def scenario_extras(doc):
             dialogo.calcular()
             return [dialogo.saida.toPlainText(), dialogo.btn_aceitar.isEnabled()]
         attempt("calculo_" + nome, calcular)
+
+    def gerador():
+        servico = module("services.gerador")
+        folha = servico.planilha(doc) or servico.criar(doc)[0]
+        cargas = servico.ler_cargas(folha)
+        regras = module("core.functions.Predial.gerador")
+        argumentos = module("core.formularios").argumentos_gerador(
+            module("core.formularios").valores_iniciais(module("core.formularios").GERADOR))
+        resultado = regras.dimensionar(cargas, **argumentos)
+        servico.gravar_resultado(folha, resultado)
+        return [len(cargas), resultado["gerador_kva"], folha.getContents("L5")]
+    attempt("gerador", gerador)
     attempt("dialogo_relatorio", lambda: sorted(module("UI.dialogs.report_dialog").ReportDialog().get_opcoes()))
     attempt("dialogo_circuito", lambda: module("UI.insert_circuit").InsertCircuit().close())
     attempt("seletor_componentes", lambda: module("UI.dialogs").ComponentSelectorDialog(

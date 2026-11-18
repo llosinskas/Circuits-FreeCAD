@@ -120,7 +120,7 @@ INFRA_TOOLS = [
 ]
 BOARD_DATA_TOOLS = ["GerarPlanilha", "CircuitosQuadro", "AddCircuito"]
 BOARD_TOOLS = ["GerarPlanilha", "CircuitosQuadro", "AddCircuito", "MontarCircuitos", "ComponentesQuadro", "GerarUnifilar"]
-CALC_TOOLS = ["CalcDemanda", "CalcPressurizacao", "CalcRecalque"]
+CALC_TOOLS = ["CalcDemanda", "CalcGerador", "CalcPressurizacao", "CalcRecalque"]
 DOCUMENT_TOOLS = [
     "GerarQuantitativos",
     "LegendaSimbolos",
@@ -168,7 +168,7 @@ GROUPS = {
         "bandejas e leitos com conexões e suportes",
         INFRA_TOOLS,
     ),
-    "Grupo_Calculos": ("Cálculos", "Demanda do quadro, pressurização de escada e bomba de recalque", CALC_TOOLS),
+    "Grupo_Calculos": ("Cálculos", "Demanda do quadro, gerador diesel, pressurização de escada e bomba de recalque", CALC_TOOLS),
     "Grupo_Documentos": ("Documentos", "Quantitativos, legenda de símbolos, notas, Sketches em preto e relatório em PDF", DOCUMENT_TOOLS),
     "Grupo_3D": (
         "Modelo 3D", "Modelo 3D completo num clique, ou só caixas, eletrodutos ou tomadas TUG antigas", MODEL_3D_TOOLS,

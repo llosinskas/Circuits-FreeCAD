@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64">
+  <!-- Gerador diesel: carenagem sobre a base, escapamento e o círculo G -->
+  <path d="M6 54H58M10 54V24H54V54M16 24V16H22V24M44 16V24" fill="none" stroke-linecap="round" stroke-linejoin="round" stroke="#ffffff" stroke-width="7" stroke-opacity="0.85"/>
+  <path d="M6 54H58M10 54V24H54V54M16 24V16H22V24M44 16V24" fill="none" stroke-linecap="round" stroke-linejoin="round" stroke="#5f6368" stroke-width="3"/>
+  <circle cx="32" cy="39" r="10" fill="#ffffff" stroke="#1a73e8" stroke-width="3"/>
+  <path d="M36 35.5A5 5 0 1 0 37 41H32" fill="none" stroke-linecap="round" stroke-linejoin="round" stroke="#1a73e8" stroke-width="2.5"/>
+</svg>

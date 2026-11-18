@@ -15,7 +15,7 @@ dicionário com:
 A ideia é o usuário responder poucas perguntas, com opções prontas, e só abrir
 as opções avançadas quando tiver os dados do catálogo ou do projeto.
 """
-from freecad.Circuits.core.functions.Predial import aterramento, luminotecnico, pressurizacao, recalque
+from freecad.Circuits.core.functions.Predial import aterramento, gerador, luminotecnico, pressurizacao, recalque
 from freecad.Circuits.core.simbolos import CATALOGO, ILUMINACAO
 
 # Rótulo da alimentação -> (tensão [V], fases)
@@ -205,6 +205,90 @@ ATERRAMENTO = [
         "dica": "5/8\" = 15,9 mm; 3/4\" = 19,1 mm.",
     },
 ]
+
+
+GERADOR = [
+    {
+        "chave": "tensao", "rotulo": "Tensão do gerador", "valor": list(gerador.TENSOES),
+        "dica": "Tensão entre fases / fase e neutro da instalação.",
+    },
+    {
+        "chave": "regime", "rotulo": "Regime de uso", "valor": list(gerador.REGIMES),
+        "preenche": {nome: {"carregamento": valor} for nome, valor in gerador.REGIMES.items()},
+        "dica": "Emergência: só na falta da rede. Prime: horário de ponta ou sem rede. Define o carregamento máximo.",
+    },
+    {
+        "chave": "fator_diversidade", "rotulo": "Fator de diversidade", "valor": 1.0, "minimo": 1.0, "maximo": 5.0,
+        "dica": "Soma das demandas das cargas / demanda máxima do conjunto. 1 = todas no máximo ao mesmo tempo.",
+    },
+    {
+        "chave": "comprimento", "rotulo": "Cabo até a transferência", "valor": 30.0, "minimo": 1.0,
+        "maximo": 1000.0, "decimais": 0, "sufixo": "m",
+        "dica": "Comprimento do cabo do gerador ao quadro de transferência (QTA), no trajeto.",
+    },
+    {
+        "chave": "carregamento", "rotulo": "Carregamento máximo do gerador", "avancado": True,
+        "valor": gerador.REGIMES["Emergência (standby)"], "minimo": 0.1, "maximo": 1.0,
+        "dica": "Fração da potência do gerador usada pela demanda máxima. Sobra para expansão e transitórios.",
+    },
+    {
+        "chave": "instalacao", "rotulo": "Instalação do cabo", "avancado": True, "valor": list(gerador.INSTALACOES),
+        "dica": "Método de instalação da NBR 5410 usado na capacidade de condução.",
+    },
+    {
+        "chave": "isolacao", "rotulo": "Isolação do cabo", "avancado": True, "valor": gerador.ISOLACOES,
+        "dica": "Cabo 0,6/1 kV. EPR e XLPE conduzem mais corrente que o PVC.",
+    },
+    {
+        "chave": "temperatura_cabo", "rotulo": "Temperatura no trajeto do cabo", "avancado": True,
+        "valor": 30.0, "minimo": 10.0, "maximo": 60.0, "decimais": 0, "sufixo": "°C",
+        "dica": "Temperatura ambiente no trajeto; acima de 30 °C a capacidade diminui.",
+    },
+    {
+        "chave": "queda_max", "rotulo": "Queda de tensão máxima no cabo", "avancado": True,
+        "valor": gerador.QUEDA_MAXIMA, "minimo": 0.5, "maximo": 7.0, "decimais": 1, "sufixo": "%",
+        "dica": "Do gerador ao quadro de transferência. A NBR 5410 admite 7 % do gerador ao ponto mais distante.",
+    },
+    {
+        "chave": "afundamento", "rotulo": "Afundamento admissível na partida", "avancado": True,
+        "valor": gerador.AFUNDAMENTO_ADMISSIVEL, "minimo": 5.0, "maximo": 35.0, "decimais": 0, "sufixo": "%",
+        "dica": "Queda de tensão admitida quando o maior motor parte. 15 % com cargas sensíveis, até 30 % só motores.",
+    },
+    {
+        "chave": "reatancia", "rotulo": "Reatância subtransitória x″d", "avancado": True,
+        "valor": gerador.REATANCIA_SUBTRANSITORIA, "minimo": 0.05, "maximo": 0.4, "decimais": 3, "sufixo": "pu",
+        "dica": "Do catálogo do alternador. 0,12 a 0,18 é o usual.",
+    },
+    {
+        "chave": "altitude", "rotulo": "Altitude do local", "avancado": True, "valor": 0.0, "minimo": 0.0,
+        "maximo": 5000.0, "decimais": 0, "sufixo": "m",
+        "dica": "Acima de 1000 m o motor diesel perde potência (cerca de 1 % a cada 100 m).",
+    },
+    {
+        "chave": "temperatura_local", "rotulo": "Temperatura na sala do gerador", "avancado": True,
+        "valor": gerador.TEMPERATURA_SEM_REDUCAO, "minimo": 0.0, "maximo": 60.0, "decimais": 0, "sufixo": "°C",
+        "dica": "Acima de 40 °C o gerador perde potência (cerca de 1 % por grau).",
+    },
+    {
+        "chave": "autonomia", "rotulo": "Autonomia do tanque", "avancado": True, "valor": gerador.AUTONOMIA_PADRAO,
+        "minimo": 0.5, "maximo": 240.0, "decimais": 1, "sufixo": "h",
+        "dica": "Horas de funcionamento na demanda máxima sem reabastecer.",
+    },
+    {
+        "chave": "consumo_especifico", "rotulo": "Consumo específico de diesel", "avancado": True,
+        "valor": gerador.CONSUMO_ESPECIFICO, "minimo": 0.15, "maximo": 0.5, "decimais": 3, "sufixo": "L/kWh",
+        "dica": "Do catálogo do motor. Cerca de 0,27 L/kWh perto da carga nominal.",
+    },
+]
+
+
+def argumentos_gerador(dados):
+    """Valores do formulário do gerador nos argumentos de ``gerador.dimensionar`` (sem as cargas)."""
+    dados = dict(dados)
+    dados.pop("regime", None)
+    dados["tensao"] = gerador.TENSOES[dados["tensao"]]
+    dados["metodo"] = gerador.INSTALACOES[dados.pop("instalacao")]
+    return dados
 
 
 def padroes(campos):

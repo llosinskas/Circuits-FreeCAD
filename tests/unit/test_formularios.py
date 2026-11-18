@@ -11,6 +11,7 @@ FORMULARIOS = {
     "pressurizacao": formularios.PRESSURIZACAO,
     "recalque": formularios.RECALQUE,
     "aterramento": formularios.ATERRAMENTO,
+    "gerador": formularios.GERADOR,
 }
 BASICOS_MAXIMOS = 4
 
@@ -67,6 +68,14 @@ class TestCampos(unittest.TestCase):
         from freecad.Circuits.core.functions.Predial import aterramento
         aceitos = set(inspect.signature(aterramento.dimensionar).parameters)
         self.assertEqual({c["chave"] for c in formularios.ATERRAMENTO} - {"solo"} - aceitos, set())
+
+    def test_formulario_do_gerador_vira_argumentos_de_dimensionar(self):
+        from freecad.Circuits.core.functions.Predial import gerador
+        argumentos = formularios.argumentos_gerador(formularios.valores_iniciais(formularios.GERADOR))
+        self.assertEqual(set(argumentos) - set(inspect.signature(gerador.dimensionar).parameters), set())
+        self.assertEqual((argumentos["tensao"], argumentos["metodo"], argumentos["carregamento"]), (380.0, "B1", 0.8))
+        resultado = gerador.dimensionar([gerador.carga("QD", potencia=50)], **argumentos)
+        self.assertEqual(resultado["gerador_kva"], 80)
 
 
 class TestValores(unittest.TestCase):
