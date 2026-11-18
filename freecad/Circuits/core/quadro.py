@@ -18,6 +18,7 @@ Unidades: correntes em A, tensões em V.
 import math
 
 from freecad.Circuits.core import circuitos as calculo
+from freecad.Circuits.core import nbr5410
 from freecad.Circuits.core.simbolos import ILUM, TUG
 
 CORRENTES_DR = [25, 40, 63, 80, 100, 125]
@@ -78,15 +79,18 @@ def fases_do_circuito(circuito):
     return max(1, marcadas)
 
 
-def completar(circuito):
+def completar(circuito, parametros=None):
     """Preenche corrente, cabo, disjuntor e curva que ficaram em branco na planilha.
 
-    O cálculo é o de ``core.circuitos.dimensionar``, com a potência em W tratada
-    como VA. Circuitos cuja descrição começa com "Ilum" usam a seção mínima de
-    iluminação; os demais, a de tomadas. Sem potência ou tensão, ou com corrente
-    acima das tabelas, o circuito volta como está. Com o disjuntor digitado e o
-    cabo em branco, o cabo é escolhido para suportar esse disjuntor.
+    O cálculo é o de ``core.nbr5410.dimensionar_circuito``, com a potência em W
+    tratada como VA, os ``parametros`` do projeto (isolação, temperatura, material,
+    queda máxima; sem eles, PVC a 30 °C) e o ``Comprimento`` da linha, se houver,
+    para a queda de tensão. Circuitos cuja descrição começa com "Ilum" usam a
+    seção mínima de iluminação; os demais, a de tomadas. Sem potência ou tensão,
+    ou com corrente acima das tabelas, o circuito volta como está. Com o disjuntor
+    digitado e o cabo em branco, o cabo é escolhido para suportar esse disjuntor.
     """
+    p = parametros or {}
     completo = dict(circuito)
     if not str(completo.get("Curva", "")).strip():
         completo["Curva"] = "C"
@@ -95,17 +99,26 @@ def completar(circuito):
     if not em_branco or potencia <= 0 or tensao <= 0:
         return completo
     tipo = ILUM if str(completo.get("Destino", "")).strip().lower().startswith("ilum") else TUG
+    n_fases = fases_do_circuito(completo)
+    isolacao, temperatura = p.get("isolacao", "PVC"), p.get("temperatura_ambiente", 30.0)
     try:
-        calculado = calculo.dimensionar(potencia, tensao, fases_do_circuito(completo), tipo)
+        corrente = calculo.corrente_projeto(potencia, tensao, n_fases)
+        calculado = nbr5410.dimensionar_circuito(
+            corrente, tipo, numero(completo.get("Comprimento")), tensao, n_fases, temperatura=temperatura,
+            isolacao=isolacao, queda_max=p.get("queda_terminal", 4.0), material=p.get("material", "cobre"))
     except ValueError:
         return completo
-    valores = {"Corrente": calculado["corrente"], "Cabo": calculado["cabo"], "Disjuntor": calculado["disjuntor"]}
+    valores = {"Corrente": corrente, "Cabo": calculado["secao"], "Disjuntor": calculado["disjuntor"]}
     digitado = numero(completo.get("Disjuntor"))
     if "Cabo" in em_branco and digitado > 0:
         # O cabo precisa suportar o disjuntor que o usuário escolheu, não o calculado.
-        tabela = calculo.CAPACIDADE_B1_PVC[3 if fases_do_circuito(completo) == 3 else 2]
+        carregados, fator = 3 if n_fases == 3 else 2, nbr5410.fct(temperatura, isolacao)
         minima = calculo.SECAO_MINIMA.get(tipo, 2.5)
-        cabo = next((secao for secao, capacidade in tabela.items() if secao >= minima and capacidade >= digitado), None)
+        comprimento, queda_max = numero(completo.get("Comprimento")), p.get("queda_terminal", 4.0)
+        cabo = next((s for s in nbr5410.SECOES if s >= minima
+                     and nbr5410.capacidade(s, "B1", carregados, isolacao) * fator >= digitado
+                     and nbr5410.queda_tensao(corrente, comprimento, s, tensao, n_fases,
+                                              material=p.get("material", "cobre")) <= queda_max), None)
         if cabo is None:
             em_branco.remove("Cabo")  # acima da tabela: fica em branco para o usuário decidir
         else:

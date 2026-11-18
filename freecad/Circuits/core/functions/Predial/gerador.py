@@ -219,12 +219,8 @@ def capacidade(secao, metodo="B1", isolacao="EPR"):
 
 
 def condutor_protecao(secao_fase):
-    """Seção do condutor de proteção pela tabela 58 da NBR 5410 [mm²]."""
-    if secao_fase <= 16:
-        return secao_fase
-    if secao_fase <= 35:
-        return 16
-    return next(s for s in nbr5410.SECOES + SECOES if s >= secao_fase / 2 - 1e-9)
+    """Seção do condutor de proteção pela tabela 58 da NBR 5410 [mm²] (``nbr5410.secao_protecao``)."""
+    return nbr5410.secao_protecao(secao_fase)
 
 
 def cabo(corrente_disjuntor, corrente_projeto, comprimento, tensao, metodo="B1", isolacao="EPR", temperatura=30.0,

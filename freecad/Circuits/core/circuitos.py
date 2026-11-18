@@ -1,30 +1,26 @@
 """Montagem e dimensionamento dos circuitos terminais a partir dos pontos da planta.
 
-Sem FreeCAD. Dimensionamento simplificado segundo a NBR 5410:
+Sem FreeCAD. O dimensionamento é o de ``core.nbr5410.dimensionar_circuito``:
+seção mínima (tabela 47), capacidade de condução com temperatura e
+agrupamento (Ib ≤ In ≤ Iz), queda de tensão com o fator de potência do
+circuito, curto-circuito (com ``tempo_curto``) e, no TN, o seccionamento
+automático com o condutor de proteção da tabela 58.
 
-- condutores de cobre com isolação de PVC, método de referência B1 (condutores
-  isolados em eletroduto embutido em alvenaria), a 30 °C, sem agrupamento;
-- seção mínima de 1,5 mm² para iluminação e 2,5 mm² para tomadas (Tabela 47);
-- coordenação com a proteção: Ib <= In <= Iz (5.3.4.1).
-
-Queda de tensão, fatores de agrupamento e de temperatura e curto-circuito NÃO
-entram neste cálculo: confira-os antes de usar o resultado em um projeto.
+``dimensionar`` (sem parâmetros do projeto) usa PVC, método B1, 30 °C, sem
+agrupamento nem queda: serve para uma estimativa rápida.
 
 Unidades: potência em VA ou W, tensão em V, corrente em A, seção em mm².
 """
 import math
 import re
 
-from freecad.Circuits.core import nbr5410
+from freecad.Circuits.core import balanceamento, nbr5410
 from freecad.Circuits.core.simbolos import ILUM, LIGACOES, TUE, TUG
 
-# NBR 5410, Tabela 36, método B1, cobre/PVC: capacidade de condução [A] por seção [mm²].
-CAPACIDADE_B1_PVC = {
-    2: {1.5: 17.5, 2.5: 24, 4: 32, 6: 41, 10: 57, 16: 76, 25: 101, 35: 125, 50: 151, 70: 192, 95: 232, 120: 269},
-    3: {1.5: 15.5, 2.5: 21, 4: 28, 6: 36, 10: 50, 16: 68, 25: 89, 35: 110, 50: 134, 70: 171, 95: 207, 120: 239},
-}
-SECAO_MINIMA = {ILUM: 1.5, TUG: 2.5, TUE: 2.5}
-DISJUNTORES = [6, 10, 16, 20, 25, 32, 40, 50, 63, 70, 80, 100, 125]  # A
+# NBR 5410, Tabela 36, método B1, cobre/PVC: capacidade de condução [A] por seção [mm²] (de ``core.nbr5410``).
+CAPACIDADE_B1_PVC = {n: {s: nbr5410.capacidade(s, "B1", n, "PVC") for s in nbr5410.SECOES} for n in (2, 3)}
+SECAO_MINIMA = {ILUM: nbr5410.SECAO_MINIMA["ILUM"], TUG: nbr5410.SECAO_MINIMA_PADRAO, TUE: nbr5410.SECAO_MINIMA_PADRAO}
+DISJUNTORES = nbr5410.DISJUNTORES  # A
 DESTINO_PADRAO = {ILUM: "Iluminação", TUG: "Tomadas", TUE: "Uso específico"}
 CORRENTE_DR = "30mA"
 FASES = ("R", "S", "T")
@@ -68,16 +64,8 @@ def dimensionar(potencia_aparente, tensao, n_fases, tipo):
         ValueError: se a corrente passar do maior disjuntor ou cabo das tabelas.
     """
     corrente = corrente_projeto(potencia_aparente, tensao, n_fases)
-    disjuntor = next((valor for valor in DISJUNTORES if valor >= corrente), None)
-    if disjuntor is None:
-        raise ValueError(f"Corrente de {corrente:.1f} A acima do maior disjuntor ({DISJUNTORES[-1]} A).")
-
-    tabela = CAPACIDADE_B1_PVC[3 if n_fases == 3 else 2]
-    minima = SECAO_MINIMA.get(tipo, 2.5)
-    cabo = next((secao for secao, capacidade in tabela.items() if secao >= minima and capacidade >= disjuntor), None)
-    if cabo is None:
-        raise ValueError(f"Nenhum cabo da tabela suporta o disjuntor de {disjuntor} A.")
-    return {"corrente": corrente, "disjuntor": disjuntor, "cabo": cabo}
+    calculo = nbr5410.dimensionar_circuito(corrente, tipo, 0.0, tensao, n_fases)
+    return {"corrente": corrente, "disjuntor": calculo["disjuntor"], "cabo": calculo["secao"]}
 
 
 def _chave_ordenacao(numero):
@@ -140,23 +128,20 @@ def agrupar(pontos):
 
 
 def distribuir_fases(circuitos, fases_quadro=3):
-    """Atribui as fases de cada circuito, equilibrando a carga do quadro.
+    """Atribui as fases de cada circuito, equilibrando a carga do quadro (``core.balanceamento``).
 
-    Os circuitos de maior potência são colocados primeiro, sempre nas fases
-    menos carregadas. Grava ``fases`` (ex.: ['R'] ou ['R', 'S']) em cada circuito.
+    Grava ``fases`` (ex.: ['R'] ou ['R', 'S']) em cada circuito.
 
     Returns:
         Carga [VA] por fase, ex.: {'R': 1200.0, 'S': 1100.0, 'T': 900.0}.
     """
-    disponiveis = FASES[:max(1, min(3, int(fases_quadro)))]
-    carga = {fase: 0.0 for fase in disponiveis}
-    for circuito in sorted(circuitos, key=lambda c: -c["potencia_va"]):
-        quantidade = min(circuito["n_fases"], len(disponiveis))
-        escolhidas = sorted(disponiveis, key=lambda fase: (carga[fase], fase))[:quantidade]
-        for fase in escolhidas:
-            carga[fase] += circuito["potencia_va"] / quantidade
-        circuito["fases"] = sorted(escolhidas)
-    return carga
+    disponiveis = balanceamento.disponiveis(fases_quadro)
+    itens = [{"numero": str(indice), "potencia": c["potencia_va"],
+              "fases": disponiveis[:min(c["n_fases"], len(disponiveis))]} for indice, c in enumerate(circuitos)]
+    resultado = balanceamento.balancear(itens, disponiveis, do_zero=True)
+    for indice, circuito in enumerate(circuitos):
+        circuito["fases"] = list(resultado["fases"][str(indice)])
+    return resultado["depois"]
 
 
 def _numero(valor):
@@ -193,6 +178,7 @@ def linha_planilha(circuito, curva="C", parametros=None, comprimento=0.0, agrupa
         queda_max=p.get("queda_terminal", 4.0),
         icc_ka=p.get("icc_entrada_ka") if p.get("tempo_curto", 0.0) > 0 else None,
         tempo_curto=p.get("tempo_curto", 0.0) or 0.1, material=p.get("material", "cobre"),
+        fator_potencia=circuito["potencia_w"] / circuito["potencia_va"] if circuito["potencia_va"] else 1.0,
     )
     fases = circuito.get("fases") or list(FASES[:circuito["n_fases"]])
     com_dr = tipo in (TUG, TUE) or p.get("esquema") == "TT"
@@ -201,8 +187,8 @@ def linha_planilha(circuito, curva="C", parametros=None, comprimento=0.0, agrupa
     avisos = []
     esquema = p.get("esquema", "")
     if esquema.startswith("TN") and comprimento > 0 and not nbr5410.seccionamento_ok(
-            comprimento, p["tensao_fn"], calculo["secao"], calculo["secao"], calculo["disjuntor"], curva, com_dr):
-        maximo = nbr5410.comprimento_maximo_tn(p["tensao_fn"], calculo["secao"], calculo["secao"],
+            comprimento, p["tensao_fn"], calculo["secao"], calculo["protecao"], calculo["disjuntor"], curva, com_dr):
+        maximo = nbr5410.comprimento_maximo_tn(p["tensao_fn"], calculo["secao"], calculo["protecao"],
                                                calculo["disjuntor"], curva)
         avisos.append(f"proteção contra contatos indiretos: {comprimento:.0f} m passa do máximo de {maximo:.0f} m "
                       f"para o disjuntor {curva}{calculo['disjuntor']}; use DR ou aumente o cabo de proteção")

@@ -156,11 +156,25 @@ O **Montar circuitos** escolhe o disjuntor (Ib ≤ In) e o menor cabo que atende
 |---|---|
 | Seção mínima | 1,5 mm² na iluminação, 2,5 mm² nos outros (tabela 47) |
 | Capacidade de condução | Iz corrigida pela temperatura dos parâmetros (tabela 40) e pelo número de circuitos no trecho mais cheio do trajeto (tabela 42), com In ≤ Iz |
-| Queda de tensão | Até o ponto mais distante, com as descidas, limitada pelo valor dos parâmetros (4 %) |
+| Queda de tensão | Até o ponto mais distante, com as descidas, limitada pelo valor dos parâmetros (4 %). Fórmula do anexo G da IEC 60364-5-52: resistividade do condutor quente (0,0225 Ω·mm²/m no cobre, 0,036 no alumínio), fator de potência do circuito e reatância de 0,08 mΩ/m |
 | Curto-circuito | S ≥ I·√t / k, só quando o tempo de atuação é preenchido nos parâmetros |
-| Contatos indiretos | No esquema TN, o comprimento máximo para o disjuntor seccionar; acima dele, aviso para usar DR. No TT, DR em todos os circuitos |
+| Contatos indiretos | No esquema TN, o comprimento máximo para o disjuntor seccionar, com o condutor de proteção da tabela 58 (igual à fase até 16 mm², 16 mm² até 35 mm², metade acima); acima dele, aviso para usar DR. No TT, DR em todos os circuitos |
 
-O comprimento e o agrupamento vêm da rede de eletrodutos e só entram quando ela chega ao símbolo do quadro ligado à planilha. Sem rede, valem a seção mínima e a capacidade de condução.
+O comprimento e o agrupamento vêm da rede de eletrodutos e só entram quando ela chega ao símbolo do quadro ligado à planilha. Sem rede, valem a seção mínima e a capacidade de condução. A sobrecarga (I2 ≤ 1,45·Iz) fica atendida com Ib ≤ In ≤ Iz e disjuntores da NBR NM 60898.
+
+O cabo que o Unifilar e os Componentes calculam para as linhas digitadas com corrente, cabo ou disjuntor em branco usa o mesmo cálculo, com os parâmetros do projeto e, se preenchida, a coluna *Comprimento* da linha.
+
+### Balanceamento de fases
+
+**Dados do quadro ▾ > Balancear fases** redistribui os circuitos da planilha de circuitos entre as fases do quadro (R, S e T, ou só R e S num quadro bifásico) para a carga ficar o mais igual possível:
+
+- Mostra a potência e a corrente de cada fase antes e depois, o desequilíbrio ((maior − menor) / maior; o usual é até 10 %) e os circuitos que mudam de fase, e pergunta antes de gravar.
+- Circuitos bifásicos dividem a potência entre as duas fases; trifásicos não mudam.
+- Para prender um circuito numa fase, escreva `*` depois dela na coluna *Fases* (ex.: `R*`).
+- Sem potência na linha, usa corrente × tensão.
+- O **Montar circuitos** usa o mesmo método ao distribuir as fases dos circuitos novos.
+
+Depois de gravar, gere o Unifilar de novo para atualizar as fases no diagrama.
 
 **Projeto > Parâmetros** abre a planilha *Parâmetros do projeto*. Edite a coluna *Valor*; em branco vale o padrão:
 

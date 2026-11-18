@@ -5,8 +5,16 @@ Critérios verificados em ``dimensionar_circuito``:
 1. seção mínima (tabela 47): 1,5 mm² na iluminação, 2,5 mm² nos outros circuitos;
 2. capacidade de condução corrigida pela temperatura (tabela 40) e pelo
    agrupamento (tabela 42), com Ib ≤ In ≤ Iz;
-3. queda de tensão até o ponto mais distante;
+3. queda de tensão até o ponto mais distante (``queda_tensao``: fórmula do
+   anexo G da IEC 60364-5-52, com a resistividade em serviço, o fator de
+   potência e a reatância; a NBR 5410 dá os limites, não a fórmula);
 4. curto-circuito: S ≥ I·√t / k (k da tabela 30), quando a corrente de curto é dada.
+
+A sobrecarga (I2 ≤ 1,45·Iz, item 5.3.4.1) fica atendida por Ib ≤ In ≤ Iz com
+disjuntores da NBR NM 60898 e IEC 60947-2, que têm I2 ≤ 1,45·In.
+
+O condutor de proteção segue a tabela 58 (``secao_protecao``), também no
+seccionamento automático.
 
 ``seccionamento_ok`` verifica o seccionamento automático no esquema TN
 (contatos indiretos); com DR o circuito está protegido.
@@ -23,7 +31,12 @@ SECOES = [1.5, 2.5, 4, 6, 10, 16, 25, 35, 50, 70, 95, 120]
 DISJUNTORES = [6, 10, 16, 20, 25, 32, 40, 50, 63, 70, 80, 100, 125]
 SECAO_MINIMA = {"ILUM": 1.5}
 SECAO_MINIMA_PADRAO = 2.5
-RESISTIVIDADE_COBRE = 1 / 56  # Ω·mm²/m, em serviço
+RESISTIVIDADE_COBRE = 1 / 56  # Ω·mm²/m, a 20 °C (mantida para quem a importa)
+# Queda de tensão (IEC 60364-5-52, anexo G): ρ1 = 1,25 × ρ20, a resistividade na temperatura de serviço.
+RESISTIVIDADE_QUEDA = {"cobre": 0.0225, "aluminio": 0.036}  # Ω·mm²/m
+REATANCIA_QUEDA = 0.08e-3  # Ω/m: λ, reatância por metro, quando não há dado do fabricante
+# Seções comerciais do condutor de proteção pela tabela 58, inclusive acima de 120 mm²
+SECOES_PROTECAO = SECOES + [150, 185, 240, 300, 400, 500]
 RESISTIVIDADE_COBRE_CURTO = 0.0225  # Ω·mm²/m, na temperatura de curto (seccionamento)
 K_CURTO = {("cobre", "PVC"): 115, ("cobre", "EPR"): 143, ("cobre", "XLPE"): 143,
            ("aluminio", "PVC"): 76, ("aluminio", "EPR"): 94, ("aluminio", "XLPE"): 94}
@@ -131,13 +144,24 @@ def exige_cabo(tipos):
     return any(t in ABERTOS for t in tipos)
 
 
-def queda_tensao(corrente, comprimento, secao, tensao, n_fases=1, resistividade=RESISTIVIDADE_COBRE):
-    """Queda de tensão [%] no fim do circuito, só pela resistência.
+def queda_tensao(corrente, comprimento, secao, tensao, n_fases=1, resistividade=None, fator_potencia=1.0,
+                 reatancia=REATANCIA_QUEDA, material="cobre"):
+    """Queda de tensão [%] no fim do circuito (IEC 60364-5-52, anexo G).
 
-    Monofásico ou fase-fase: 2·ρ·L·I/S; trifásico: √3·ρ·L·I/S.
+    u = b·(ρ1·L/S·cos φ + λ·L·sen φ)·Ib, com b = 2 no monofásico e no fase-fase,
+    e b = √3 no trifásico (``tensao`` é a de linha). Com cos φ = 1 sobra só a
+    resistência, o caso mais desfavorável nos cabos finos.
+
+    Args:
+        resistividade: ρ1 [Ω·mm²/m]; None usa a do ``material`` em serviço (``RESISTIVIDADE_QUEDA``).
+        reatancia: λ [Ω/m].
     """
-    fator = math.sqrt(3) if int(n_fases) == 3 else 2.0
-    volts = fator * resistividade * float(comprimento) * float(corrente) / float(secao)
+    rho = RESISTIVIDADE_QUEDA.get(str(material), RESISTIVIDADE_QUEDA["cobre"]) if resistividade is None \
+        else float(resistividade)
+    cos_phi = min(1.0, max(0.0, float(fator_potencia)))
+    sen_phi = math.sqrt(1.0 - cos_phi ** 2)
+    b = math.sqrt(3) if int(n_fases) == 3 else 2.0
+    volts = b * (rho / float(secao) * cos_phi + float(reatancia) * sen_phi) * float(comprimento) * float(corrente)
     return volts / float(tensao) * 100.0
 
 
@@ -158,6 +182,17 @@ def secao_comercial(valor):
     if secao is None:
         raise ValueError(f"Seção de {valor:.1f} mm² acima da tabela.")
     return secao
+
+
+def secao_protecao(secao_fase):
+    """Seção do condutor de proteção pela tabela 58: igual à fase até 16 mm², 16 mm² até 35 mm²
+    e, acima, a metade, na seção comercial logo acima."""
+    secao_fase = float(secao_fase)
+    if secao_fase <= 16:
+        return secao_fase
+    if secao_fase <= 35:
+        return 16
+    return next(s for s in SECOES_PROTECAO if s >= secao_fase / 2 - 1e-9)
 
 
 def comprimento_maximo_tn(tensao_fn, secao_fase, secao_pe, disjuntor, curva="C"):
@@ -181,7 +216,8 @@ _PRIORIDADE = ["curto_circuito", "queda_tensao", "capacidade", "secao_minima"]
 
 
 def dimensionar_circuito(corrente, tipo, comprimento, tensao, n_fases=1, metodo="B1", agrupados=1, temperatura=30.0,
-                         isolacao="PVC", queda_max=4.0, icc_ka=None, tempo_curto=0.1, material="cobre"):
+                         isolacao="PVC", queda_max=4.0, icc_ka=None, tempo_curto=0.1, material="cobre",
+                         fator_potencia=1.0):
     """Disjuntor e seção do circuito pelos critérios da NBR 5410.
 
     Args:
@@ -192,10 +228,12 @@ def dimensionar_circuito(corrente, tipo, comprimento, tensao, n_fases=1, metodo=
         metodo: método de instalação (``metodo_do_trajeto``).
         agrupados: circuitos no trecho mais cheio do trajeto.
         icc_ka: corrente de curto no quadro [kA]; None não verifica o curto.
+        fator_potencia: da carga, para a queda de tensão.
     Returns:
         dict com ``corrente``, ``disjuntor``, ``secao``, ``criterio`` (o que
         determinou a seção: 'secao_minima', 'capacidade', 'queda_tensao' ou
-        'curto_circuito'), ``fator`` (FCT·FCA), ``iz`` [A], ``queda`` [%] e ``metodo``.
+        'curto_circuito'), ``fator`` (FCT·FCA), ``iz`` [A], ``queda`` [%], ``metodo`` e
+        ``protecao`` (seção do condutor de proteção, tabela 58).
     Raises:
         ValueError: corrente acima do maior disjuntor ou nenhuma seção atende.
     """
@@ -205,13 +243,16 @@ def dimensionar_circuito(corrente, tipo, comprimento, tensao, n_fases=1, metodo=
     carregados = 3 if int(n_fases) == 3 else 2
     fator = round(fct(temperatura, isolacao) * fca(agrupados), 4)
 
+    def queda(s):
+        return queda_tensao(corrente, comprimento, s, tensao, n_fases, fator_potencia=fator_potencia, material=material)
+
     def primeira(condicao):
         return next((s for s in SECOES if condicao(s)), None)
 
     exigidas = {
         "secao_minima": SECAO_MINIMA.get(str(tipo).upper(), SECAO_MINIMA_PADRAO),
         "capacidade": primeira(lambda s: capacidade(s, metodo, carregados, isolacao) * fator >= disjuntor),
-        "queda_tensao": primeira(lambda s: queda_tensao(corrente, comprimento, s, tensao, n_fases) <= queda_max),
+        "queda_tensao": primeira(lambda s: queda(s) <= queda_max),
     }
     if icc_ka:
         exigidas["curto_circuito"] = secao_comercial(secao_curto(float(icc_ka) * 1000, tempo_curto, isolacao, material))
@@ -228,6 +269,7 @@ def dimensionar_circuito(corrente, tipo, comprimento, tensao, n_fases=1, metodo=
         "criterio": criterio,
         "fator": fator,
         "iz": round(capacidade(secao, metodo, carregados, isolacao) * fator, 2),
-        "queda": round(queda_tensao(corrente, comprimento, secao, tensao, n_fases), 2),
+        "queda": round(queda(secao), 2),
+        "protecao": secao_protecao(secao),
         "metodo": metodo,
     }

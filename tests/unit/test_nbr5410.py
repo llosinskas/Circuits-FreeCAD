@@ -72,13 +72,28 @@ class TestMetodoPeloTrajeto(Base):
 
 
 class TestQuedaDeTensao(Base):
-    def test_monofasico(self):
-        # 2 · L · I / (56 · S) = 2 · 30 · 10 / (56 · 2,5) = 4,286 V em 127 V
-        self.assertAlmostEqual(self.n.queda_tensao(10, 30, 2.5, 127), 3.375, places=3)
+    """IEC 60364-5-52, anexo G (a NBR 5410 não traz a fórmula): u = b·(ρ1·L/S·cos φ + λ·L·sen φ)·Ib,
+    com ρ1 = 1,25·ρ20 (0,0225 Ω·mm²/m no cobre), λ = 0,08 mΩ/m, b = 2 (monofásico) ou √3 (trifásico,
+    sobre a tensão de linha)."""
+
+    def test_monofasico_com_a_resistividade_em_servico(self):
+        # 2 · 0,0225 · 30 · 10 / 2,5 = 5,4 V em 127 V
+        self.assertAlmostEqual(self.n.queda_tensao(10, 30, 2.5, 127), 5.4 / 127 * 100, places=3)
 
     def test_trifasico(self):
-        # √3 · 50 · 20 / (56 · 4) = 7,732 V em 380 V
-        self.assertAlmostEqual(self.n.queda_tensao(20, 50, 4, 380, n_fases=3), 2.035, places=3)
+        # √3 · 0,0225 · 50 · 20 / 4 = 9,743 V em 380 V
+        self.assertAlmostEqual(self.n.queda_tensao(20, 50, 4, 380, n_fases=3),
+                               math.sqrt(3) * 0.0225 * 50 * 20 / 4 / 380 * 100, places=3)
+
+    def test_fator_de_potencia_e_reatancia(self):
+        # cabo grosso com FP 0,8: a reatância passa a pesar
+        esperado = math.sqrt(3) * (0.0225 * 100 / 50 * 0.8 + 0.08e-3 * 100 * 0.6) * 100 / 380 * 100
+        self.assertAlmostEqual(self.n.queda_tensao(100, 100, 50, 380, n_fases=3, fator_potencia=0.8), esperado,
+                               places=3)
+
+    def test_aluminio_tem_queda_maior(self):
+        self.assertGreater(self.n.queda_tensao(10, 30, 16, 127, material="aluminio"),
+                           self.n.queda_tensao(10, 30, 16, 127))
 
     def test_queda_total_do_alimentador_mais_o_circuito(self):
         self.assertTrue(self.n.queda_total_ok(2.5, 4.0))
@@ -114,6 +129,17 @@ class TestContatosIndiretos(Base):
         self.assertTrue(self.n.seccionamento_ok(20.0, 127, 2.5, 2.5, 16, "C", com_dr=False))
 
 
+class TestCondutorDeProtecao(Base):
+    def test_tabela_58(self):
+        # S ≤ 16: igual à fase; 16 < S ≤ 35: 16; S > 35: S/2, na seção comercial logo acima
+        self.assertEqual([self.n.secao_protecao(s) for s in (1.5, 10, 16, 25, 35, 50, 70, 95, 120, 150, 240)],
+                         [1.5, 10, 16, 16, 16, 25, 35, 50, 70, 95, 120])
+
+    def test_seccionamento_com_pe_menor_e_mais_curto(self):
+        self.assertLess(self.n.comprimento_maximo_tn(127, 25, self.n.secao_protecao(25), 100),
+                        self.n.comprimento_maximo_tn(127, 25, 25, 100))
+
+
 class TestDimensionarCircuito(Base):
     def dimensionar(self, **dados):
         padrao = {"corrente": 10.0, "tipo": "TUG", "comprimento": 10.0, "tensao": 127.0, "n_fases": 1,
@@ -135,10 +161,10 @@ class TestDimensionarCircuito(Base):
         self.assertAlmostEqual(r["fator"], 0.65)
 
     def test_circuito_longo_cresce_pela_queda(self):
-        # 60 m, 10 A, 127 V: 2,5 → 6,75 %; 4 → 4,22 %; 6 → 2,81 %
+        # 60 m, 10 A, 127 V: 2,5 → 8,50 %; 4 → 5,31 %; 6 → 3,54 %
         r = self.dimensionar(comprimento=60.0)
         self.assertEqual((r["secao"], r["criterio"]), (6, "queda_tensao"))
-        self.assertAlmostEqual(r["queda"], 2.81, places=2)
+        self.assertAlmostEqual(r["queda"], 3.54, places=2)
 
     def test_temperatura_alta_reduz_a_capacidade(self):
         # 45 °C, PVC: 0,79; In 25 A: 4 → 25,3 A

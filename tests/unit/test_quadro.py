@@ -56,6 +56,16 @@ class TestCompletar(unittest.TestCase):
         dados.update(extra)
         return dados
 
+    def test_completar_usa_os_parametros_e_o_comprimento(self):
+        from freecad.Circuits.core import parametros
+        p = parametros.ler({"isolacao": "EPR"})
+        # 3000 W em 127 V = 23,6 A, disjuntor 25 A: PVC B1 2,5 mm² conduz 24 A (pede 4), EPR 2,5 mm² 31 A
+        pvc = quadro.completar(self.base(Potencia="3000"))
+        epr = quadro.completar(self.base(Potencia="3000"), p)
+        self.assertLess(float(epr["Cabo"]), float(pvc["Cabo"]))
+        longo = quadro.completar(self.base(Comprimento="60"), parametros.ler({}))
+        self.assertGreater(float(longo["Cabo"]), float(quadro.completar(self.base(), parametros.ler({}))["Cabo"]))
+
     def test_preenche_o_que_esta_em_branco(self):
         c = quadro.completar(self.base())  # 1200 / 127 = 9,45 A
         self.assertEqual((c["Corrente"], c["Disjuntor"], c["Cabo"], c["Curva"]), ("9.45", "10", "2.5", "C"))

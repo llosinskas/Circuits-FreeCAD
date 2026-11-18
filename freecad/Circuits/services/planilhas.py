@@ -139,8 +139,14 @@ def ler_circuitos(quadro):
 
 
 def ler_circuitos_completos(quadro):
-    """Circuitos do quadro com corrente, cabo e disjuntor calculados onde ficaram em branco."""
-    return [regras_quadro.completar(circuito) for circuito in ler_circuitos(quadro)]
+    """Circuitos do quadro com corrente, cabo e disjuntor calculados onde ficaram em branco,
+    com os parâmetros do projeto (isolação, temperatura, material, queda máxima)."""
+    try:
+        from freecad.Circuits.services import parametros
+        valores = parametros.ler(quadro.Document)
+    except Exception:
+        valores = None  # sem documento ou planilha legível: padrões
+    return [regras_quadro.completar(circuito, valores) for circuito in ler_circuitos(quadro)]
 
 
 def gravar_componentes(doc, quadro, itens):
@@ -203,3 +209,48 @@ def gravar_potencia_instalada(planilha, potencia_kw):
 
 def gravar_potencia_demanda(planilha, potencia_kw):
     planilha.set(planilha.getCellFromAlias("potencia_demanda"), str(potencia_kw))
+
+
+def _potencia_da_linha(celulas):
+    """Potência [W] da linha; sem ela, corrente × tensão."""
+    potencia = regras_quadro.numero(celulas.get("Potencia"))
+    if potencia <= 0:
+        potencia = regras_quadro.numero(celulas.get("Corrente")) * regras_quadro.numero(celulas.get("Tensao"))
+    return potencia
+
+
+def balancear_fases(quadro, aplicar=False):
+    """Balanceia as fases dos circuitos do quadro (``core.balanceamento``).
+
+    Lê a planilha de circuitos; um circuito com ``*`` na coluna Fases (ex.: ``R*``)
+    fica fixo. As fases do quadro vêm de ``numero_fases`` (3 se vazio).
+
+    Args:
+        aplicar: grava as fases novas na coluna Fases (mantendo o ``*`` dos fixos).
+    Returns:
+        O resultado de ``core.balanceamento.balancear``, ou None sem circuitos.
+    """
+    from freecad.Circuits.core import balanceamento
+
+    planilha = planilha_de_circuitos(quadro, criar=False)
+    if planilha is None:
+        return None
+    linhas = list(_linhas_da_planilha(planilha))
+    if not linhas:
+        return None
+    circuitos, fixos, linha_do = [], [], {}
+    for linha, celulas in linhas:
+        numero = celulas["N_circuito"]
+        linha_do[numero] = linha
+        circuitos.append({"numero": numero, "potencia": _potencia_da_linha(celulas), "fases": celulas.get("Fases", "")})
+        if "*" in str(celulas.get("Fases", "")):
+            fixos.append(numero)
+    n_fases = int(regras_quadro.numero(ler_quadro(quadro).get("numero_fases"), 3) or 3)
+    resultado = balanceamento.balancear(circuitos, balanceamento.disponiveis(n_fases), fixos)
+    if aplicar:
+        coluna = next(col for col, chave, _ in layout.PLANILHA_CIRCUITOS if chave == "Fases")
+        for numero in resultado["mudados"]:
+            marca = "*" if numero in fixos else ""
+            planilha.set(f"{coluna}{linha_do[numero]}", f"'{resultado['fases'][numero]}{marca}")
+        quadro.Document.recompute()
+    return resultado

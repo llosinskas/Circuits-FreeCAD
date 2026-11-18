@@ -122,8 +122,11 @@ INFRA_TOOLS = [
     "SimbolosVerticais", "EditarDescidas", "DetalharVerticais", "Cabo",
     "InsertCableTray", "GerarSuportes",
 ]
-BOARD_DATA_TOOLS = ["GerarPlanilha", "CircuitosQuadro", "AddCircuito"]
-BOARD_TOOLS = ["GerarPlanilha", "CircuitosQuadro", "AddCircuito", "MontarCircuitos", "ComponentesQuadro", "GerarUnifilar"]
+BOARD_DATA_TOOLS = ["GerarPlanilha", "CircuitosQuadro", "AddCircuito", "BalancearFases"]
+BOARD_TOOLS = [
+    "GerarPlanilha", "CircuitosQuadro", "AddCircuito", "BalancearFases", "MontarCircuitos", "ComponentesQuadro",
+    "GerarUnifilar",
+]
 CALC_TOOLS = ["CalcDemanda", "CalcGerador", "CalcPressurizacao", "CalcRecalque"]
 DOCUMENT_TOOLS = [
     "GerarQuantitativos",
@@ -164,7 +167,7 @@ GROUPS = {
         GROUNDING_TOOLS,
     ),
     "Grupo_Quadros": ("Quadros", "Quadro de distribuição, de comando, de medição, medição agrupada, gerador e QTA, na planta", BOARD_SYMBOL_TOOLS),
-    "Grupo_DadosQuadro": ("Dados do quadro", "Planilha de dados do quadro, planilha de circuitos e circuito digitado em formulário", BOARD_DATA_TOOLS),
+    "Grupo_DadosQuadro": ("Dados do quadro", "Planilha de dados do quadro, planilha de circuitos, circuito digitado em formulário e balanceamento das fases", BOARD_DATA_TOOLS),
     "Grupo_Circuitos": ("Circuitos", "Definir o circuito dos pontos, ligar interruptores e identificar na planta", CIRCUIT_TOOLS),
     "Grupo_Infra": (
         "Infraestrutura",

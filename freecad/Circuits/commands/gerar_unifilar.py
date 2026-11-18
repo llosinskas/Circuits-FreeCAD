@@ -8,8 +8,9 @@ import FreeCADGui as Gui
 
 from freecad.Circuits.commands._base import documento_ou_aviso, recursos
 from freecad.Circuits.qt import QtWidgets
+from freecad.Circuits.core import balanceamento
 from freecad.Circuits.core import quadro as regras_quadro
-from freecad.Circuits.services import circuitos, identificacao, planilhas, unifilar
+from freecad.Circuits.services import circuitos, identificacao, parametros, planilhas, unifilar
 from freecad.Circuits.UI.dialogs.quadro_dialogs import Add_circuito, CriarQuadro
 
 
@@ -200,6 +201,55 @@ class GerarUnifilar:
         )
 
 
+class BalancearFases:
+    """Redistribui os circuitos de um quadro entre as fases para equilibrar a carga."""
+
+    TITULO = "Balancear fases"
+
+    def Activated(self):
+        doc = documento_ou_aviso()
+        if not doc:
+            return
+        quadro = _escolher_quadro(doc, self.TITULO)
+        if quadro is None:
+            return
+        resultado = planilhas.balancear_fases(quadro)
+        if resultado is None:
+            QtWidgets.QMessageBox.information(
+                None, self.TITULO,
+                "O quadro ainda não tem circuitos na planilha de circuitos: use Montar circuitos ou preencha a planilha.",
+            )
+            return
+        tensao_fn = parametros.ler(doc)["tensao_fn"]
+        texto = (f"Quadro {quadro.Label}\n\n{balanceamento.relatorio(resultado, tensao_fn)}\n\n"
+                 "Para manter um circuito numa fase, escreva * depois da fase na planilha (ex.: R*).")
+        if not resultado["mudados"]:
+            QtWidgets.QMessageBox.information(None, self.TITULO, texto)
+            return
+        resposta = QtWidgets.QMessageBox.question(
+            None, self.TITULO, texto + "\n\nGravar as fases novas na planilha de circuitos?",
+            QtWidgets.QMessageBox.Yes | QtWidgets.QMessageBox.No,
+        )
+        if resposta != QtWidgets.QMessageBox.Yes:
+            return
+        doc.openTransaction(self.TITULO)
+        planilhas.balancear_fases(quadro, aplicar=True)
+        doc.commitTransaction()
+        App.Console.PrintMessage(f"{len(resultado['mudados'])} circuito(s) mudaram de fase em {quadro.Label}. "
+                                 "Gere o unifilar de novo para atualizar o diagrama.\n")
+
+    def IsActive(self):
+        return True
+
+    def GetResources(self):
+        return recursos(
+            "balanceamento.svg",
+            "Balancear fases",
+            "Redistribui os circuitos do quadro entre as fases R, S e T para equilibrar a carga; mostra a carga "
+            "e a corrente de cada fase antes e depois e pergunta antes de gravar",
+        )
+
+
 class AddCircuito:
     def Activated(self):
         doc = documento_ou_aviso()
@@ -223,6 +273,7 @@ class AddCircuito:
 
 
 Gui.addCommand("AddCircuito", AddCircuito())
+Gui.addCommand("BalancearFases", BalancearFases())
 Gui.addCommand("CircuitosQuadro", CircuitosQuadro())
 Gui.addCommand("MontarCircuitos", MontarCircuitos())
 Gui.addCommand("ComponentesQuadro", ComponentesQuadro())

@@ -121,7 +121,7 @@ class TestSequenciaQuadro(unittest.TestCase):
         rede.assert_called_once_with(doc, quadro)
         planilha = self.planilhas.planilha_de_circuitos(quadro, criar=False)
         self.assertEqual((planilha.get("G3"), planilha.get("N3"), planilha.get("O3"), planilha.get("P3")),
-                         ("6", "60", "2.81", "Queda de tensão"))
+                         ("6", "60", "3.54", "Queda de tensão"))
         self.assertEqual(planilha.get("P2"), "Critério determinante")
 
     def test_parametros_do_projeto_entram_no_calculo(self):
@@ -140,7 +140,8 @@ class TestSequenciaQuadro(unittest.TestCase):
     def test_avisos_de_seccionamento_voltam_para_o_usuario(self):
         quadro = PlanilhaFalsa()
         doc = self.documento(objeto_ponto("luz_teto", "1", 2032))  # 16 A de iluminação, sem DR
-        with mock.patch.object(self.circuitos.parametros, "ler", return_value=self._parametros(curva_iluminacao="D")), \
+        with mock.patch.object(self.circuitos.parametros, "ler", return_value=self._parametros(curva_iluminacao="D",
+                                                                                        queda_terminal="7")), \
                 mock.patch.object(self.circuitos.rede, "dados_dos_circuitos",
                                   return_value={"1": {"comprimento": 45.0, "agrupados": 1}}):
             _, avisos = self.circuitos.montar_circuitos(doc, quadro)
@@ -273,6 +274,28 @@ class TestSequenciaQuadro(unittest.TestCase):
         gravados, avisos = self.circuitos.montar_circuitos(doc, quadro)
         self.assertEqual(gravados, [])
         self.assertIn("não foi gravado", avisos[0])
+
+    def test_balancear_fases_grava_so_os_mudados_e_respeita_os_fixos(self):
+        quadro = PlanilhaFalsa()
+        planilha = self.planilhas.planilha_de_circuitos(quadro)
+        for linha, (numero, potencia, fases) in enumerate(
+                [("1", "2000", "R*"), ("2", "1000", "R"), ("3", "1000", "R"), ("4", "", "R")], start=3):
+            planilha.set(f"A{linha}", numero)
+            planilha.set(f"C{linha}", potencia)
+            planilha.set(f"E{linha}", fases)
+        planilha.set("F6", "8")  # sem potência: corrente × tensão = 8 × 125
+        planilha.set("D6", "125")
+        resultado = self.planilhas.balancear_fases(quadro)
+        self.assertEqual(planilha.get("E4"), "R")  # sem aplicar, nada muda
+        self.assertEqual(resultado["antes"]["R"], 5000.0)
+        self.assertEqual(resultado["fases"]["1"], "R")  # fixo
+        self.planilhas.balancear_fases(quadro, aplicar=True)
+        self.assertEqual(planilha.get("E3"), "R*")
+        self.assertEqual(sorted(planilha.get(f"E{n}") for n in (4, 5, 6)).count("R"), 0)
+        self.assertEqual(resultado["depois"], {"R": 2000.0, "S": 2000.0, "T": 1000.0})
+
+    def test_balancear_sem_planilha_de_circuitos(self):
+        self.assertIsNone(self.planilhas.balancear_fases(PlanilhaFalsa()))
 
 
 if __name__ == "__main__":

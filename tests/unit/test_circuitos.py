@@ -136,7 +136,7 @@ class TestLinhaPlanilhaNBR5410(unittest.TestCase):
     def test_circuito_longo_aumenta_o_cabo_pela_queda(self):
         linha = circuitos.linha_planilha(self.circuito(), comprimento=60.0)
         self.assertEqual((linha["Cabo"], linha["Criterio"]), ("6", "Queda de tensão"))
-        self.assertEqual((linha["Comprimento"], linha["Queda"]), ("60", "2.81"))
+        self.assertEqual((linha["Comprimento"], linha["Queda"]), ("60", "3.54"))
 
     def test_agrupamento_aumenta_o_cabo(self):
         linha = circuitos.linha_planilha(self.circuito(2286), agrupados=4)  # 18 A, disjuntor 20 A
@@ -160,13 +160,14 @@ class TestLinhaPlanilhaNBR5410(unittest.TestCase):
         self.assertEqual((luz["DR"], luz["Corrente_DR"]), ("True", "30mA"))
 
     def test_aviso_quando_o_disjuntor_nao_secciona_no_tn(self):
-        p = parametros.ler({"curva_iluminacao": "D"})
-        # 16 A em curva D (Ia = 320 A), cabo de 6 mm² pela queda: L máx ≈ 42 m
+        # 16 A em curva D (Ia = 320 A): L máx = 0,8·127·S / (0,0225·2·320) ≈ 7,1·S m. Com queda de 4 % o
+        # cabo da queda já atende (L ≤ 7,1·S também); com 7 %, 45 m pedem só 4 mm², e L máx = 28 m.
+        p = parametros.ler({"curva_iluminacao": "D", "queda_terminal": "7"})
         longe = circuitos.linha_planilha(self.circuito(2032, ILUM), parametros=p, comprimento=45.0)
-        self.assertEqual(longe["Cabo"], "6")
+        self.assertEqual(longe["Cabo"], "4")
         self.assertEqual(len(longe["_avisos"]), 1)
         self.assertIn("contatos indiretos", longe["_avisos"][0])
-        perto = circuitos.linha_planilha(self.circuito(2032, ILUM), parametros=p, comprimento=40.0)
+        perto = circuitos.linha_planilha(self.circuito(2032, ILUM), parametros=p, comprimento=8.0)  # 1,5 mm²: 10,6 m
         self.assertEqual(perto["_avisos"], [])
 
     def test_curto_circuito_dos_parametros(self):
