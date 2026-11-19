@@ -12,7 +12,7 @@ class ReportDialog(QtWidgets.QDialog):
         layout.addWidget(QtWidgets.QLabel("Selecione os itens a incluir no relatório:"))
 
         self.chk_calculos = self._opcao(layout, "Cálculos (Quadros, Demandas)")
-        self.chk_diagramas = self._opcao(layout, "Diagramas Unifilares")
+        self.chk_diagramas = self._opcao(layout, "Diagramas (unifilar, multifilar e transferência)")
         self.chk_materiais = self._opcao(layout, "Quantitativo de Materiais")
         self.chk_cortes = self._opcao(layout, "Cortes (Vistas 3D)")
 

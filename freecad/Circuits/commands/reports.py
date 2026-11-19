@@ -6,6 +6,7 @@ import FreeCADGui as Gui
 
 from freecad.Circuits.commands._base import recursos
 from freecad.Circuits.qt import QtWidgets
+from freecad.Circuits.UI.dialogs import dependencias
 from freecad.Circuits.services import quantitativos
 from freecad.Circuits.UI.dialogs.report_dialog import ReportDialog
 
@@ -21,16 +22,7 @@ def _caminho_padrao(doc):
 
 class GenerateReport:
     def Activated(self):
-        try:
-            import reportlab  # noqa: F401
-        except ImportError:
-            QtWidgets.QMessageBox.critical(
-                None,
-                "Dependência não encontrada",
-                "A biblioteca 'reportlab' é necessária para gerar relatórios em PDF.\n"
-                "Por favor, instale-a rodando:\n\npip install reportlab\n\n"
-                "No seu console do FreeCAD ou no ambiente Python configurado.",
-            )
+        if not dependencias.perguntar_e_instalar("Ele é necessário para gerar o relatório em PDF.", forcar=True):
             return
 
         doc = App.activeDocument()

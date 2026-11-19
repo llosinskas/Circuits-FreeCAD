@@ -13,6 +13,92 @@ try:
 except ImportError:
     pass  # Será tratado no UI se o reportlab não existir
 
+# (propriedade que marca o grupo do diagrama, título, propriedade com o nome da planilha do quadro)
+TIPOS_DE_DIAGRAMA = (
+    ("quadro_origem", "Unifilar", "quadro_origem"),
+    ("multifilar_de", "Multifilar", "multifilar_de"),
+    ("diagrama_gerador", "Transferência rede/gerador (QTA)", None),
+)
+LARGURA_IMAGEM = 2000  # px
+ALTURA_MAXIMA_IMAGEM = 2800  # px
+
+
+def descendentes(grupo):
+    """Todos os objetos dentro do grupo, em qualquer nível."""
+    encontrados, pendentes = [], list(getattr(grupo, "Group", []) or [])
+    while pendentes:
+        obj = pendentes.pop(0)
+        if obj in encontrados:
+            continue
+        encontrados.append(obj)
+        pendentes.extend(getattr(obj, "Group", []) or [])
+    return encontrados
+
+
+def listar_diagramas(doc):
+    """[(título, grupo)] dos diagramas gerados: unifilares, multifilares e a transferência rede/gerador.
+
+    O título leva o nome do quadro (``Unifilar QD1``), achado pela planilha gravada no grupo.
+    """
+    diagramas = []
+    for marca, nome, referencia in TIPOS_DE_DIAGRAMA:
+        for obj in doc.Objects:
+            if not hasattr(obj, marca) or not hasattr(obj, "Group"):
+                continue
+            quadro = doc.getObject(getattr(obj, referencia)) if referencia else None
+            diagramas.append((f"{nome} {quadro.Label}" if quadro is not None else nome, obj))
+    return diagramas
+
+
+def _caixa_dos_objetos(objetos):
+    """(largura, altura) do retângulo que envolve as formas dos objetos, ou None."""
+    caixas = []
+    for obj in objetos:
+        try:
+            caixa = obj.Shape.BoundBox
+        except Exception:
+            continue
+        if caixa.isValid() and (caixa.XLength > 0 or caixa.YLength > 0):
+            caixas.append(caixa)
+    if not caixas:
+        return None
+    x1, x2 = min(c.XMin for c in caixas), max(c.XMax for c in caixas)
+    y1, y2 = min(c.YMin for c in caixas), max(c.YMax for c in caixas)
+    return (x2 - x1, y2 - y1) if x2 > x1 and y2 > y1 else None
+
+
+def capturar_diagrama(doc, view, grupo, caminho):
+    """Grava a imagem de um diagrama: só ele visível, vista de topo e enquadrado nele.
+
+    A imagem tem a proporção do desenho (até ``ALTURA_MAXIMA_IMAGEM``) e fundo branco.
+    Quem chama restaura a visibilidade e a câmera.
+    """
+    dentro = [grupo] + descendentes(grupo)
+    nomes = {o.Name for o in dentro}
+    for obj in doc.Objects:
+        if hasattr(obj, "ViewObject") and obj.ViewObject:
+            obj.ViewObject.Visibility = obj.Name in nomes
+    Gui.updateGui()
+    view.viewTop()
+    Gui.Selection.clearSelection()
+    for obj in dentro[1:]:
+        try:
+            Gui.Selection.addSelection(obj)
+        except Exception:
+            pass
+    try:
+        Gui.SendMsgToActiveView("ViewSelection")  # enquadra o que está selecionado
+    except Exception:
+        view.fitAll()
+    Gui.Selection.clearSelection()
+    Gui.updateGui()
+    tamanho = _caixa_dos_objetos(dentro[1:])
+    altura = int(LARGURA_IMAGEM * 0.7)
+    if tamanho:
+        altura = int(min(ALTURA_MAXIMA_IMAGEM, max(600, LARGURA_IMAGEM * tamanho[1] / tamanho[0])))
+    view.saveImage(caminho, LARGURA_IMAGEM, altura, "White")
+
+
 class PDFGenerator:
     def __init__(self, doc, file_path, opcoes):
         self.doc = doc
@@ -82,92 +168,91 @@ class PDFGenerator:
             story.append(Spacer(1, 1*cm))
             
         # Para capturar imagens, precisamos manipular a interface gráfica
-        view = Gui.ActiveDocument.ActiveView
-        
+        view = Gui.ActiveDocument.ActiveView if Gui.ActiveDocument else None
+        temporarios = []
+
         if view and (self.opcoes.get("diagramas") or self.opcoes.get("cortes")):
-            # Salvar estado de visibilidade
+            # Estado da vista para restaurar no fim
             vis_state = {}
             for obj in self.doc.Objects:
                 if hasattr(obj, "ViewObject") and obj.ViewObject:
                     vis_state[obj.Name] = obj.ViewObject.Visibility
+            try:
+                camera = view.getCamera()
+            except Exception:
+                camera = None
 
             temp_dir = os.path.dirname(self.file_path)
-            
-            # 3. Diagramas Unifilares
+            diagramas = listar_diagramas(self.doc)
+            dos_diagramas = {o.Name for _, grupo in diagramas for o in [grupo] + descendentes(grupo)}
+
+            # 3. Diagramas: um por página, com a vista enquadrada só nele
             if self.opcoes.get("diagramas"):
                 story.append(PageBreak())
-                story.append(Paragraph("Diagramas Unifilares", self.styles['Heading1']))
-                
-                # Esconder tudo exceto os diagramas
-                diagramas_encontrados = False
-                for obj in self.doc.Objects:
-                    if hasattr(obj, "ViewObject") and obj.ViewObject:
-                        if obj.Label.startswith("diagrama"):
-                            obj.ViewObject.Visibility = True
-                            diagramas_encontrados = True
-                        else:
-                            obj.ViewObject.Visibility = False
-                            
-                if diagramas_encontrados:
-                    Gui.updateGui()
-                    view.fitAll()
-                    Gui.updateGui()
-                    img_path = os.path.join(temp_dir, "temp_diagrama.png")
-                    view.saveImage(img_path, 1024, 768, "Transparent")
-                    
-                    img = Image(img_path, width=15*cm, height=10*cm, kind='proportional')
-                    story.append(img)
-                else:
-                    story.append(Paragraph("Nenhum diagrama unifilar gerado.", self.styles['Normal']))
-                    
-                story.append(Spacer(1, 1*cm))
+                story.append(Paragraph("Diagramas", self.styles['Heading1']))
+                if not diagramas:
+                    story.append(Paragraph("Nenhum diagrama gerado: use Quadros e documentos > Diagramas.",
+                                           self.styles['Normal']))
+                for indice, (titulo, grupo) in enumerate(diagramas):
+                    img_path = os.path.join(temp_dir, f"temp_diagrama_{indice}.png")
+                    temporarios.append(img_path)
+                    try:
+                        capturar_diagrama(self.doc, view, grupo, img_path)
+                    except Exception as erro:
+                        App.Console.PrintWarning(f"Relatório: não foi possível capturar {titulo}: {erro}\n")
+                        continue
+                    if indice:
+                        story.append(PageBreak())
+                    story.append(Paragraph(titulo, self.styles['SubTitle']))
+                    story.append(Image(img_path, width=17 * cm, height=23 * cm, kind='proportional'))
 
             # 4. Cortes (Modelo 3D)
             if self.opcoes.get("cortes"):
                 story.append(PageBreak())
                 story.append(Paragraph("Vistas 3D e Cortes", self.styles['Heading1']))
-                
+
                 # Mostrar tudo EXCETO diagramas
                 for obj in self.doc.Objects:
                     if hasattr(obj, "ViewObject") and obj.ViewObject:
-                        if obj.Label.startswith("diagrama"):
+                        if obj.Name in dos_diagramas or obj.Label.startswith("diagrama"):
                             obj.ViewObject.Visibility = False
-                        else:
-                            # Tenta focar na arquitetura e eletrodutos/caixas 3D
-                            if "Sketch" not in obj.Name or "Feature" in obj.Proxy.__class__.__name__:
-                                obj.ViewObject.Visibility = True
-                
+                        elif "Sketch" not in obj.Name or "Feature" in obj.Proxy.__class__.__name__:
+                            obj.ViewObject.Visibility = True
+
                 Gui.updateGui()
                 view.viewIsometric()
                 view.fitAll()
                 Gui.updateGui()
-                
+
                 img_path = os.path.join(temp_dir, "temp_corte.png")
+                temporarios.append(img_path)
                 view.saveImage(img_path, 1024, 768, "Transparent")
-                
+
                 img = Image(img_path, width=15*cm, height=10*cm, kind='proportional')
                 story.append(img)
 
-            # Restaurar estado original de visibilidade
+            # Restaurar a visibilidade e a câmera
             for obj in self.doc.Objects:
                 if obj.Name in vis_state and hasattr(obj, "ViewObject") and obj.ViewObject:
                     obj.ViewObject.Visibility = vis_state[obj.Name]
-            
-            # Restaurar View
-            view.viewTop()
-            view.fitAll()
+            if camera:
+                try:
+                    view.setCamera(camera)
+                except Exception:
+                    view.viewTop()
+                    view.fitAll()
             Gui.updateGui()
 
         # Constrói o PDF
         doc_pdf.build(story)
         
         # Limpar temporários
-        temp_dir = os.path.dirname(self.file_path)
-        for temp_img in ["temp_diagrama.png", "temp_corte.png"]:
-            p = os.path.join(temp_dir, temp_img)
+        for p in temporarios:
             if os.path.exists(p):
-                try: os.remove(p)
-                except: pass
+                try:
+                    os.remove(p)
+                except OSError:
+                    pass
 
     def _get_materiais_table(self):
         """Quantitativo de materiais, o mesmo do comando Quantitativos."""

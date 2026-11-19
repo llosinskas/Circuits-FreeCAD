@@ -264,6 +264,15 @@ def _aplicar_legendas(mostrar):
         app.Console.PrintWarning(f"Circuits: não foi possível ajustar as legendas dos botões: {erro}\n")
 
 
+def _verificar_dependencias():
+    try:
+        from freecad.Circuits.UI.dialogs import dependencias
+
+        dependencias.perguntar_e_instalar()
+    except Exception as erro:  # nunca impede o uso da bancada
+        app.Console.PrintWarning(f"Circuits: não foi possível conferir as bibliotecas: {erro}\n")
+
+
 class CircuitsWorkbench(gui.Workbench):
     """Bancada para a criação e gerenciamento de projetos elétricos."""
 
@@ -320,6 +329,8 @@ class CircuitsWorkbench(gui.Workbench):
 
     def Activated(self):
         app.Console.PrintMessage("✓ Bancada Circuits ativada!\n")
+        # Oferece instalar o reportlab (relatório e quantitativos em PDF), uma vez por sessão.
+        QtCore.QTimer.singleShot(1500, _verificar_dependencias)
         if app.ParamGet(PREFERENCIAS).GetBool("LegendaBotoes", True):
             # As barras só existem depois que o FreeCAD termina de montar a bancada.
             QtCore.QTimer.singleShot(0, lambda: _aplicar_legendas(True))

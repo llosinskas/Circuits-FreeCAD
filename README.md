@@ -40,7 +40,7 @@ git pull origin master
 
 Depois use **Elétrica > Outros > Reiniciar Bancada** ou reabra o FreeCAD. Mantenha uma única cópia da bancada em `Mod`: duas cópias registram os mesmos comandos e uma substitui a outra.
 
-O relatório e o quantitativo em PDF usam a biblioteca `reportlab`, que já vem no Python do FreeCAD. O XLSX e o CSV não dependem de nada.
+O relatório e o quantitativo em PDF usam a biblioteca `reportlab`. Pelo **Addon Manager**, o FreeCAD pede para instalá-la junto com a bancada. Instalando pelo `git clone`, a bancada confere ao ser ativada e, se faltar, pergunta se pode instalar com o pip do FreeCAD, na mesma pasta que o Addon Manager usa (`AdditionalPythonPackages`). O botão **Não perguntar de novo** desliga a pergunta, mas o botão do relatório ainda oferece a instalação. Se o pip falhar (sem internet, por exemplo), a mensagem mostra o comando para rodar no terminal. O XLSX e o CSV não dependem de nada.
 
 ## Um projeto do começo ao fim
 
@@ -192,7 +192,7 @@ Depois de gravar, gere o Unifilar de novo para atualizar as fases no diagrama.
 ### Unifilar e componentes
 
 - **Unifilar:** um diagrama por quadro, com medidor (quando a origem do quadro é uma medição), disjuntor geral, DPS, barramentos de fases, neutro e terra, e, em cada circuito, o disjuntor com os terminais e o arco, a proteção (`C16A`) e as fases, o DR com a sensibilidade, os traços de terra, neutro e fases, a seção (`#2,5 mm²`), a potência, o número e a descrição.
-- **Multifilar:** o botão **Multifilar**, no grupo **Diagramas ▾** junto com o Unifilar, desenha um diagrama por quadro com cada condutor separado: os barramentos R, S, T (conforme o número de fases do quadro), N e PE na horizontal, e cada circuito descendo deles com um condutor por fase, o neutro e o terra. Cada fase tem um polo do disjuntor (os polos de um mesmo disjuntor ligados por tracejado), o DR abraça as fases e o neutro, e o terra segue direto. A entrada vem pela esquerda, pelo disjuntor geral. Embaixo de cada circuito: número, proteção, DR, seção, potência e a descrição na vertical. Os multifilares ficam à direita dos unifilares e, se você os mover, voltam no mesmo lugar ao gerar de novo.
+- **Multifilar:** o botão **Multifilar**, no grupo **Diagramas ▾** junto com o Unifilar, desenha um diagrama por quadro, na vertical, com cada condutor separado: os barramentos R, S, T (conforme o número de fases do quadro), N e PE descem lado a lado, e cada circuito sai deles para a direita, um embaixo do outro, com um condutor por fase, o neutro e o terra. Cada fase tem um polo do disjuntor (os polos de um mesmo disjuntor ligados por tracejado), o DR abraça as fases e o neutro, e o terra segue direto. Cada circuito termina num retângulo com o número e a descrição; em cima dos condutores ficam a proteção, a sensibilidade do DR, a seção e a potência. A entrada vem por cima, pelo disjuntor geral. Os multifilares ficam à direita dos unifilares e, se você os mover, voltam no mesmo lugar ao gerar de novo.
 - **Gerador e transferência:** se o projeto tiver o gerador calculado (planilha *Cargas do gerador* com o resultado gravado), o Unifilar também desenha, à esquerda dos quadros, a entrada com gerador: rede e gerador, cada um com disjuntor, os contatores K1 e K2 intertravados do QTA, a saída para as cargas do gerador e os dados do gerador e dos cabos. O botão Gerador diesel redesenha esse diagrama ao gravar o resultado. Se você mover o diagrama, ele é recriado no mesmo lugar.
 - **Ligação ao quadro geral:** a saída do QTA vai até a entrada do diagrama do quadro geral, na mesma altura, com o texto "Alimenta QGBT". O quadro geral é o que tem a origem começando com **QTA** (ou igual à sigla do símbolo de QTA da planta) na planilha do quadro; sem isso, o único quadro que está entre as cargas do gerador. Gere o Unifilar para refazer a ligação depois de mudar os quadros.
 - **Componentes:** disjuntor geral, DPS, disjuntores e DR dos circuitos, barramentos com o número de terminais e o tamanho da caixa em módulos DIN, com a reserva de circuitos da NBR 5410. A lista fica numa planilha `Componentes <quadro>`.
@@ -337,7 +337,7 @@ O quantitativo por pavimento soma em cada um os pontos, caixas, eletrodutos, ver
 - **Legenda:** desenha ao lado da planta os símbolos usados, inclusive os tipos de interruptor.
 - **Planilha de notas** e **Notas:** escreva as notas numa planilha, uma por linha; o botão as desenha numeradas embaixo da legenda.
 - **Sketches em preto:** os Sketches da bancada já nascem pretos; o botão repinta os de projetos antigos.
-- **Relatório PDF:** quadros, demandas, materiais e imagens dos diagramas.
+- **Relatório PDF:** quadros, demandas, materiais e os diagramas. Cada diagrama gerado (unifilar e multifilar de cada quadro e a transferência rede/gerador) sai numa página: na hora de capturar, a bancada mostra só aquele diagrama, vira a vista para o topo e enquadra nele, grava a imagem com fundo branco na proporção do desenho e depois devolve a vista e a visibilidade como estavam. Gere os diagramas antes do relatório.
 
 ## Aterramento
 

@@ -176,9 +176,9 @@ class TestServico(unittest.TestCase):
         self.assertEqual(grupo.multifilar_de, "Sheet")
         escritos = [c.args[0] for c in texto.call_args_list]
         self.assertIn("C1", escritos)
-        self.assertIn("DR 30mA", escritos)
+        self.assertIn("30mA", escritos)  # ao lado do retângulo do DR
         descricao = next(c for c in texto.call_args_list if c.args[0] == "Tomadas")
-        self.assertEqual(descricao.args[2], -90.0)
+        self.assertEqual(descricao.args[2], 0.0)  # dentro do retângulo do circuito, na horizontal
 
 
 if __name__ == "__main__":

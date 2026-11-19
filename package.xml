@@ -12,15 +12,13 @@
     <icon>freecad/Circuits/Resources/Icons/logo.svg</icon>
     <content>
     <workbench>
-        <classname>Circuits</classname>
+        <classname>CircuitsWorkbench</classname>
         <subdirectory>./</subdirectory>
         <freecadmin>1.1</freecadmin>
-        <depend optional="false" type="python">matplotlib</depend>
+        <!-- O Addon Manager pede para instalar estas bibliotecas com o pip ao instalar a bancada. -->
         <depend optional="false" type="python">reportlab</depend>
-        <depend optional="false" type="python">numpy</depend>
         <depend optional="false" type="python">pandas</depend>
-        <depend optional="false" type="python">sympy</depend>
-        <depend optional="false" type="python">scipy</depend>
+        <depend optional="false" type="python">numpy</depend>
     </workbench>
     </content>
 </package>
