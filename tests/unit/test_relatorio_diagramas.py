@@ -59,6 +59,18 @@ class TestDiagramasNoRelatorio(unittest.TestCase):
         args = view.saveImage.call_args.args
         self.assertEqual((args[0], args[1], args[3]), ("/tmp/x.png", self.servico.LARGURA_IMAGEM, "White"))
 
+    def test_corte_esconde_diagramas_e_sketches_sem_ler_proxy(self):
+        # Sketch comum não tem Proxy: era o "SketchObject has no attribute Proxy" ao gerar o PDF
+        sketch_solto = types.SimpleNamespace(Name="Sketch001", Label="Sketch001", TypeId="Sketcher::SketchObject")
+        caixa = types.SimpleNamespace(Name="Tomada_3D", Label="Tomada_3D", TypeId="Part::Feature")
+        sem_tipo = types.SimpleNamespace(Name="Sketch_da_tomada", Label="Sketch_da_tomada")
+        visivel = self.servico.visivel_no_corte
+        self.assertFalse(visivel(sketch_solto))
+        self.assertTrue(visivel(caixa))
+        self.assertTrue(visivel(sem_tipo))
+        self.assertFalse(visivel(self.sketch, {"Sketch"}))  # Sketch de um diagrama
+        self.assertFalse(visivel(self.unifilar))  # grupo diagrama_QD1
+
 
 if __name__ == "__main__":
     unittest.main()

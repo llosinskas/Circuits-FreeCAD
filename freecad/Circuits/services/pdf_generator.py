@@ -50,6 +50,16 @@ def listar_diagramas(doc):
     return diagramas
 
 
+def visivel_no_corte(obj, dos_diagramas=()):
+    """O objeto aparece na vista 3D do relatório: tudo, menos os diagramas e os Sketches.
+
+    Nem todo objeto tem ``Proxy`` (um Sketch comum não tem), então só o tipo e o nome são lidos.
+    """
+    if obj.Name in dos_diagramas or str(getattr(obj, "Label", "")).startswith("diagrama"):
+        return False
+    return getattr(obj, "TypeId", "") != "Sketcher::SketchObject"
+
+
 def _caixa_dos_objetos(objetos):
     """(largura, altura) do retângulo que envolve as formas dos objetos, ou None."""
     caixas = []
@@ -211,25 +221,24 @@ class PDFGenerator:
                 story.append(PageBreak())
                 story.append(Paragraph("Vistas 3D e Cortes", self.styles['Heading1']))
 
-                # Mostrar tudo EXCETO diagramas
-                for obj in self.doc.Objects:
-                    if hasattr(obj, "ViewObject") and obj.ViewObject:
-                        if obj.Name in dos_diagramas or obj.Label.startswith("diagrama"):
-                            obj.ViewObject.Visibility = False
-                        elif "Sketch" not in obj.Name or "Feature" in obj.Proxy.__class__.__name__:
-                            obj.ViewObject.Visibility = True
+                try:
+                    # Mostrar o modelo, sem os diagramas e sem os Sketches
+                    for obj in self.doc.Objects:
+                        if hasattr(obj, "ViewObject") and obj.ViewObject:
+                            obj.ViewObject.Visibility = visivel_no_corte(obj, dos_diagramas)
 
-                Gui.updateGui()
-                view.viewIsometric()
-                view.fitAll()
-                Gui.updateGui()
+                    Gui.updateGui()
+                    view.viewIsometric()
+                    view.fitAll()
+                    Gui.updateGui()
 
-                img_path = os.path.join(temp_dir, "temp_corte.png")
-                temporarios.append(img_path)
-                view.saveImage(img_path, 1024, 768, "Transparent")
-
-                img = Image(img_path, width=15*cm, height=10*cm, kind='proportional')
-                story.append(img)
+                    img_path = os.path.join(temp_dir, "temp_corte.png")
+                    temporarios.append(img_path)
+                    view.saveImage(img_path, 1024, 768, "White")
+                    story.append(Image(img_path, width=15*cm, height=10*cm, kind='proportional'))
+                except Exception as erro:  # a vista 3D não impede o resto do relatório
+                    App.Console.PrintWarning(f"Relatório: não foi possível capturar a vista 3D: {erro}\n")
+                    story.append(Paragraph("Não foi possível capturar a vista 3D.", self.styles['Normal']))
 
             # Restaurar a visibilidade e a câmera
             for obj in self.doc.Objects:
