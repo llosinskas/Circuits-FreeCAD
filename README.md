@@ -304,7 +304,7 @@ Termine o eletroduto na eletrocalha (ou a até 30 cm dela) e marque-o com o bot�
 | Abaixo (ou acima) da eletrocalha | **Vertical**, pelo fundo (ou por cima): o eletroduto faz curva de 90° e sobe até o fundo | ponto cheio e `SV Ø3/4"` |
 
 - A saída entra nos quantitativos (grupo *Bandejas e leitos*, "Saída horizontal/vertical para eletroduto" com o diâmetro); no rígido, também bucha e arruela e, na vertical, a curva. A vertical soma nos metros de eletroduto.
-- No 3D, a saída vertical aparece com a curva e o tubo até o fundo da eletrocalha; ela também aparece em **Editar descidas**.
+- No 3D, cada saída ganha a peça: uma flange quadrada encostada na eletrocalha (na aba, do lado de fora, na horizontal; embaixo do fundo, na vertical) e a luva com anel por onde entra o eletroduto. A saída vertical aparece também com a curva e o tubo até o fundo da eletrocalha, e em **Editar descidas**.
 - A ponta que chega à eletrocalha deixa de ser avisada como ponta solta.
 
 ## Documentação

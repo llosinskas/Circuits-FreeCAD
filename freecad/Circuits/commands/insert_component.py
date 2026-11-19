@@ -8,7 +8,7 @@ from freecad.Circuits.objects.lighting import create_lighting
 from freecad.Circuits.objects.outlet import create_outlet
 from freecad.Circuits.objects.switch import create_switch
 from freecad.Circuits.qt import QtCore, QtWidgets
-from freecad.Circuits.services import alinhamento, eletrodutos_planta, pavimentos, rede, verticais
+from freecad.Circuits.services import alinhamento, eletrodutos, eletrodutos_planta, pavimentos, rede, verticais
 from freecad.Circuits.services.tomadas import criar_tug
 from freecad.Circuits.UI.dialogs.ComponentInserter import ComponentInserter, ComponentInsertionMode
 from freecad.Circuits.UI.dialogs.eletroduto_dialog import EletrodutoDialog
@@ -234,9 +234,12 @@ class Conduit:
             if caixas_novas:
                 rede.conectar(doc, marcados)
             textos = eletrodutos_planta.anotar(doc)
-            descidas = eletrodutos_planta.descidas(doc)
+            resultados = eletrodutos_planta.analisar(doc)
+            descidas = eletrodutos_planta.descidas(doc, resultados)
             if descidas:  # eletrodutos de alturas diferentes ligados: descida com curvas no 3D e símbolo na planta
                 eletrodutos_planta.atualizar_depois_de_editar(doc, sempre=True)
+            elif any(r.get("saidas") for r in resultados.values()):  # só saídas horizontais: a peça no 3D
+                eletrodutos.gerar_saidas_3d(doc, resultados)
             doc.commitTransaction()
         except Exception:
             doc.abortTransaction()

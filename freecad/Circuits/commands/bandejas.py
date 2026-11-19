@@ -5,7 +5,7 @@ import FreeCADGui as Gui
 from freecad.Circuits.commands._base import documento_ou_aviso, recursos
 from freecad.Circuits.core import bandejas as regras
 from freecad.Circuits.qt import QtWidgets
-from freecad.Circuits.services import bandejas, eletrodutos_planta, rede
+from freecad.Circuits.services import bandejas, eletrodutos, eletrodutos_planta, rede
 from freecad.Circuits.UI.dialogs.bandeja_dialog import BandejaDialog, SuportesDialog
 
 
@@ -61,6 +61,8 @@ class CableTray:
                 resultados = eletrodutos_planta.analisar(doc)
                 saidas = sum(len(r.get("saidas", [])) for r in resultados.values())
                 eletrodutos_planta.anotar(doc, resultados)
+                if saidas:
+                    eletrodutos.gerar_saidas_3d(doc, resultados)  # flange e luva no 3D da eletrocalha
             doc.commitTransaction()
         except Exception:
             doc.abortTransaction()

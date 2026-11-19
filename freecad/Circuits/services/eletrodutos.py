@@ -199,6 +199,7 @@ def gerar_tubos(doc, caminhos):
                 cortes.setdefault(braco["nome"], []).append((descida["x"], descida["y"], descida["raio"]))
     criados = sum(1 for obj in caminhos if _gerar_tubo(doc, obj, tomadas, cortes.get(obj.Name, ())))
     gerar_descidas(doc, descidas)
+    gerar_saidas_3d(doc)
     doc.recompute()
     return criados
 
@@ -311,3 +312,62 @@ def subdividir_linha(doc, obj):
     obj.touch()
     doc.recompute()
     print(f"Adicionado pontos de controle na curva: {obj.Label}")
+
+
+COR_SAIDA = (0.75, 0.75, 0.78)  # aço galvanizado, como a eletrocalha
+
+
+def _solido(primitiva, cota):
+    """Sólido de uma primitiva de ``core.pecas_eletroduto.solidos_da_saida`` (Z somado à cota do piso)."""
+    if primitiva[0] == "cilindro":
+        _, base, direcao, raio, comprimento = primitiva
+        return Part.makeCylinder(raio, comprimento, App.Vector(base[0], base[1], base[2] + cota), App.Vector(*direcao))
+    _, centro, normal, lado, espessura = primitiva
+    placa = Part.makeBox(lado, lado, espessura)
+    placa.translate(App.Vector(-lado / 2.0, -lado / 2.0, -espessura / 2.0))  # centrada na origem
+    posicao = App.Placement(App.Vector(centro[0], centro[1], centro[2] + cota),
+                            App.Rotation(App.Vector(0, 0, 1), App.Vector(*normal)))
+    placa.Placement = posicao.multiply(placa.Placement)  # gira em torno do centro e leva ao lugar
+    return placa
+
+
+def gerar_saidas_3d(doc, resultados=None):
+    """Recria a peça 3D de cada saída de eletrocalha: flange, luva e anel (propriedade ``saida_3d``),
+    na subpasta 3D da eletrocalha.
+
+    Returns:
+        Quantidade de peças desenhadas.
+    """
+    from freecad.Circuits.services import eletrodutos_planta  # importa este módulo: só aqui, sem ciclo
+
+    for obj in [o for o in doc.Objects if hasattr(o, "saida_3d")]:
+        doc.removeObject(obj.Name)
+    try:
+        resultados = eletrodutos_planta.analisar(doc) if resultados is None else resultados
+    except Exception as e:
+        App.Console.PrintWarning(f"Não foi possível analisar as saídas das eletrocalhas: {e}\n")
+        return 0
+    feitas = 0
+    for pav_nome, resultado in resultados.items():
+        pav = pavimentos.por_nome(doc, pav_nome) if pav_nome else None
+        cota = pavimentos.elevacao(pav) if pav is not None else 0.0
+        for saida in resultado.get("saidas", []):
+            try:
+                forma = Part.makeCompound([_solido(p, cota) for p in pecas_eletroduto.solidos_da_saida(saida)])
+            except Exception as e:
+                App.Console.PrintWarning(f"Falha ao gerar a saída em ({saida['x']:.0f}; {saida['y']:.0f}): {e}\n")
+                continue
+            objeto = doc.addObject("Part::Feature", "Saida_3D")
+            objeto.Shape = forma
+            objeto.Label = f"{saida['peca']} Ø{saida['diametro']}\""
+            objeto.addProperty("App::PropertyString", "saida_3d", "Conduit", "Peça de saída da eletrocalha")
+            objeto.saida_3d = f"{pav_nome}:{saida['x']:.0f};{saida['y']:.0f}"
+            try:
+                objeto.ViewObject.ShapeColor = COR_SAIDA
+            except Exception:
+                pass
+            bandeja = doc.getObject(saida.get("bandeja") or "")
+            if bandeja is not None:
+                pavimentos.guardar_3d(doc, bandeja, objeto)  # ex.: Térreo > Bandejas e leitos > Bandejas 3D
+            feitas += 1
+    return feitas

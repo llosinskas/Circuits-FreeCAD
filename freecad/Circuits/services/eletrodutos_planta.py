@@ -318,6 +318,7 @@ def atualizar_depois_de_editar(doc, sempre=False):
         eletrodutos.gerar_tubos(doc, rede.listar_eletrodutos(doc))
     elif sempre:
         tem_3d = eletrodutos.gerar_descidas(doc) > 0
+        tem_3d = eletrodutos.gerar_saidas_3d(doc) > 0 or tem_3d
     tem_simbolos = sempre or any(hasattr(obj, "simbolo_vertical") for obj in doc.Objects)
     if tem_simbolos:
         verticais.desenhar_simbolos(doc)

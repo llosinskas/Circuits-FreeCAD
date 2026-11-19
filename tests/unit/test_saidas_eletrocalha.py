@@ -55,6 +55,34 @@ class TestSaidas(unittest.TestCase):
         self.assertEqual(len(r["avisos"]), 1)
 
 
+class TestPecaDeSaida3D(unittest.TestCase):
+    def test_horizontal_flange_na_aba_e_luva_para_fora(self):
+        s = p.saidas([eletroduto("E", [(2000, 150), (2000, 3000)], 2650)], [BANDEJA])[0]
+        self.assertEqual((s["normal"], s["z"]), ((-0.0, 1.0), 2650.0))
+        placa, luva, anel = p.solidos_da_saida(s)
+        self.assertEqual(placa[0], "placa")
+        self.assertAlmostEqual(placa[1][1], 150 + p.ESPESSURA_FLANGE_MM / 2)  # do lado de fora da aba
+        self.assertEqual(placa[2], (-0.0, 1.0, 0.0))
+        self.assertAlmostEqual(placa[3], 26.9 + 2 * p.ABA_FLANGE_MM)  # 3/4": 26,9 mm externo
+        self.assertEqual((luva[0], luva[2]), ("cilindro", (-0.0, 1.0, 0.0)))
+        self.assertAlmostEqual(luva[3], 26.9 / 2 + p.FOLGA_LUVA_MM)
+        self.assertAlmostEqual(anel[1][1] + anel[4], luva[1][1] + luva[4])  # o anel fecha a ponta da luva
+        self.assertGreater(anel[3], luva[3])
+
+    def test_vertical_embaixo_do_fundo_para_baixo(self):
+        s = p.saidas([eletroduto("E", [(3000, 3000), (3000, 40)], 300)], [BANDEJA])[0]
+        self.assertEqual((s["z"], s["sentido"]), (2600.0, -1.0))
+        placa, luva, _ = p.solidos_da_saida(s)
+        self.assertEqual(placa[2], (0.0, 0.0, -1.0))
+        self.assertAlmostEqual(placa[1][2], 2600 - p.ESPESSURA_FLANGE_MM / 2)
+        self.assertEqual(luva[1][:2], (3000.0, 40.0))
+
+    def test_vertical_de_cima_sobre_a_aba(self):
+        s = p.saidas([eletroduto("E", [(3000, 3000), (3000, 0)], 3000)], [BANDEJA])[0]
+        self.assertEqual((s["z"], s["sentido"]), (2700.0, 1.0))
+        self.assertEqual(p.solidos_da_saida(s)[1][2], (0.0, 0.0, 1.0))
+
+
 class TestEncaixeNaEletrocalha(unittest.TestCase):
     def test_ponta_perto_vai_para_a_borda_ou_para_o_centro(self):
         caminhos = [eletroduto("E", [(2000, 3000), (2000, 300)], 2650),  # na altura: vai à borda (y = 150)

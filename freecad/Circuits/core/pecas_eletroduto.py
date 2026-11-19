@@ -53,6 +53,12 @@ SAIDA_VERTICAL = "Saída vertical para eletroduto"  # no fundo da eletrocalha
 GRUPO_BANDEJAS = "Bandejas e leitos"
 TOLERANCIA_SAIDA_MM = 50.0  # ponta a até isto da borda da eletrocalha é saída
 TOLERANCIA_ENCAIXE_BANDEJA_MM = 300.0  # ponta a até isto da borda vai para a eletrocalha
+# Peça de saída no 3D: flange quadrada encostada na eletrocalha e luva com anel para o eletroduto [mm]
+ABA_FLANGE_MM = 20.0  # a flange passa o diâmetro externo do eletroduto disto de cada lado
+ESPESSURA_FLANGE_MM = 3.0
+FOLGA_LUVA_MM = 2.0  # a luva abraça o eletroduto
+COMPRIMENTO_LUVA_MIN_MM = 40.0
+ANEL_MM = 8.0  # anel (porca) no fim da luva
 LUVA = "Luva"
 BUCHA = "Bucha e arruela"
 CONDULETE = "Condulete"
@@ -194,11 +200,14 @@ def saidas(caminhos, bandejas):
                      "diametro": caminho.get("diametro"), "tipo_eletroduto": caminho.get("tipo"),
                      "material": caminho.get("material"), "instalacao": caminho.get("instalacao"),
                      "ponta": (float(ponta[0]), float(ponta[1]))}
+            saida["normal"] = (float(normal[0]), float(normal[1]))
             if horizontal:
                 meia = float(bandeja["largura"]) / 2.0
                 saida["x"], saida["y"] = projecao[0] + normal[0] * meia, projecao[1] + normal[1] * meia
+                saida["z"] = min(max(altura, base), topo) if topo > base else altura
             else:
                 saida["x"], saida["y"] = float(ponta[0]), float(ponta[1])
+                saida["z"], saida["sentido"] = (base, -1.0) if altura < base else (topo, 1.0)
                 comprimento = math.hypot(vizinho[0] - ponta[0], vizinho[1] - ponta[1]) or 1.0
                 de, ate = (altura, base) if altura < base else (topo, altura)
                 raio = min(raio_da_curva(caminho.get("diametro"), caminho.get("tipo")), ate - de,
@@ -389,6 +398,37 @@ def rotulos(caminhos, afastamento=120.0, evitar=(), distancia_minima=500.0):
         resultado.append((round(mx - uy * afastamento, 6), round(my + ux * afastamento, 6),
                           math.degrees(math.atan2(uy, ux)), f'Ø{caminho["diametro"]}"'))
     return resultado
+
+
+def solidos_da_saida(saida):
+    """Primitivas 3D da peça de saída, com Z a partir do piso do pavimento.
+
+    Horizontal: flange encostada na aba, do lado de fora, e a luva saindo para fora
+    da eletrocalha. Vertical: flange embaixo do fundo (ou em cima da aba, se o
+    eletroduto vem de cima) e a luva para baixo (ou para cima).
+
+    Returns:
+        [('placa', centro (x, y, z), normal (x, y, z), lado, espessura),
+         ('cilindro', base (x, y, z), direção (x, y, z), raio, comprimento)] — flange, luva e anel.
+    """
+    externo = _diametro_externo(saida.get("diametro"))
+    lado = externo + 2 * ABA_FLANGE_MM
+    comprimento = max(COMPRIMENTO_LUVA_MIN_MM, externo)
+    raio = externo / 2.0 + FOLGA_LUVA_MM
+    x, y, z = float(saida["x"]), float(saida["y"]), float(saida["z"])
+    if saida["tipo"] == "horizontal":
+        direcao = (saida["normal"][0], saida["normal"][1], 0.0)
+    else:
+        direcao = (0.0, 0.0, float(saida.get("sentido", -1.0)))
+
+    def andar(distancia):
+        return (x + direcao[0] * distancia, y + direcao[1] * distancia, z + direcao[2] * distancia)
+
+    return [
+        ("placa", andar(ESPESSURA_FLANGE_MM / 2.0), direcao, lado, ESPESSURA_FLANGE_MM),
+        ("cilindro", andar(ESPESSURA_FLANGE_MM), direcao, raio, comprimento),
+        ("cilindro", andar(ESPESSURA_FLANGE_MM + comprimento - ANEL_MM), direcao, raio + 3.0, ANEL_MM),
+    ]
 
 
 SIGLA_SAIDA = {"horizontal": "SH", "vertical": "SV"}
