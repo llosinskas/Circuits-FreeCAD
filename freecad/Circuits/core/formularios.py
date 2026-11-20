@@ -46,10 +46,18 @@ LAMPADAS = {
     OUTRA: {},
 }
 
+# Tipo de ambiente -> plano de trabalho: no piso nas circulações e garagens (NBR ISO/CIE 8995-1).
+PLANO_POR_AMBIENTE = {
+    nome: {"plano_trabalho": 0.0 if nome in luminotecnico.NO_PISO else luminotecnico.PLANO_DE_TRABALHO}
+    for nome in luminotecnico.ILUMINANCIAS if nome != luminotecnico.PERSONALIZADO
+}
+
 LUMINOTECNICO = [
     {
         "chave": "ambiente", "rotulo": "Tipo de ambiente", "valor": list(luminotecnico.ILUMINANCIAS),
-        "dica": "Define a iluminância desejada. Em Personalizado, informe o valor nas opções avançadas.",
+        "preenche": PLANO_POR_AMBIENTE,
+        "dica": "Define a iluminância mantida e o plano de trabalho (no piso em circulação, escada e garagem). "
+                "Em Personalizado, informe a iluminância nas opções avançadas.",
     },
     {
         "chave": "lampada", "rotulo": "Lâmpada ou luminária", "valor": list(LAMPADAS), "preenche": LAMPADAS,

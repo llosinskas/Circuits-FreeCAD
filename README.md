@@ -91,7 +91,14 @@ Para símbolos já colocados, selecione-os e use **Alinhar**, **Distribuir** ou 
 ### Ambientes e pontos automáticos
 
 1. **Projeto ▾ > Ambientes** transforma em polilinha cada espaço da bancada BIM (**Arquitetura > Espaço**) ou, com uma seleção, cada retângulo, polilinha ou face fechada selecionada. A polilinha vai para a pasta *Ambientes* do pavimento, com nome, tipo (sugerido pelo nome: "Cozinha 01" vira Cozinha, "WC" vira Banheiro), área e perímetro. Se o tipo vier errado, corrija na propriedade *TipoAmbiente*.
-2. **Projeto ▾ > Pontos automáticos** mostra antes uma prévia por ambiente, com o tipo (que dá para trocar ali), portas, tomadas, potências e iluminação, e só gera os pontos se você confirmar. Pelo mínimo da NBR 5410 (9.5.2):
+2. **Projeto ▾ > Pontos automáticos** mostra antes uma prévia por ambiente, com o tipo (que dá para trocar ali), portas, tomadas, potências, iluminação e equipamentos, e só gera os pontos se você confirmar. Ao lado da tabela, para o ambiente selecionado, ele pergunta:
+   - **Porta:** as portas do projeto (BIM), a parede dela (com a posição em % da parede) ou "Sem porta". As paredes aparecem pelo lado na planta, por exemplo *Parede 2 – da direita, 3,00 m*.
+   - **Pia / bancada** (cozinha, copa, área de serviço, lavanderia): as tomadas de 600 VA vão acima dela, no mínimo duas (NBR 5410 9.5.2.2.1 b). **Lavatório** (banheiro): a tomada de 600 VA junto a ele.
+   - **Chuveiro** (banheiro), com a potência: no canto mais longe da porta.
+   - **Ar-condicionado** (sala, dormitório, escritório), pela capacidade: na parede mais comprida sem porta.
+   - Embaixo, para todos: **luminotécnico** ligado ou não, a lâmpada e o pé-direito.
+
+   Pelo mínimo da NBR 5410 (9.5.2):
 
 | Ambiente | Tomadas (TUG) | Potência |
 |---|---|---|
@@ -103,7 +110,7 @@ Para símbolos já colocados, selecione-os e use **Alinhar**, **Distribuir** ou 
 
 - **Tomadas:** espaçadas pelo perímetro, fora das portas, a pelo menos 30 cm dos cantos e do interruptor, viradas para dentro.
 - **Interruptor:** a 15 cm do batente da porta (as portas são as do BIM). Sem porta, fica no primeiro canto e a prévia avisa.
-- **Luz de teto:** no centro do ambiente, com 100 VA até 6 m² e mais 60 VA a cada 4 m² inteiros. Já sai ligada ao interruptor pela mesma letra.
+- **Luminárias:** com o luminotécnico, pelo método dos lúmens, com a iluminância mantida do tipo (sala e dormitório 150 lx, cozinha, área de serviço e banheiro 200 lx, escritório 500 lx no plano de 0,75 m; corredor e varanda 100 lx e garagem 75 lx no piso), numa malha dentro do ambiente (também em L) com espaçamento de no máximo 1,5 × a altura útil. Cada ponto entra no circuito com o maior entre a potência da lâmpada e a parte dele na carga mínima da NBR 5410 (100 VA até 6 m² e mais 60 VA a cada 4 m² inteiros). Sem o luminotécnico, uma luz no centro com essa carga mínima. Todas saem ligadas ao interruptor pela mesma letra.
 - Os pontos saem **sem circuito**: use **Circuitos ▾ > Definir circuito**. Repetir o comando no mesmo ambiente substitui os pontos gerados antes por ele; os que você inseriu à mão ficam.
 
 ### Pavimentos
@@ -424,7 +431,7 @@ As barras *Desenho*, *Modificador*, *Snap* e *Arquitetura* trazem as ferramentas
 - **Demanda:** fatores de guias residenciais, não conferidos com a fonte; cada concessionária tem a sua tabela, e a demanda do edifício inteiro não é calculada.
 - **Aterramento:** resistividades de solo típicas e fórmulas para hastes em linha; meça o solo e confira o valor máximo com a NBR 5410 e a NBR 5419.
 - **Gerador diesel:** pré-dimensionamento com valores típicos (x″d, redução por altitude e temperatura, consumo, fator das cargas não lineares, potências comerciais): confirme com o catálogo do fabricante. Não calcula a sequência de partida de vários motores, o paralelismo de geradores nem a transferência (QTA); a capacidade dos cabos acima de 120 mm² é da NBR 5410, a conferir.
-- **Pressurização, recalque e luminotécnico:** pré-dimensionamentos com parâmetros genéricos, a conferir com as normas, o Corpo de Bombeiros, o projeto hidráulico e os catálogos.
+- **Pressurização, recalque e luminotécnico:** pré-dimensionamentos com parâmetros genéricos, a conferir com as normas, o Corpo de Bombeiros, o projeto hidráulico e os catálogos. No luminotécnico, o fator de utilização vem de uma curva genérica (luminária direta, teto e paredes claros); com o do catálogo da luminária o resultado é o certo.
 - **Padrões:** pontos em 127 V (220 V para chuveiro, ar-condicionado e ponto de força); DR marcado em todos os circuitos de tomadas e de uso específico.
 - **Símbolos:** convenção da bancada, não cópia de uma norma.
 - **Bandejas e leitos:** curvas verticais sempre de 90° e a altura de cada linha é única (para subir, divida em duas linhas); a redução tem sempre 30 cm e é concêntrica, e o tê é um quadrado na largura da principal, não o desenho do catálogo; o raio da curva é a largura da bandeja. Vão dos suportes, parafusos e materiais por regras usuais de catálogo, não de um fabricante.

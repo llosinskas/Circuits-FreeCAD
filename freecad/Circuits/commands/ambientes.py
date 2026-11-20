@@ -64,26 +64,32 @@ class PontosAutomaticos:
                 None, "Pontos automáticos", "Nenhum ambiente: use o botão Ambientes primeiro.")
             return
 
-        def prever(indice, tipo):
-            return ambientes.plano(doc, alvos[indice], tipo)
+        def prever(indice, tipo, opcoes=None):
+            return ambientes.plano(doc, alvos[indice], tipo, opcoes)
 
-        dialogo = PontosAutoDialog(
-            [(a.NomeAmbiente, a.TipoAmbiente, a.AreaAmbiente, a.PerimetroAmbiente) for a in alvos], prever)
+        dados = [{"nome": a.NomeAmbiente, "tipo": a.TipoAmbiente, "area": a.AreaAmbiente,
+                  "perimetro": a.PerimetroAmbiente, "paredes": [p["rotulo"] for p in ambientes.paredes(a)],
+                  "portas_projeto": prever(i, a.TipoAmbiente)["portas"]} for i, a in enumerate(alvos)]
+        dialogo = PontosAutoDialog(dados, prever)
         if not dialogo.exec_():
             return
         escolhas = dialogo.get_dados()
         doc.openTransaction("Pontos automáticos")
         try:
-            tomadas = 0
-            for indice, tipo in escolhas:
-                tomadas += len(ambientes.gerar_pontos(doc, alvos[indice], tipo)["tomadas"])
+            tomadas = luzes = equipamentos = 0
+            for indice, tipo, opcoes in escolhas:
+                plano = ambientes.gerar_pontos(doc, alvos[indice], tipo, opcoes)
+                tomadas += len(plano["tomadas"])
+                luzes += len(plano["luzes"])
+                equipamentos += len(plano["equipamentos"])
             doc.commitTransaction()
         except Exception:
             doc.abortTransaction()
             raise
         App.Console.PrintMessage(
-            f"Pontos automáticos: {len(escolhas)} ambiente(s), {tomadas} tomada(s), {len(escolhas)} luz(es) e "
-            "interruptor(es). Defina os circuitos com Circuitos > Definir circuito.\n")
+            f"Pontos automáticos: {len(escolhas)} ambiente(s), {tomadas} tomada(s), {luzes} luminária(s), "
+            f"{equipamentos} equipamento(s) e os interruptores. Defina os circuitos com Circuitos > "
+            "Definir circuito.\n")
 
     def IsActive(self):
         return True
@@ -92,8 +98,9 @@ class PontosAutomaticos:
         return recursos(
             "pontos_auto.svg",
             "Pontos automáticos",
-            "Prevê pela NBR 5410 e coloca nos ambientes as tomadas (pelo perímetro, fora das portas), o "
-            "interruptor (ao lado da porta) e a luz (no centro). Mostra a prévia antes de gerar",
+            "Prevê pela NBR 5410 e coloca nos ambientes as tomadas (600 VA acima da pia, as outras pelo perímetro), "
+            "o interruptor (ao lado da porta), as luminárias pelo luminotécnico, o chuveiro e o ar-condicionado. "
+            "Pergunta a porta, a pia e os equipamentos de cada ambiente e mostra a prévia antes de gerar",
         )
 
 

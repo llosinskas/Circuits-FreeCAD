@@ -72,6 +72,30 @@ class TestCalculo(unittest.TestCase):
         with self.assertRaises(ValueError):
             lum.dimensionar(5, 4, 150, 2000, fator_manutencao=0)
 
+    def test_indice_pela_area_e_o_mesmo_do_retangulo(self):
+        self.assertAlmostEqual(lum.indice_pela_area(20, 18, 1.95), lum.indice_do_local(5, 4, 1.95))
+        with self.assertRaises(ValueError):
+            lum.indice_pela_area(20, 0, 1.95)
+
+    def test_espacamento_nao_passa_de_1_5_vez_a_altura_util(self):
+        # 6 x 3 m com painéis de 3600 lm: o cálculo dá 3 luminárias, que numa fileira ficariam a 3 m
+        # da parede oposta uma da outra; a malha passa a 3 x 2.
+        r = lum.dimensionar(6, 3, 150, 3600)
+        self.assertEqual(math.ceil(r["quantidade_calculada"]), 3)
+        self.assertEqual((r["nx"], r["ny"]), (3, 2))
+        self.assertLessEqual(max(r["espacamento_x"], r["espacamento_y"]), 1.5 * r["altura_util"])
+        self.assertTrue(r["avisos"])
+        self.assertIn("Aviso: malha aumentada", lum.relatorio(r))
+
+    def test_iluminancias_da_8995_e_plano_no_piso(self):
+        self.assertEqual(lum.ILUMINANCIAS["Escada (150 lx)"], 150)
+        self.assertEqual(lum.ILUMINANCIAS["Circulação e corredor (100 lx)"], 100)
+        self.assertEqual(lum.ILUMINANCIAS["Escritório (500 lx)"], 500)
+        self.assertTrue(set(lum.NO_PISO) <= set(lum.ILUMINANCIAS))
+        from freecad.Circuits.core import formularios
+        self.assertEqual(formularios.PLANO_POR_AMBIENTE["Garagem (75 lx)"]["plano_trabalho"], 0.0)
+        self.assertEqual(formularios.PLANO_POR_AMBIENTE["Sala e quarto (150 lx)"]["plano_trabalho"], 0.75)
+
     def test_lista_de_ambientes(self):
         self.assertIsNone(lum.ILUMINANCIAS[lum.PERSONALIZADO])
         self.assertTrue(all(valor > 0 for nome, valor in lum.ILUMINANCIAS.items() if nome != lum.PERSONALIZADO))

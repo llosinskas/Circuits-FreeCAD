@@ -3,16 +3,27 @@
 Passos:
 
 - índice do local: K = (C x L) / (Hu x (C + L)), com Hu = pé-direito - altura do
-  plano de trabalho - suspensão da luminária;
+  plano de trabalho - suspensão da luminária; num ambiente que não é retângulo,
+  a forma geral K = 2 x A / (Hu x P) (área e perímetro), que dá o mesmo valor
+  no retângulo;
 - fator de utilização U estimado a partir de K;
-- número de luminárias: N = E x A / (fluxo x U x Fm);
+- número de luminárias: N = E x A / (fluxo x U x Fm), com E a iluminância
+  **mantida** (o Fm já desconta sujeira e envelhecimento);
 - malha de nx por ny luminárias, com o mesmo espaçamento em cada direção e meio
-  espaçamento até as paredes.
+  espaçamento até as paredes, e o espaçamento limitado a
+  ``ESPACAMENTO_MAXIMO_FATOR`` x Hu para a iluminação ficar uniforme (sem isso,
+  um ambiente comprido podia ficar com uma luminária só no meio).
+
+Iluminâncias: a NBR ISO/CIE 8995-1:2013 (que substituiu a NBR 5413) dá os
+valores para locais de trabalho: escritório 500 lx, sala de aula 300 lx, área de
+vendas 300 lx, sanitários 200 lx, corredores 100 lx, escadas 150 lx e
+estacionamento interno 75 lx (no piso). Ela não trata de residências; para salas,
+quartos e cozinhas valem os da antiga NBR 5413 (iluminação geral de 100 a
+200 lx, com 300 lx localizados na bancada e na leitura).
 
 ATENÇÃO: é um pré-dimensionamento. O fator de utilização vem de uma curva
 genérica (luminária direta, teto e paredes claros), não do catálogo da
-luminária, e as iluminâncias da lista são valores usuais. Confira com a
-NBR ISO/CIE 8995-1 e com os dados do fabricante, ou informe o fator de
+luminária. Confira com os dados do fabricante, ou informe o fator de
 utilização do catálogo.
 
 Unidades: comprimentos em m, iluminância em lux, fluxo em lúmens, potência em VA.
@@ -24,7 +35,8 @@ PERSONALIZADO = "Personalizado"
 ILUMINANCIAS = {
     "Sala e quarto (150 lx)": 150,
     "Cozinha e banheiro (200 lx)": 200,
-    "Circulação e escada (100 lx)": 100,
+    "Circulação e corredor (100 lx)": 100,
+    "Escada (150 lx)": 150,
     "Garagem (75 lx)": 75,
     "Escritório (500 lx)": 500,
     "Sala de aula (300 lx)": 300,
@@ -39,6 +51,11 @@ FATORES_UTILIZACAO = [
 ]
 FATOR_MANUTENCAO = 0.8
 PLANO_DE_TRABALHO = 0.75  # m
+# Ambientes em que a NBR ISO/CIE 8995-1 dá a iluminância no piso (plano de trabalho = 0).
+NO_PISO = ("Circulação e corredor (100 lx)", "Escada (150 lx)", "Garagem (75 lx)")
+# Espaçamento máximo entre luminárias (e o dobro até a parede), em múltiplos da altura útil.
+# Valor usual para luminárias de distribuição larga; o catálogo pode dar outro.
+ESPACAMENTO_MAXIMO_FATOR = 1.5
 
 
 def indice_do_local(comprimento, largura, altura_util):
@@ -48,6 +65,15 @@ def indice_do_local(comprimento, largura, altura_util):
     if altura_util <= 0:
         raise ValueError("A luminária precisa ficar acima do plano de trabalho.")
     return (comprimento * largura) / (altura_util * (comprimento + largura))
+
+
+def indice_pela_area(area, perimetro, altura_util):
+    """Índice do local de um ambiente qualquer: K = 2 x A / (Hu x P) [m², m, m]."""
+    if area <= 0 or perimetro <= 0:
+        raise ValueError("A área e o perímetro do ambiente precisam ser maiores que zero.")
+    if altura_util <= 0:
+        raise ValueError("A luminária precisa ficar acima do plano de trabalho.")
+    return 2.0 * area / (altura_util * perimetro)
 
 
 def fator_utilizacao(indice):
@@ -81,6 +107,48 @@ def malha(quantidade, comprimento, largura):
         if melhor is None or chave < melhor[0]:
             melhor = (chave, nx, ny)
     return melhor[1], melhor[2]
+
+
+def espacamento_maximo(altura_util):
+    """Maior distância entre luminárias [m] para a iluminação ficar uniforme."""
+    return ESPACAMENTO_MAXIMO_FATOR * altura_util
+
+
+def ajustar_espacamento(nx, ny, comprimento, largura, altura_util):
+    """Acrescenta colunas ou fileiras até o espaçamento não passar do máximo."""
+    maximo = espacamento_maximo(altura_util)
+    while comprimento / nx > maximo + 1e-9:
+        nx += 1
+    while largura / ny > maximo + 1e-9:
+        ny += 1
+    return nx, ny
+
+
+def calcular(area, perimetro, iluminancia, fluxo_luminaria, pe_direito=2.7, plano_trabalho=PLANO_DE_TRABALHO,
+             suspensao=0.0, fator_manutencao=FATOR_MANUTENCAO, fator_utilizacao_informado=0.0):
+    """Altura útil, índice do local, fatores e a quantidade calculada (sem arredondar) de um ambiente.
+
+    Returns:
+        dict com ``area``, ``altura_util``, ``indice_local``, ``fator_utilizacao``,
+        ``fator_manutencao``, ``iluminancia``, ``fluxo_luminaria`` e ``quantidade_calculada``.
+    """
+    if iluminancia <= 0 or fluxo_luminaria <= 0:
+        raise ValueError("A iluminância e o fluxo da luminária precisam ser maiores que zero.")
+    if not 0 < fator_manutencao <= 1:
+        raise ValueError("O fator de manutenção precisa estar entre 0 e 1.")
+    altura_util = pe_direito - plano_trabalho - suspensao
+    indice = indice_pela_area(area, perimetro, altura_util)
+    utilizacao = fator_utilizacao_informado if fator_utilizacao_informado > 0 else fator_utilizacao(indice)
+    return {
+        "area": area, "altura_util": altura_util, "indice_local": indice, "fator_utilizacao": utilizacao,
+        "fator_manutencao": fator_manutencao, "iluminancia": iluminancia, "fluxo_luminaria": fluxo_luminaria,
+        "quantidade_calculada": iluminancia * area / (fluxo_luminaria * utilizacao * fator_manutencao),
+    }
+
+
+def iluminancia_com(quantidade, base):
+    """Iluminância média mantida [lux] com ``quantidade`` luminárias, nos fatores de ``calcular``."""
+    return quantidade * base["fluxo_luminaria"] * base["fator_utilizacao"] * base["fator_manutencao"] / base["area"]
 
 
 def posicoes(nx, ny, comprimento, largura):
@@ -118,36 +186,32 @@ def dimensionar(
         dict com área, índice do local, fatores, quantidade calculada, malha,
         quantidade final, iluminância resultante, espaçamentos e ``posicoes``.
     """
-    if iluminancia <= 0 or fluxo_luminaria <= 0:
-        raise ValueError("A iluminância e o fluxo da luminária precisam ser maiores que zero.")
-    if not 0 < fator_manutencao <= 1:
-        raise ValueError("O fator de manutenção precisa estar entre 0 e 1.")
-    altura_util = pe_direito - plano_trabalho - suspensao
-    indice = indice_do_local(comprimento, largura, altura_util)
-    utilizacao = fator_utilizacao_informado if fator_utilizacao_informado > 0 else fator_utilizacao(indice)
-    area = comprimento * largura
-
-    calculada = iluminancia * area / (fluxo_luminaria * utilizacao * fator_manutencao)
-    nx, ny = malha(math.ceil(calculada - 1e-9), comprimento, largura)
+    if comprimento <= 0 or largura <= 0:
+        raise ValueError("O comprimento e a largura do ambiente precisam ser maiores que zero.")
+    base = calcular(comprimento * largura, 2 * (comprimento + largura), iluminancia, fluxo_luminaria, pe_direito,
+                    plano_trabalho, suspensao, fator_manutencao, fator_utilizacao_informado)
+    nx, ny = malha(math.ceil(base["quantidade_calculada"] - 1e-9), comprimento, largura)
+    regular = (nx, ny)
+    nx, ny = ajustar_espacamento(nx, ny, comprimento, largura, base["altura_util"])
+    avisos = []
+    if (nx, ny) != regular:
+        avisos.append(
+            f"malha aumentada de {regular[0]} x {regular[1]} para {nx} x {ny} para o espaçamento não passar de "
+            f"{espacamento_maximo(base['altura_util']):.2f} m ({ESPACAMENTO_MAXIMO_FATOR:g} x altura útil)")
     final = nx * ny
-    return {
+    return dict(base, **{
         "comprimento": comprimento,
         "largura": largura,
-        "area": area,
-        "altura_util": altura_util,
-        "indice_local": indice,
-        "fator_utilizacao": utilizacao,
-        "fator_manutencao": fator_manutencao,
-        "iluminancia": iluminancia,
-        "quantidade_calculada": calculada,
         "nx": nx,
         "ny": ny,
         "quantidade": final,
-        "iluminancia_resultante": final * fluxo_luminaria * utilizacao * fator_manutencao / area,
+        "iluminancia_resultante": iluminancia_com(final, base),
         "espacamento_x": comprimento / nx,
         "espacamento_y": largura / ny,
+        "espacamento_maximo": espacamento_maximo(base["altura_util"]),
         "posicoes": posicoes(nx, ny, comprimento, largura),
-    }
+        "avisos": avisos,
+    })
 
 
 def relatorio(resultado):
@@ -160,9 +224,11 @@ def relatorio(resultado):
         "",
         f"Luminárias calculadas: {r['quantidade_calculada']:.1f}",
         f"Malha: {r['nx']} x {r['ny']} = {r['quantidade']} luminárias",
-        f"Espaçamento: {r['espacamento_x']:.2f} m x {r['espacamento_y']:.2f} m (metade até as paredes)",
-        f"Iluminância resultante: {r['iluminancia_resultante']:.0f} lux (desejada: {r['iluminancia']:.0f} lux)",
+        f"Espaçamento: {r['espacamento_x']:.2f} m x {r['espacamento_y']:.2f} m (metade até as paredes;"
+        f" máximo {r['espacamento_maximo']:.2f} m)",
+        f"Iluminância mantida resultante: {r['iluminancia_resultante']:.0f} lux (desejada: {r['iluminancia']:.0f} lux)",
+        *[f"Aviso: {a}" for a in r.get("avisos", [])],
         "",
-        "Pré-dimensionamento com fator de utilização genérico. Confira com a",
-        "NBR ISO/CIE 8995-1 e com o catálogo da luminária.",
+        "Pré-dimensionamento com fator de utilização genérico. Confira com o",
+        "catálogo da luminária (iluminâncias: NBR ISO/CIE 8995-1 e antiga NBR 5413).",
     ])

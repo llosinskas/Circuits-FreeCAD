@@ -98,6 +98,35 @@ class TestAmbientesNoDocumento(unittest.TestCase):
         self.assertEqual(luz.Comando, chave.Comando)
         self.assertEqual(resultado["portas"], 1)
 
+    def test_gerar_pontos_com_luminotecnico_e_chuveiro(self):
+        ambiente = Objeto(Name="Wire", TipoAmbiente="Banheiro",
+                          Points=[Vetor(0, 0), Vetor(2000, 0), Vetor(2000, 1500), Vetor(0, 1500)],
+                          Placement=types.SimpleNamespace(multVec=lambda v: v))
+        doc = types.SimpleNamespace(Objects=[ambiente], removeObject=mock.Mock(), recompute=mock.Mock())
+        criados = []
+
+        def ponto(simbolo):
+            obj = Objeto(Name=f"P{len(criados)}", Simbolo=simbolo, Comando="", Proxy=types.SimpleNamespace(Type="Ponto"))
+            criados.append(obj)
+            return obj
+
+        opcoes = {"porta": 0, "posicao_porta": 0.3, "bancada": 2, "chuveiro": 6800.0,
+                  "luminotecnico": {"fluxo": 1000.0, "potencia": 12.0, "pe_direito": 2.7}}
+        with mock.patch.object(self.s, "create_ponto", side_effect=ponto), \
+                mock.patch.object(self.s, "create_switch",
+                                  return_value=Objeto(Name="Sw", Proxy=types.SimpleNamespace(Type="Switch"))), \
+                mock.patch.multiple(self.s.pavimentos, pavimento_do_objeto=mock.DEFAULT, arquivar=mock.DEFAULT,
+                                    elevacao=mock.DEFAULT) as pav:
+            pav["elevacao"].return_value = 0.0
+            resultado = self.s.gerar_pontos(doc, ambiente, "Banheiro", opcoes)
+        luzes = [o for o in criados if o.Simbolo == "luz_teto"]
+        self.assertEqual(len(luzes), resultado["luminotecnico"]["quantidade"])
+        self.assertGreater(len(luzes), 1)
+        self.assertEqual({o.Comando for o in luzes}, {"a"})
+        self.assertEqual([o.Simbolo for o in criados if o.Simbolo in ("chuveiro", "tomada_media")],
+                         ["tomada_media", "chuveiro"])
+        self.assertEqual(criados[-1].Potencia, 6800.0)
+
 
 if __name__ == "__main__":
     unittest.main()

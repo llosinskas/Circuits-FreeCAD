@@ -5,9 +5,12 @@
   polilinhas, faces). A polilinha guarda ``NomeAmbiente``, ``TipoAmbiente``,
   ``AreaAmbiente`` (m²), ``PerimetroAmbiente`` (m) e ``ambiente_de`` (o objeto de
   origem), e fica na pasta Ambientes do pavimento, no piso dele.
-- ``gerar_pontos``: tomadas, interruptor e luz de teto no ambiente, só quando o
-  usuário pede. Os pontos criados levam ``AmbienteAuto`` = nome da polilinha e são
-  substituídos se o comando for repetido.
+- ``gerar_pontos``: tomadas, interruptor, luzes (uma no centro ou as do
+  luminotécnico) e os equipamentos pedidos (chuveiro, ar-condicionado) no
+  ambiente, só quando o usuário pede, com as respostas dele (``opcoes``: porta,
+  bancada, chuveiro, ar-condicionado, luminotécnico; ``core.ambientes``). Os
+  pontos criados levam ``AmbienteAuto`` = nome da polilinha e são substituídos se
+  o comando for repetido.
 """
 import Draft
 import FreeCAD as App
@@ -147,9 +150,14 @@ def portas(doc):
     return resultado
 
 
-def plano(doc, ambiente, tipo=None):
-    """Posições previstas (``core.ambientes.posicoes``) para o ambiente, com as portas do projeto."""
-    return regras.posicoes(pontos_do_ambiente(ambiente), tipo or ambiente.TipoAmbiente, portas(doc))
+def plano(doc, ambiente, tipo=None, opcoes=None):
+    """Posições previstas (``core.ambientes.posicoes``) para o ambiente, com as portas do projeto e as opções."""
+    return regras.posicoes(pontos_do_ambiente(ambiente), tipo or ambiente.TipoAmbiente, portas(doc), opcoes)
+
+
+def paredes(ambiente):
+    """Paredes do ambiente para o usuário escolher a porta e a bancada (``core.ambientes.paredes``)."""
+    return regras.paredes(pontos_do_ambiente(ambiente))
 
 
 def pontos_gerados(doc, ambiente):
@@ -165,47 +173,55 @@ def _posicionar(obj, x, y, z, angulo):
     obj.Placement = App.Placement(App.Vector(x, y, z), App.Rotation(App.Vector(0, 0, 1), angulo))
 
 
-def gerar_pontos(doc, ambiente, tipo=None):
-    """Cria tomadas, interruptor e luz do ambiente, substituindo os gerados antes para ele.
+def _criar_ponto(doc, ambiente, pavimento, z, simbolo, x, y, angulo, potencia):
+    ponto = create_ponto(simbolo)
+    _posicionar(ponto, x, y, z, angulo)
+    ponto.Potencia = float(potencia)
+    ponto.Circuito = ""
+    _marcar(ponto, ambiente)
+    pavimentos.arquivar(doc, ponto, pavimento)
+    return ponto
+
+
+def gerar_pontos(doc, ambiente, tipo=None, opcoes=None):
+    """Cria tomadas, interruptor, luzes e equipamentos do ambiente, substituindo os gerados antes para ele.
 
     O tipo escolhido fica gravado no ambiente. Os pontos ficam sem circuito
-    (use Definir circuito); o interruptor e a luz ficam ligados pela mesma letra.
+    (use Definir circuito); o interruptor e as luzes ficam ligados pela mesma letra.
 
     Returns:
         O plano usado (``core.ambientes.posicoes``).
     """
     if tipo:
         ambiente.TipoAmbiente = tipo
-    resultado = plano(doc, ambiente)
+    resultado = plano(doc, ambiente, opcoes=opcoes)
     for antigo in pontos_gerados(doc, ambiente):
         doc.removeObject(antigo.Name)
     pavimento = pavimentos.pavimento_do_objeto(doc, ambiente) or pavimentos.garantir_ativo(doc)
     z = pavimentos.elevacao(pavimento)
 
     for tomada in resultado["tomadas"]:
-        ponto = create_ponto(tomada["simbolo"])
-        _posicionar(ponto, tomada["x"], tomada["y"], z, tomada["angulo"])
-        ponto.Potencia = float(tomada["potencia"])
-        ponto.Circuito = ""
-        _marcar(ponto, ambiente)
-        pavimentos.arquivar(doc, ponto, pavimento)
+        _criar_ponto(doc, ambiente, pavimento, z, tomada["simbolo"], tomada["x"], tomada["y"], tomada["angulo"],
+                     tomada["potencia"])
+    luzes = [_criar_ponto(doc, ambiente, pavimento, z, luz["simbolo"], luz["x"], luz["y"], 0.0, luz["potencia"])
+             for luz in resultado["luzes"]]
 
-    luz = create_ponto("luz_teto")
-    _posicionar(luz, resultado["luz"]["x"], resultado["luz"]["y"], z, 0.0)
-    luz.Potencia = float(resultado["luz"]["potencia"])
-    luz.Circuito = ""
-    _marcar(luz, ambiente)
-    pavimentos.arquivar(doc, luz, pavimento)
-
-    interruptor = None
     if resultado["interruptor"]:
         dados = resultado["interruptor"]
         interruptor = create_switch("Interruptor")
         _posicionar(interruptor, dados["x"], dados["y"], z, dados["angulo"])
         _marcar(interruptor, ambiente)
         pavimentos.arquivar(doc, interruptor, pavimento)
-        usados = [getattr(o, "Comando", "") for o in doc.Objects if o not in (interruptor, luz)
+        novos = {id(interruptor)} | {id(luz) for luz in luzes}
+        usados = [getattr(o, "Comando", "") for o in doc.Objects if id(o) not in novos
                   and (identificacao.eh_interruptor(o) or identificacao.eh_ponto_de_luz(o))]
-        interruptor.Comando = luz.Comando = regras_identificacao.proximo_comando(usados)
+        letra = regras_identificacao.proximo_comando(usados)
+        interruptor.Comando = letra
+        for luz in luzes:
+            luz.Comando = letra
+
+    for equipamento in resultado["equipamentos"]:
+        _criar_ponto(doc, ambiente, pavimento, z, equipamento["simbolo"], equipamento["x"], equipamento["y"],
+                     equipamento["angulo"], equipamento["potencia"])
     doc.recompute()
     return resultado
