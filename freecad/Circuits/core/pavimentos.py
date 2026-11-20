@@ -24,6 +24,7 @@ PASTAS = {
     "circuitos": "Circuitos",
     "fiacao": "Fiação",
     "ambientes": "Ambientes",
+    "equipamentos": "Equipamentos",
 }
 
 _PASTA_DA_CATEGORIA = {

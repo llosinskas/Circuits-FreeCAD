@@ -8,9 +8,11 @@ from freecad.Circuits.objects.lighting import create_lighting
 from freecad.Circuits.objects.outlet import create_outlet
 from freecad.Circuits.objects.switch import create_switch
 from freecad.Circuits.qt import QtCore, QtWidgets
-from freecad.Circuits.services import alinhamento, eletrodutos, eletrodutos_planta, pavimentos, rede, verticais
+from freecad.Circuits.services import (alinhamento, biblioteca, eletrodutos, eletrodutos_planta, pavimentos, rede,
+                                       verticais)
 from freecad.Circuits.services.tomadas import criar_tug
-from freecad.Circuits.UI.dialogs.ComponentInserter import ComponentInserter, ComponentInsertionMode
+from freecad.Circuits.UI.dialogs.ComponentInserter import ComponentInsertionMode
+from freecad.Circuits.UI.dialogs.ComponentSelectorDialog import ComponentSelectorDialog
 from freecad.Circuits.UI.dialogs.eletroduto_dialog import EletrodutoDialog
 
 
@@ -26,19 +28,43 @@ def _posicionar_com_mouse(obj, mensagem, ao_fixar=None, cota=0.0):
 
 
 class _InserirDaBiblioteca:
-    """Abre o seletor da biblioteca e insere o componente como link."""
+    """Abre a biblioteca e insere o componente numa pasta própria em <pavimento> > Equipamentos.
+
+    Exemplos são desenhados; arquivos entram como link ou cópia. Com o projeto
+    ainda não salvo, o link vira cópia (com aviso). Depois, o clique posiciona.
+    """
 
     pasta = LIBRARY_PATH
     mensagem = "Componente inserido"
 
     def Activated(self):
-        if not documento_ou_aviso():
+        doc = documento_ou_aviso()
+        if not doc:
             return
-        inserter = ComponentInserter(self.pasta, on_component_loaded=self._ao_carregar)
-        inserter.insert_component_as_link_with_placement()
-
-    def _ao_carregar(self, filepath, obj):
-        print(f"{self.mensagem}: {obj.Label}")
+        dialogo = ComponentSelectorDialog(self.pasta, title="Biblioteca de componentes")
+        if not dialogo.exec_() or not dialogo.get_selected_component():
+            return
+        caminho, modo = dialogo.get_selected_component(), dialogo.get_modo()
+        if modo == biblioteca.LINK and not doc.FileName and not biblioteca.regras.chave_do_exemplo(caminho):
+            resposta = QtWidgets.QMessageBox.question(
+                None, "Biblioteca",
+                "Para inserir como link, o projeto precisa estar salvo.\n\nInserir como cópia agora?",
+                QtWidgets.QMessageBox.Yes | QtWidgets.QMessageBox.No,
+            )
+            if resposta != QtWidgets.QMessageBox.Yes:
+                return
+            modo = biblioteca.COPIA
+        pavimento = pavimentos.pavimento_para_insercao(doc, Gui.Selection.getSelection())
+        doc.openTransaction("Inserir componente")
+        try:
+            parte = biblioteca.inserir(doc, caminho, modo, pavimento)
+            doc.commitTransaction()
+        except Exception as erro:
+            doc.abortTransaction()
+            QtWidgets.QMessageBox.critical(None, "Biblioteca", f"Não foi possível inserir:\n\n{erro}")
+            return
+        _posicionar_com_mouse(parte, f"{self.mensagem}: {parte.Label} (em {pavimento.Label} > Equipamentos).",
+                              cota=pavimentos.elevacao(pavimento))
 
     def IsActive(self):
         return True

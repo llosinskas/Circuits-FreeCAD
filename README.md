@@ -394,6 +394,17 @@ A altitude acima de 1000 m e a temperatura da sala acima de 40 °C reduzem a pot
 
 Os formulários mostram poucas perguntas, com listas de opções prontas; o resto fica em **Opções avançadas**. O resultado é recalculado a cada mudança, e os valores usados voltam na próxima vez. Pressurização e bomba podem inserir o ponto de força do motor na planta, para entrar nos circuitos.
 
+## Biblioteca
+
+**Biblioteca ▾ > Equipamento** (ou **Componente**) abre a biblioteca:
+
+- À esquerda, as categorias (Tomadas, Interruptores, Iluminação, Quadros e proteção, Caixas, Equipamentos, Outros), com quantos itens cada uma tem. Em cima, a busca (por palavras, no nome e na descrição).
+- No meio, os componentes com miniatura e nome legível ("Tomada alta 1 módulo 110 V"). Dois cliques inserem.
+- À direita, a prévia maior, os detalhes e o modo: **Link** (acompanha a biblioteca; o projeto precisa estar salvo, senão a bancada oferece cópia) ou **Cópia** (independente).
+- **Exemplos da bancada**, desenhados sem arquivo, com medidas típicas e potência: quadros de embutir e de sobrepor, caixas 4×2, 4×4 e octogonal, plafon, luminária tubular, arandela, ar-condicionado split, chuveiro, motor de 3 cv, motobomba, gerador diesel e transformador.
+
+Cada componente inserido vira uma **pasta própria dentro de *<pavimento> > Equipamentos***, no piso do pavimento ativo (ou do selecionado na árvore). Depois clique na planta para posicioná-lo (R gira 90°). Os exemplos ficam na altura de montagem deles, a partir do piso.
+
 ## Barras de ferramentas
 
 Os botões com seta (▾) abrem uma lista; o botão mostra o último item usado.

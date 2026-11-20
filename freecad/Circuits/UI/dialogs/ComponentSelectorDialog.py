@@ -1,470 +1,205 @@
-"""
-Diálogo reutilizável para seleção de componentes FreeCAD.
-Permite buscar, visualizar e selecionar arquivos FCStd de uma pasta específica.
-"""
+"""Biblioteca de componentes: categorias, busca, miniaturas, detalhes e o modo de inserção.
 
+Mostra os exemplos paramétricos da bancada e os arquivos .FCStd da pasta (e das
+subpastas). Devolve o caminho escolhido (``exemplo:<chave>`` nos exemplos) e o
+modo (link ou cópia) por ``get_selected_component`` e ``get_modo``.
+"""
 import os
-import zipfile
-from pathlib import Path
 from typing import Optional
 
-from freecad.Circuits.qt import QtCore, QtGui, QtWidgets, Qt, Signal, Slot
+from freecad.Circuits import ICON_PATH
+from freecad.Circuits.core import biblioteca as regras
+from freecad.Circuits.qt import QtCore, QtGui, QtWidgets
+from freecad.Circuits.services import biblioteca
 
-import FreeCAD as App
 import FreeCADGui as Gui
+
+TODOS = "Todos"
+ICONE_DA_CATEGORIA = {
+    "Tomadas": "tomadas.svg", "Interruptores": "interruptor.svg", "Iluminação": "lampada.svg",
+    "Quadros e proteção": "quadro_novo.svg", "Caixas": "conectar_caixas.svg", "Equipamentos": "equipamentos.svg",
+    "Outros": "Componentes.svg",
+}
+TAMANHO_ICONE = 96
+TAMANHO_PREVIA = 220
+CAMINHO = QtCore.Qt.UserRole
 
 
 class ComponentSelectorDialog(QtWidgets.QDialog):
-    """Diálogo para seleção de componentes com preview de thumbnails e navegação de pastas.
-    
-    Reutilizável para diferentes pastas de componentes.
-    
-    Attributes:
-        components_path: Caminho da pasta raiz contendo os componentes
-        selected_component: Arquivo selecionado (retorna None se cancelado)
-    """
-    
-    # Signal emitido quando um componente é selecionado
-    component_selected = Signal(str)  # emite o caminho do arquivo
-    
-    def __init__(self, components_path: str, title: str = "Selecionador de Componentes", parent=None):
-        """Inicializa o diálogo."""
-        super().__init__(parent or Gui.getMainWindow())
-        
-        self.components_path = components_path
-        self.current_folder = components_path
-        self.selected_component: Optional[str] = None
-        
-        self.initUI(title)
-        self.populate_tree()
-        self.load_components(self.current_folder)
-        
-    def initUI(self, title: str):
-        """Cria a interface do diálogo."""
-        self.setWindowTitle(title)
-        self.resize(1000, 650)
-        self.setWindowFlags(Qt.Window | Qt.WindowStaysOnTopHint)
-        
-        # Estilo Global do Diálogo
-        self.setStyleSheet("""
-            QDialog {
-                background-color: #1e1e24;
-            }
-            QLabel {
-                color: #e0e0e0;
-                font-family: 'Segoe UI', Arial, sans-serif;
-            }
-            QLineEdit {
-                background-color: #2b2b36;
-                color: #ffffff;
-                border: 1px solid #454555;
-                border-radius: 6px;
-                padding: 8px 12px;
-                font-size: 14px;
-            }
-            QLineEdit:focus {
-                border: 1px solid #007acc;
-                background-color: #32323e;
-            }
-            QScrollArea {
-                border: 1px solid #33333d;
-                border-radius: 8px;
-                background-color: #1a1a1f;
-            }
-            QWidget#componentsContainer {
-                background-color: #1a1a1f;
-            }
-            QTreeWidget {
-                background-color: #1a1a1f;
-                border: 1px solid #33333d;
-                border-radius: 8px;
-                color: #e0e0e0;
-                font-size: 13px;
-                padding: 5px;
-            }
-            QTreeWidget::item {
-                padding: 6px;
-                border-radius: 4px;
-                margin: 2px 0px;
-            }
-            QTreeWidget::item:hover {
-                background-color: #2b2b36;
-            }
-            QTreeWidget::item:selected {
-                background-color: #007acc;
-                color: white;
-            }
-            QPushButton {
-                background-color: #3a3a4a;
-                color: white;
-                border: none;
-                border-radius: 6px;
-                padding: 8px 20px;
-                font-size: 13px;
-                font-weight: bold;
-            }
-            QPushButton:hover {
-                background-color: #4a4a5a;
-            }
-            QPushButton:pressed {
-                background-color: #2a2a3a;
-            }
-            QPushButton#btnOk {
-                background-color: #007acc;
-            }
-            QPushButton#btnOk:hover {
-                background-color: #0098ff;
-            }
-            QPushButton#btnOk:disabled {
-                background-color: #2b2b36;
-                color: #666;
-            }
-            QScrollBar:vertical {
-                border: none;
-                background: #1e1e24;
-                width: 12px;
-                margin: 0px 0px 0px 0px;
-            }
-            QScrollBar::handle:vertical {
-                background: #454555;
-                min-height: 20px;
-                border-radius: 6px;
-                margin: 2px;
-            }
-            QScrollBar::handle:vertical:hover {
-                background: #555565;
-            }
-            QScrollBar::add-line:vertical, QScrollBar::sub-line:vertical {
-                height: 0px;
-            }
-        """)
-        
-        # Layout principal
-        main_layout = QtWidgets.QVBoxLayout(self)
-        main_layout.setContentsMargins(20, 20, 20, 20)
-        main_layout.setSpacing(15)
-        
-        # Header (Título + Busca)
-        header_layout = QtWidgets.QHBoxLayout()
-        title_label = QtWidgets.QLabel(title)
-        title_label.setStyleSheet("font-size: 18px; font-weight: bold; color: #ffffff;")
-        
-        self.search_input = QtWidgets.QLineEdit()
-        self.search_input.setPlaceholderText("🔍 Buscar componentes...")
-        self.search_input.setFixedWidth(300)
-        self.search_input.textChanged.connect(self.on_search_text_changed)
-        
-        header_layout.addWidget(title_label)
-        header_layout.addStretch()
-        header_layout.addWidget(self.search_input)
-        main_layout.addLayout(header_layout)
-        
-        # Corpo: Tree lateral + Grid de cards
-        body_layout = QtWidgets.QHBoxLayout()
-        body_layout.setSpacing(15)
-        
-        # Sidebar com pastas
-        self.folder_tree = QtWidgets.QTreeWidget()
-        self.folder_tree.setHeaderHidden(True)
-        self.folder_tree.setFixedWidth(220)
-        self.folder_tree.setCursor(Qt.PointingHandCursor)
-        self.folder_tree.itemClicked.connect(self.on_folder_selected)
-        body_layout.addWidget(self.folder_tree)
-        
-        # Scroll Area com cards dos componentes
-        scroll = QtWidgets.QScrollArea()
-        scroll.setWidgetResizable(True)
-        
-        self.components_container = QtWidgets.QWidget()
-        self.components_container.setObjectName("componentsContainer")
-        
-        # Usa um grid layout para permitir múltiplas linhas e colunas
-        self.components_layout = QtWidgets.QGridLayout(self.components_container)
-        self.components_layout.setSpacing(15)
-        self.components_layout.setContentsMargins(15, 15, 15, 15)
-        self.components_layout.setAlignment(Qt.AlignTop | Qt.AlignLeft)
-        
-        scroll.setWidget(self.components_container)
-        body_layout.addWidget(scroll)
-        
-        main_layout.addLayout(body_layout)
-        
-        # Painel inferior (Info + Botões)
-        bottom_layout = QtWidgets.QHBoxLayout()
-        bottom_layout.setContentsMargins(0, 5, 0, 0)
-        
-        info_icon = QtWidgets.QLabel("📌")
-        self.info_label = QtWidgets.QLabel("Nenhum componente selecionado")
-        self.info_label.setStyleSheet("color: #888; font-style: italic; font-size: 13px;")
-        
-        bottom_layout.addWidget(info_icon)
-        bottom_layout.addWidget(self.info_label)
-        bottom_layout.addStretch()
-        
-        self.btn_cancel = QtWidgets.QPushButton("Cancelar")
-        self.btn_cancel.setCursor(Qt.PointingHandCursor)
-        self.btn_cancel.clicked.connect(self.reject)
-        
-        self.btn_ok = QtWidgets.QPushButton("Inserir Componente")
-        self.btn_ok.setObjectName("btnOk")
-        self.btn_ok.setCursor(Qt.PointingHandCursor)
-        self.btn_ok.clicked.connect(self.accept)
-        self.btn_ok.setEnabled(False)
-        
-        bottom_layout.addWidget(self.btn_cancel)
-        bottom_layout.addWidget(self.btn_ok)
-        main_layout.addLayout(bottom_layout)
-        
-    def populate_tree(self):
-        """Preenche a árvore lateral com a hierarquia de pastas."""
-        self.folder_tree.clear()
-        
-        if not os.path.exists(self.components_path):
-            return
-            
-        root_name = os.path.basename(os.path.normpath(self.components_path))
-        if not root_name:
-            root_name = "Biblioteca"
-            
-        root_item = QtWidgets.QTreeWidgetItem(self.folder_tree, [f"📂 {root_name}"])
-        root_item.setData(0, Qt.UserRole, self.components_path)
-        
-        self._add_subfolders(self.components_path, root_item)
-        
-        root_item.setExpanded(True)
-        self.folder_tree.setCurrentItem(root_item)
-        
-    def _add_subfolders(self, path: str, parent_item: QtWidgets.QTreeWidgetItem):
-        """Adiciona subpastas recursivamente à árvore."""
-        try:
-            for item in sorted(os.listdir(path)):
-                item_path = os.path.join(path, item)
-                if os.path.isdir(item_path):
-                    tree_item = QtWidgets.QTreeWidgetItem(parent_item, [f"📁 {item}"])
-                    tree_item.setData(0, Qt.UserRole, item_path)
-                    self._add_subfolders(item_path, tree_item)
-        except PermissionError:
-            pass
+    """Escolha de um componente da biblioteca.
 
-    def on_folder_selected(self, item, column):
-        """Callback quando uma pasta é clicada na árvore."""
-        folder_path = item.data(0, Qt.UserRole)
-        if folder_path and os.path.exists(folder_path):
-            self.current_folder = folder_path
-            self.load_components(folder_path)
-            
-            # Limpa seleção atual
-            self.selected_component = None
-            self.info_label.setText("Nenhum componente selecionado")
-            self.info_label.setStyleSheet("color: #888; font-style: italic; font-size: 13px;")
-            self.btn_ok.setEnabled(False)
-            
-            # Se a busca tiver texto, aplica o filtro na nova pasta
-            if self.search_input.text():
-                self.on_search_text_changed(self.search_input.text())
-        
-    def load_components(self, folder_path: str):
-        """Carrega os componentes da pasta especificada no layout de grade."""
-        # Limpa componentes anteriores
-        while self.components_layout.count():
-            child = self.components_layout.takeAt(0)
-            if child.widget():
-                child.widget().deleteLater()
-        
-        self.components_cards = {}
-        
-        if not os.path.exists(folder_path):
+    Args:
+        components_path: pasta dos arquivos .FCStd.
+        title: título da janela.
+        com_exemplos: inclui os exemplos paramétricos da bancada.
+    """
+
+    def __init__(self, components_path: str, title: str = "Biblioteca de componentes", parent=None,
+                 com_exemplos: bool = True):
+        super().__init__(parent or Gui.getMainWindow())
+        self.components_path = components_path
+        self.selected_component: Optional[str] = None
+        self._itens = biblioteca.listar_itens(components_path, com_exemplos)
+        self._por_caminho = {item["caminho"]: item for item in self._itens}
+        self._icones = {}
+        self.setWindowTitle(title)
+        self.resize(1080, 680)
+        self._montar()
+        self._preencher_categorias()
+        self._filtrar()
+
+    # --- montagem -----------------------------------------------------------------
+
+    def _montar(self):
+        layout = QtWidgets.QVBoxLayout(self)
+        self.busca = QtWidgets.QLineEdit()
+        self.busca.setPlaceholderText("Buscar: tomada 220, disjuntor, motor, quadro...")
+        self.busca.setClearButtonEnabled(True)
+        self.busca.textChanged.connect(self._filtrar)
+        layout.addWidget(self.busca)
+
+        divisao = QtWidgets.QSplitter(QtCore.Qt.Horizontal)
+        self.categorias = QtWidgets.QListWidget()
+        self.categorias.setMaximumWidth(210)
+        self.categorias.currentRowChanged.connect(lambda *_: self._filtrar())
+        divisao.addWidget(self.categorias)
+
+        self.lista = QtWidgets.QListWidget()
+        self.lista.setViewMode(QtWidgets.QListView.IconMode)
+        self.lista.setResizeMode(QtWidgets.QListView.Adjust)
+        self.lista.setMovement(QtWidgets.QListView.Static)
+        self.lista.setIconSize(QtCore.QSize(TAMANHO_ICONE, TAMANHO_ICONE))
+        self.lista.setGridSize(QtCore.QSize(TAMANHO_ICONE + 60, TAMANHO_ICONE + 56))
+        self.lista.setWordWrap(True)
+        self.lista.setSpacing(6)
+        self.lista.currentItemChanged.connect(self._mostrar_detalhes)
+        self.lista.itemDoubleClicked.connect(lambda *_: self.accept())
+        divisao.addWidget(self.lista)
+
+        painel = QtWidgets.QWidget()
+        detalhes = QtWidgets.QVBoxLayout(painel)
+        self.previa = QtWidgets.QLabel()
+        self.previa.setAlignment(QtCore.Qt.AlignCenter)
+        self.previa.setMinimumSize(TAMANHO_PREVIA, TAMANHO_PREVIA)
+        self.previa.setFrameShape(QtWidgets.QFrame.StyledPanel)
+        detalhes.addWidget(self.previa)
+        self.titulo = QtWidgets.QLabel()
+        self.titulo.setWordWrap(True)
+        fonte = self.titulo.font()
+        fonte.setBold(True)
+        fonte.setPointSize(fonte.pointSize() + 1)
+        self.titulo.setFont(fonte)
+        detalhes.addWidget(self.titulo)
+        self.info = QtWidgets.QLabel()
+        self.info.setWordWrap(True)
+        self.info.setTextInteractionFlags(QtCore.Qt.TextSelectableByMouse)
+        detalhes.addWidget(self.info)
+
+        caixa_modo = QtWidgets.QGroupBox("Inserir como")
+        modos = QtWidgets.QVBoxLayout(caixa_modo)
+        self.modo_link = QtWidgets.QRadioButton("Link (referência que acompanha a biblioteca)")
+        self.modo_copia = QtWidgets.QRadioButton("Cópia (independente da biblioteca)")
+        self.modo_link.setChecked(True)
+        modos.addWidget(self.modo_link)
+        modos.addWidget(self.modo_copia)
+        detalhes.addWidget(caixa_modo)
+        self.caixa_modo = caixa_modo
+        detalhes.addWidget(QtWidgets.QLabel(
+            "Entra numa pasta própria em <pavimento> > Equipamentos, no piso do pavimento ativo.\n"
+            "Depois clique na planta para posicionar (R gira 90°)."))
+        detalhes.addStretch(1)
+        divisao.addWidget(painel)
+        divisao.setStretchFactor(1, 1)
+        layout.addWidget(divisao, 1)
+
+        botoes = QtWidgets.QDialogButtonBox(QtWidgets.QDialogButtonBox.Ok | QtWidgets.QDialogButtonBox.Cancel)
+        self.btn_ok = botoes.button(QtWidgets.QDialogButtonBox.Ok)
+        self.btn_ok.setText("Inserir")
+        self.btn_ok.setEnabled(False)
+        botoes.accepted.connect(self.accept)
+        botoes.rejected.connect(self.reject)
+        layout.addWidget(botoes)
+
+    def _preencher_categorias(self):
+        contagem = {c: 0 for c in regras.CATEGORIAS}
+        for item in self._itens:
+            contagem[item["categoria"]] = contagem.get(item["categoria"], 0) + 1
+        self.categorias.addItem(f"{TODOS} ({len(self._itens)})")
+        self.categorias.item(0).setData(CAMINHO, None)
+        for nome in regras.CATEGORIAS:
+            if contagem.get(nome):
+                linha = QtWidgets.QListWidgetItem(self._icone_da_categoria(nome), f"{nome} ({contagem[nome]})")
+                linha.setData(CAMINHO, nome)
+                self.categorias.addItem(linha)
+        self.categorias.setCurrentRow(0)
+
+    # --- ícones e miniaturas ------------------------------------------------------------
+
+    @staticmethod
+    def _icone_da_categoria(nome):
+        return QtGui.QIcon(os.path.join(ICON_PATH, ICONE_DA_CATEGORIA.get(nome, "Componentes.svg")))
+
+    def _pixmap(self, item, tamanho):
+        dados = None if item["exemplo"] else biblioteca.miniatura(item["caminho"])
+        if dados:
+            imagem = QtGui.QPixmap()
+            if imagem.loadFromData(dados):
+                return imagem.scaled(tamanho, tamanho, QtCore.Qt.KeepAspectRatio, QtCore.Qt.SmoothTransformation)
+        return self._icone_da_categoria(item["categoria"]).pixmap(tamanho, tamanho)
+
+    def _icone(self, item):
+        if item["caminho"] not in self._icones:
+            self._icones[item["caminho"]] = QtGui.QIcon(self._pixmap(item, TAMANHO_ICONE))
+        return self._icones[item["caminho"]]
+
+    # --- lista e detalhes -----------------------------------------------------------------
+
+    def _filtrar(self, *_):
+        atual = self.categorias.currentItem()
+        escolhida = atual.data(CAMINHO) if atual else None
+        self.lista.clear()
+        for item in regras.filtrar(self._itens, self.busca.text(), escolhida):
+            linha = QtWidgets.QListWidgetItem(self._icone(item), item["nome"])
+            linha.setData(CAMINHO, item["caminho"])
+            linha.setToolTip(item["descricao"])
+            self.lista.addItem(linha)
+        if self.lista.count():
+            self.lista.setCurrentRow(0)
+        else:
+            self._mostrar_detalhes(None)
+
+    def _mostrar_detalhes(self, linha, *_):
+        item = self._por_caminho.get(linha.data(CAMINHO)) if linha else None
+        self.selected_component = item["caminho"] if item else None
+        self.btn_ok.setEnabled(item is not None)
+        if item is None:
+            self.titulo.setText("Nenhum componente")
+            self.info.setText("Mude a busca ou a categoria.")
+            self.previa.clear()
             return
-        
-        # Busca arquivos .FCStd
-        files = [
-            f for f in os.listdir(folder_path)
-            if f.endswith('.FCStd')
-        ]
-        
-        if not files:
-            no_files = QtWidgets.QLabel("Nenhum componente encontrado nesta pasta.")
-            no_files.setStyleSheet("color: #888; font-size: 14px;")
-            no_files.setAlignment(Qt.AlignCenter)
-            self.components_layout.addWidget(no_files, 0, 0)
-            return
-        
-        # Popula a grade (4 colunas agora, pois a árvore ocupa espaço)
-        max_columns = 4
-        row = 0
-        col = 0
-        
-        for filename in sorted(files):
-            filepath = os.path.join(folder_path, filename)
-            card = ComponentCard(filename, filepath)
-            card.clicked.connect(lambda f=filepath: self.on_component_selected(f))
-            self.components_cards[filepath] = card
-            
-            self.components_layout.addWidget(card, row, col)
-            
-            col += 1
-            if col >= max_columns:
-                col = 0
-                row += 1
-        
-    def on_component_selected(self, filepath: str):
-        """Callback quando um componente é selecionado."""
-        for card in self.components_cards.values():
-            card.set_selected(False)
-        
-        self.components_cards[filepath].set_selected(True)
-        self.selected_component = filepath
-        
-        filename = os.path.basename(filepath)
-        self.info_label.setText(f"Selecionado: <b>{filename}</b>")
-        self.info_label.setStyleSheet("color: #007acc; font-size: 13px;")
-        self.btn_ok.setEnabled(True)
-        
-        self.component_selected.emit(filepath)
-        
-    def on_search_text_changed(self, text: str):
-        """Filtra componentes conforme o usuário digita e reorganiza o grid."""
-        text_lower = text.lower()
-        
-        # Removemos tudo do grid temporariamente
-        for i in reversed(range(self.components_layout.count())): 
-            self.components_layout.takeAt(i)
-            
-        # Reposicionamos apenas os visíveis
-        max_columns = 4
-        row = 0
-        col = 0
-        
-        for filepath, card in self.components_cards.items():
-            is_match = text_lower in card.filename.lower()
-            card.setVisible(is_match)
-            
-            if is_match:
-                self.components_layout.addWidget(card, row, col)
-                col += 1
-                if col >= max_columns:
-                    col = 0
-                    row += 1
-    
+        self.titulo.setText(item["nome"])
+        self.previa.setPixmap(self._pixmap(item, TAMANHO_PREVIA))
+        if item["exemplo"]:
+            dados = regras.EXEMPLOS[regras.chave_do_exemplo(item["caminho"])]
+            extras = [item["descricao"], f"Altura de montagem: {dados.get('altura_mm', 0) / 1000:.2f} m".replace(
+                ".", ",")]
+            if dados.get("potencia_va"):
+                extras.append(f"Potência: {dados['potencia_va']:.0f} VA")
+            self.info.setText(f"{item['categoria']} · exemplo da bancada (desenhado, sem arquivo)\n\n"
+                              + "\n".join(extras))
+        else:
+            tamanho = os.path.getsize(item["caminho"]) / 1024 if os.path.exists(item["caminho"]) else 0
+            pasta = os.path.relpath(os.path.dirname(item["caminho"]), self.components_path)
+            self.info.setText(f"{item['categoria']}\n\nArquivo: {os.path.basename(item['caminho'])}"
+                              f"{'' if pasta == '.' else f' (em {pasta})'}\n{tamanho:.0f} kB")
+        self.caixa_modo.setEnabled(not item["exemplo"])
+
+    # --- resultado --------------------------------------------------------------------
+
     def get_selected_component(self) -> Optional[str]:
-        """Retorna o caminho do componente selecionado ou None."""
+        """Caminho do arquivo escolhido, ou ``exemplo:<chave>``; None se nada foi escolhido."""
         return self.selected_component
 
-
-class ComponentCard(QtWidgets.QWidget):
-    """Card individual com thumbnail e informações do componente."""
-    
-    clicked = Signal()
-    
-    def __init__(self, filename: str, filepath: str, parent=None):
-        super().__init__(parent)
-        self.filename = filename
-        self.filepath = filepath
-        self.is_selected = False
-        self.setObjectName("card")
-        
-        self.initUI()
-        self.load_thumbnail()
-        self._apply_style()
-        
-    def initUI(self):
-        self.setFixedSize(160, 190)
-        self.setCursor(Qt.PointingHandCursor)
-        
-        layout = QtWidgets.QVBoxLayout(self)
-        layout.setContentsMargins(12, 12, 12, 12)
-        layout.setSpacing(10)
-        
-        # Container para a imagem com fundo
-        img_container = QtWidgets.QWidget()
-        img_container.setFixedSize(134, 134)
-        img_container.setStyleSheet("background: #22222b; border-radius: 6px;")
-        img_layout = QtWidgets.QVBoxLayout(img_container)
-        img_layout.setContentsMargins(0, 0, 0, 0)
-        
-        self.thumbnail_label = QtWidgets.QLabel()
-        self.thumbnail_label.setAlignment(Qt.AlignCenter)
-        img_layout.addWidget(self.thumbnail_label)
-        
-        # Label de texto
-        name_only = os.path.splitext(self.filename)[0]
-        self.name_label = QtWidgets.QLabel(name_only)
-        self.name_label.setAlignment(Qt.AlignCenter)
-        self.name_label.setWordWrap(True)
-        self.name_label.setStyleSheet("font-size: 12px; color: #cccccc; font-weight: 500;")
-        
-        layout.addWidget(img_container, alignment=Qt.AlignCenter)
-        layout.addWidget(self.name_label, alignment=Qt.AlignTop)
-        
-    def load_thumbnail(self):
-        """Extrai e carrega o thumbnail do arquivo FCStd."""
-        try:
-            with zipfile.ZipFile(self.filepath, 'r') as z:
-                thumb_names = [n for n in z.namelist() if n.lower() == "thumbnails/thumbnail.png"]
-                if thumb_names:
-                    data = z.read(thumb_names[0])
-                    pixmap = QtGui.QPixmap()
-                    if pixmap.loadFromData(data):
-                        scaled = pixmap.scaled(
-                            120, 120,
-                            Qt.KeepAspectRatio,
-                            Qt.SmoothTransformation
-                        )
-                        self.thumbnail_label.setPixmap(scaled)
-                        return
-        except Exception:
-            pass
-        
-        # Ícone de fallback caso não tenha thumbnail
-        self.thumbnail_label.setText("📦")
-        self.thumbnail_label.setStyleSheet("font-size: 64px; color: #555566;")
-        
-    def _apply_style(self):
-        """Atualiza a aparência baseada no estado."""
-        if self.is_selected:
-            self.setStyleSheet("""
-                QWidget#card {
-                    background-color: #2b3644;
-                    border: 2px solid #007acc;
-                    border-radius: 8px;
-                }
-            """)
-            self.name_label.setStyleSheet("font-size: 12px; color: #007acc; font-weight: bold;")
-        else:
-            self.setStyleSheet("""
-                QWidget#card {
-                    background-color: #2b2b36;
-                    border: 1px solid #3a3a4a;
-                    border-radius: 8px;
-                }
-                QWidget#card:hover {
-                    border: 1px solid #5a5a6a;
-                    background-color: #32323e;
-                }
-            """)
-            self.name_label.setStyleSheet("font-size: 12px; color: #cccccc; font-weight: 500;")
-
-    def mousePressEvent(self, event):
-        if event.button() == Qt.LeftButton:
-            self.clicked.emit()
-            
-    def enterEvent(self, event):
-        """Efeito hover via PySide já que QWidget puro as vezes ignora :hover no CSS."""
-        if not self.is_selected:
-            self.setStyleSheet("""
-                QWidget#card {
-                    background-color: #32323e;
-                    border: 1px solid #5a5a6a;
-                    border-radius: 8px;
-                }
-            """)
-        super().enterEvent(event)
-        
-    def leaveEvent(self, event):
-        if not self.is_selected:
-            self._apply_style()
-        super().leaveEvent(event)
-            
-    def set_selected(self, selected: bool):
-        self.is_selected = selected
-        self._apply_style()
+    def get_modo(self) -> str:
+        """'link' ou 'copia' (``services.biblioteca``)."""
+        return biblioteca.COPIA if self.modo_copia.isChecked() else biblioteca.LINK

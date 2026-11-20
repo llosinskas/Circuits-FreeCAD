@@ -466,6 +466,8 @@ def scenario_extras(doc):
                                  module("services.eletrodutos").gerar_descidas(doc)])
     attempt("dialogo_relatorio", lambda: sorted(module("UI.dialogs.report_dialog").ReportDialog().get_opcoes()))
     attempt("dialogo_circuito", lambda: module("UI.insert_circuit").InsertCircuit().close())
+    attempt("exemplo_biblioteca", lambda: [o.Label for o in module("services.biblioteca").inserir(
+        doc, "exemplo:quadro_embutir_24", pavimento=module("services.pavimentos").garantir_ativo(doc)).Group])
     attempt("seletor_componentes", lambda: module("UI.dialogs").ComponentSelectorDialog(
         module("services.biblioteca").ELECTRIC_LIBRARY_PATH).close())
 
