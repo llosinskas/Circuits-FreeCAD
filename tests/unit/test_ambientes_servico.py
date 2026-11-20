@@ -90,12 +90,14 @@ class TestAmbientesNoDocumento(unittest.TestCase):
             resultado = self.s.gerar_pontos(doc, ambiente, "Sala")
         doc.removeObject.assert_called_once_with("Velho")
         simbolos = [getattr(o, "Simbolo", "interruptor") for o in criados]
-        self.assertEqual(simbolos, ["tomada_baixa"] * 3 + ["luz_teto", "interruptor"])
+        n = resultado["luminotecnico"]["quantidade"]  # luminárias do luminotécnico, o padrão
+        self.assertGreater(n, 1)
+        self.assertEqual(simbolos, ["tomada_baixa"] * 3 + ["luz_teto"] * n + ["interruptor"])
         self.assertTrue(all(o.AmbienteAuto == "Wire" for o in criados))
         self.assertTrue(all(o.Placement.Base.z == 3000.0 for o in criados))
-        luz, chave = criados[3], criados[4]
-        self.assertEqual((luz.Potencia, luz.Circuito), (160.0, ""))
-        self.assertEqual(luz.Comando, chave.Comando)
+        luzes, chave = criados[3:3 + n], criados[-1]
+        self.assertGreaterEqual(sum(l.Potencia for l in luzes), 160.0)  # pelo menos a carga da NBR 5410
+        self.assertTrue(all(l.Circuito == "" and l.Comando == chave.Comando for l in luzes))
         self.assertEqual(resultado["portas"], 1)
 
     def test_gerar_pontos_com_luminotecnico_e_chuveiro(self):

@@ -96,7 +96,7 @@ Para símbolos já colocados, selecione-os e use **Alinhar**, **Distribuir** ou 
    - **Pia / bancada** (cozinha, copa, área de serviço, lavanderia): as tomadas de 600 VA vão acima dela, no mínimo duas (NBR 5410 9.5.2.2.1 b). **Lavatório** (banheiro): a tomada de 600 VA junto a ele.
    - **Chuveiro** (banheiro), com a potência: no canto mais longe da porta.
    - **Ar-condicionado** (sala, dormitório, escritório), pela capacidade: na parede mais comprida sem porta.
-   - Embaixo, para todos: **luminotécnico** ligado ou não, a lâmpada e o pé-direito.
+   - Embaixo, para todos: a lâmpada e o pé-direito do **luminotécnico**, que sempre calcula as luminárias.
 
    Pelo mínimo da NBR 5410 (9.5.2):
 
@@ -110,7 +110,7 @@ Para símbolos já colocados, selecione-os e use **Alinhar**, **Distribuir** ou 
 
 - **Tomadas:** espaçadas pelo perímetro, fora das portas, a pelo menos 30 cm dos cantos e do interruptor, viradas para dentro.
 - **Interruptor:** a 15 cm do batente da porta (as portas são as do BIM). Sem porta, fica no primeiro canto e a prévia avisa.
-- **Luminárias:** com o luminotécnico, pelo método dos lúmens, com a iluminância mantida do tipo (sala e dormitório 150 lx, cozinha, área de serviço e banheiro 200 lx, escritório 500 lx no plano de 0,75 m; corredor e varanda 100 lx e garagem 75 lx no piso), numa malha dentro do ambiente (também em L) com espaçamento de no máximo 1,5 × a altura útil. Cada ponto entra no circuito com o maior entre a potência da lâmpada e a parte dele na carga mínima da NBR 5410 (100 VA até 6 m² e mais 60 VA a cada 4 m² inteiros). Sem o luminotécnico, uma luz no centro com essa carga mínima. Todas saem ligadas ao interruptor pela mesma letra.
+- **Luminárias:** sempre pelo luminotécnico (método dos lúmens), com a iluminância mantida do tipo (sala e dormitório 150 lx, cozinha, área de serviço e banheiro 200 lx, escritório 500 lx no plano de 0,75 m; corredor e varanda 100 lx e garagem 75 lx no piso), numa malha dentro do ambiente (também em L) com espaçamento de no máximo 1,5 × a altura útil. Cada ponto entra no circuito com o maior entre a potência da lâmpada e a parte dele na carga mínima da NBR 5410 (100 VA até 6 m² e mais 60 VA a cada 4 m² inteiros). Todas saem ligadas ao interruptor pela mesma letra.
 - Os pontos saem **sem circuito**: use **Circuitos ▾ > Definir circuito**. Repetir o comando no mesmo ambiente substitui os pontos gerados antes por ele; os que você inseriu à mão ficam.
 
 ### Pavimentos

@@ -22,7 +22,9 @@ geração não adivinha:
 - ``chuveiro``: potência [W] do chuveiro (banheiro), 0 sem chuveiro;
 - ``ar_condicionado``: potência [VA] do ar-condicionado, 0 sem;
 - ``luminotecnico``: {fluxo [lm], potencia [VA], simbolo, pe_direito [m],
-  iluminancia [lx] e plano [m] opcionais}; None deixa uma luz no centro.
+  iluminancia [lx] e plano [m] opcionais}. Sem a chave, vale
+  ``LUMINOTECNICO_PADRAO`` (as luzes saem sempre do luminotécnico); só None
+  explícito deixa uma luz no centro.
 
 Regras mínimas da NBR 5410:2004, 9.5.2 (confira com a norma e com o cliente):
 
@@ -90,6 +92,8 @@ TOLERANCIA_PORTA_MM = 300.0  # a porta pertence ao ambiente se estiver a até is
 
 
 SEM_PORTA = "sem_porta"
+# Lâmpada usada pelo luminotécnico quando o usuário não escolhe outra (LED 12 W, cerca de 1000 lm).
+LUMINOTECNICO_PADRAO = {"fluxo": 1000.0, "potencia": 12.0, "simbolo": "luz_teto", "pe_direito": 2.7}
 LARGURA_PORTA_MM = 800.0
 AFASTAMENTO_CHUVEIRO_MM = 450.0  # do canto do box para dentro
 CHUVEIRO_W = 5500.0
@@ -534,8 +538,9 @@ def posicoes(pontos, tipo, portas=(), opcoes=None):
         equipamentos.append({"x": x, "y": y, "angulo": angulo, "simbolo": "ar_condicionado", "potencia": ar})
 
     calculo = None
-    dados = opcoes.get("luminotecnico")
+    dados = opcoes.get("luminotecnico", LUMINOTECNICO_PADRAO)
     if dados:
+        dados = dict(LUMINOTECNICO_PADRAO, **dados)
         calculo = luminarias(pontos, tipo, dados["fluxo"], dados["potencia"], dados.get("pe_direito", 2.7),
                              dados.get("iluminancia"), dados.get("plano"), dados.get("suspensao", 0.0),
                              simbolo=dados.get("simbolo", "luz_teto"))

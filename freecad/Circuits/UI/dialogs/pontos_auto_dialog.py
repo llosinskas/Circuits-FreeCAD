@@ -123,11 +123,10 @@ class PontosAutoDialog(QtWidgets.QDialog):
     def _montar_iluminacao(self):
         caixa = QtWidgets.QGroupBox("Iluminação")
         linha = QtWidgets.QHBoxLayout(caixa)
-        self.lumens = QtWidgets.QCheckBox("Calcular as luminárias pelo luminotécnico (método dos lúmens)")
-        self.lumens.setChecked(True)
-        self.lumens.setToolTip("Quantidade pela iluminância do tipo de ambiente (NBR ISO/CIE 8995-1, antiga "
-                               "NBR 5413), em malha dentro do ambiente. Desligado, uma luz no centro.")
-        linha.addWidget(self.lumens)
+        rotulo = QtWidgets.QLabel("Luminárias pelo luminotécnico (método dos lúmens):")
+        rotulo.setToolTip("Quantidade pela iluminância do tipo de ambiente (NBR ISO/CIE 8995-1, antiga "
+                          "NBR 5413), em malha dentro do ambiente.")
+        linha.addWidget(rotulo)
         self.lampada = QtWidgets.QComboBox()
         self.lampada.addItems(list(LAMPADAS))
         self.lampada.setCurrentIndex(1 if len(LAMPADAS) > 1 else 0)
@@ -139,7 +138,7 @@ class PontosAutoDialog(QtWidgets.QDialog):
         self.pe_direito.setValue(2.7)
         self.pe_direito.setSuffix(" m")
         linha.addWidget(self.pe_direito)
-        for sinal in (self.lumens.toggled, self.lampada.currentIndexChanged, self.pe_direito.valueChanged):
+        for sinal in (self.lampada.currentIndexChanged, self.pe_direito.valueChanged):
             sinal.connect(lambda *_: self._atualizar_todas())
         return caixa
 
@@ -215,8 +214,6 @@ class PontosAutoDialog(QtWidgets.QDialog):
     # --- prévia ---------------------------------------------------------------------
 
     def _luminotecnico(self):
-        if not self.lumens.isChecked():
-            return None
         lampada = LAMPADAS[self.lampada.currentText()]
         return {"fluxo": lampada["fluxo_luminaria"], "potencia": lampada["potencia"],
                 "simbolo": formularios.SIMBOLOS_ILUMINACAO.get(lampada.get("simbolo"), "luz_teto"),
@@ -242,11 +239,8 @@ class PontosAutoDialog(QtWidgets.QDialog):
         self._texto(linha, 5, f"{previsao['tugs']}: " + ", ".join(
             f"{potencias.count(p)} × {p:.0f} VA" for p in sorted(set(potencias), reverse=True)))
         calculo = plano["luminotecnico"]
-        if calculo:
-            self._texto(linha, 6, f"{calculo['quantidade']} × {calculo['potencia_ponto']:.0f} VA · "
-                                  f"{calculo['iluminancia_resultante']:.0f} lx")
-        else:
-            self._texto(linha, 6, f"1 × {previsao['iluminacao_va']:.0f} VA")
+        self._texto(linha, 6, f"{calculo['quantidade']} × {calculo['potencia_ponto']:.0f} VA · "
+                              f"{calculo['iluminancia_resultante']:.0f} lx")
         self._texto(linha, 7, ", ".join(f"{e['simbolo'].replace('_', ' ')} {e['potencia']:.0f}"
                                         for e in plano["equipamentos"]) or "–")
         if linha == self._atual:

@@ -60,7 +60,7 @@ class TestPosicoes(unittest.TestCase):
             self.assertTrue(a.dentro((t["x"] + normal[0] * 100, t["y"] + normal[1] * 100), SALA_4X3))
 
     def test_luz_no_centro_com_a_potencia_da_norma(self):
-        r = a.posicoes(SALA_4X3, "Sala")
+        r = a.posicoes(SALA_4X3, "Sala", opcoes={"luminotecnico": None})
         self.assertEqual((round(r["luz"]["x"]), round(r["luz"]["y"]), r["luz"]["potencia"]), (2000, 1500, 160))
         self.assertTrue(r["avisos"])  # sem porta
 
@@ -176,8 +176,18 @@ class TestLuminotecnicoNoAmbiente(unittest.TestCase):
         self.assertGreaterEqual(r["quantidade"], math.ceil(r["quantidade_calculada"]))
         self.assertGreaterEqual(r["iluminancia_resultante"], 150)
 
-    def test_sem_luminotecnico_uma_luz_no_centro(self):
+    def test_luminotecnico_e_o_padrao(self):
         r = a.posicoes(SALA_4X3, "Sala")
+        self.assertIsNotNone(r["luminotecnico"])
+        self.assertEqual(r["luminotecnico"]["fluxo_luminaria"], a.LUMINOTECNICO_PADRAO["fluxo"])
+        self.assertEqual(len(r["luzes"]), r["luminotecnico"]["quantidade"])
+        self.assertGreaterEqual(r["luminotecnico"]["iluminancia_resultante"], 150)
+        # a lâmpada escolhida sem o pé-direito usa o pé-direito padrão
+        r = a.posicoes(SALA_4X3, "Sala", opcoes={"luminotecnico": {"fluxo": 3600.0, "potencia": 40.0}})
+        self.assertAlmostEqual(r["luminotecnico"]["altura_util"], 1.95)
+
+    def test_sem_luminotecnico_so_se_pedir(self):
+        r = a.posicoes(SALA_4X3, "Sala", opcoes={"luminotecnico": None})
         self.assertEqual((len(r["luzes"]), r["luminotecnico"]), (1, None))
 
 
