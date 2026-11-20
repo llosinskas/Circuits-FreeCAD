@@ -21,6 +21,10 @@ O que falta para virar um projeto completo, nesta ordem:
 7. **Quadro de comando e proteção**, começando pelas bombas.
 8. **Folhas de projeto e memoriais.**
 
+O projeto **industrial** (árvore de distribuição, curto-circuito, transformador, motores e
+CCM, fator de potência, seletividade, barramentos) tem plano próprio, em
+[Plano_industrial.md](Plano_industrial.md); as etapas 5 e 6 daqui viram as I1 e I4 de lá.
+
 Cada etapa tem entradas, o que sai, onde fica no código e como é testada. Uma etapa só
 começa quando a anterior passa no `smoke_gui.py`.
 
@@ -40,6 +44,8 @@ python -B -m unittest discover -s tests/plano -t .
 | ~~`test_etapa3_nbr5410.py`~~ | `core/nbr5410.py`, `comprimento` e `agrupados` em `core/rede.py` | pronta: em `tests/unit/test_nbr5410.py` |
 | `test_etapa4_ocupacao.py` | `core/ocupacao.py` | 8 |
 | `test_etapa6_comando.py` | `core/comando.py` | 8 |
+| `test_industrial_curto.py` | `core/curto.py` (Etapa I2, [plano industrial](Plano_industrial.md)) | 10 |
+| `test_industrial_fator_potencia.py` | `core/fator_potencia.py` (Etapa I6) | 6 |
 
 Enquanto o módulo não existe, cada teste falha (não dá erro) com "Etapa N: o módulo ...
 ainda não existe". Ao implementar uma etapa, os testes dela passam a `tests/unit/`.
