@@ -23,6 +23,7 @@ PASTAS = {
     "aterramento": "Aterramento",
     "circuitos": "Circuitos",
     "fiacao": "Fiação",
+    "ambientes": "Ambientes",
 }
 
 _PASTA_DA_CATEGORIA = {
@@ -43,6 +44,7 @@ _PASTA_DO_TIPO = {
     "eletroduto": "eletrodutos",
     "condutor_aterramento": "aterramento",
     "bandeja": "bandejas",
+    "ambiente": "ambientes",
 }
 
 

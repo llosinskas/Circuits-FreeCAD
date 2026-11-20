@@ -88,6 +88,24 @@ Enquanto um símbolo acompanha o cursor:
 
 Para símbolos já colocados, selecione-os e use **Alinhar**, **Distribuir** ou **Escala dos símbolos**, no fim da barra *Modificador*. Sem seleção, a escala vale para todos os símbolos e para os próximos.
 
+### Ambientes e pontos automáticos
+
+1. **Projeto ▾ > Ambientes** transforma em polilinha cada espaço da bancada BIM (**Arquitetura > Espaço**) ou, com uma seleção, cada retângulo, polilinha ou face fechada selecionada. A polilinha vai para a pasta *Ambientes* do pavimento, com nome, tipo (sugerido pelo nome: "Cozinha 01" vira Cozinha, "WC" vira Banheiro), área e perímetro. Se o tipo vier errado, corrija na propriedade *TipoAmbiente*.
+2. **Projeto ▾ > Pontos automáticos** mostra antes uma prévia por ambiente, com o tipo (que dá para trocar ali), portas, tomadas, potências e iluminação, e só gera os pontos se você confirmar. Pelo mínimo da NBR 5410 (9.5.2):
+
+| Ambiente | Tomadas (TUG) | Potência |
+|---|---|---|
+| Cozinha, copa, área de serviço, lavanderia | 1 a cada 3,5 m de perímetro | 600 VA nas 3 primeiras (2, se forem mais de 6), 100 VA nas outras; as de 600 VA ficam a meia altura |
+| Banheiro | 1, junto ao lavatório | 600 VA, a meia altura |
+| Sala e dormitório | 1 a cada 5 m de perímetro | 100 VA |
+| Varanda | 1 | 100 VA |
+| Demais | 1 até 6 m²; acima, 1 a cada 5 m | 100 VA |
+
+- **Tomadas:** espaçadas pelo perímetro, fora das portas, a pelo menos 30 cm dos cantos e do interruptor, viradas para dentro.
+- **Interruptor:** a 15 cm do batente da porta (as portas são as do BIM). Sem porta, fica no primeiro canto e a prévia avisa.
+- **Luz de teto:** no centro do ambiente, com 100 VA até 6 m² e mais 60 VA a cada 4 m² inteiros. Já sai ligada ao interruptor pela mesma letra.
+- Os pontos saem **sem circuito**: use **Circuitos ▾ > Definir circuito**. Repetir o comando no mesmo ambiente substitui os pontos gerados antes por ele; os que você inseriu à mão ficam.
+
 ### Pavimentos
 
 Cada pavimento é uma pasta com os símbolos separados por tipo:

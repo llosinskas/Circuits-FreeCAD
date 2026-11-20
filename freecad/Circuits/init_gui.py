@@ -85,6 +85,8 @@ PROJECT_TOOLS = [
     "AdicionarNivelBIM",
     "MoverParaPavimento",
     "AjustarCotas",
+    "GerarAmbientes",
+    "PontosAutomaticos",
     "newSpreadsheet",
     "ImportQET",
 ]
@@ -156,7 +158,7 @@ EXTRA_TOOLS = [
 # Botões com lista suspensa: ID do grupo -> (legenda, dica, comandos).
 # O botão mostra o ícone do último comando usado; a seta abre os demais.
 GROUPS = {
-    "Grupo_Projeto": ("Projeto", "Novo projeto, pavimentos, planilha de circuitos e importação do QElectroTech", PROJECT_TOOLS),
+    "Grupo_Projeto": ("Projeto", "Novo projeto, pavimentos, ambientes, pontos automáticos, planilha de circuitos e importação do QElectroTech", PROJECT_TOOLS),
     "Grupo_Tomadas": ("Tomadas", "Tomadas baixa, média, alta e de piso", OUTLET_TOOLS),
     "Grupo_Energia": ("Energia", "Chuveiro, ar-condicionado, ventilador, ponto de força e campainha", POWER_TOOLS),
     "Grupo_Iluminacao": ("Iluminação", "Luz de teto, arandela, tubular, embutida, de emergência e o luminotécnico", LIGHTING_TOOLS),
@@ -297,6 +299,7 @@ class CircuitsWorkbench(gui.Workbench):
         # Cada módulo registra os próprios comandos ao ser importado.
         from .commands import (  # noqa: F401
             alinhar,
+            ambientes,
             aterramento,
             bandejas,
             identificacao,

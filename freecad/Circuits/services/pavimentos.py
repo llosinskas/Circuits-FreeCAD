@@ -239,6 +239,8 @@ def chave_do_objeto(obj):
         return regras.pasta_do_objeto("tomada")
     # Linhas do Draft (Proxy.Type == "Wire") marcadas pela bancada: a marca decide, não o tipo.
     if hasattr(obj, "Points") and tipo != "ConduitPath":
+        if hasattr(obj, "TipoAmbiente"):
+            return regras.pasta_do_objeto("ambiente")  # contorno de ambiente
         if hasattr(obj, "TipoBandeja"):
             return regras.pasta_do_objeto("bandeja")  # eletrocalha ou leito
         if hasattr(obj, "SecaoAterramento"):

@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64">
+  <!-- Pontos automáticos: cômodo com tomadas no perímetro, luz no centro e a faísca do automático -->
+  <path d="M6 10H58V58H6Z" fill="none" stroke="#5f6368" stroke-width="3" stroke-linejoin="round"/>
+  <path d="M6 24L16 20V28Z M58 40L48 36V44Z M24 58L20 48H28Z" fill="#1a73e8"/>
+  <circle cx="32" cy="34" r="7" fill="none" stroke="#b06000" stroke-width="3"/>
+  <path d="M27 29L37 39M37 29L27 39" stroke="#b06000" stroke-width="2.5"/>
+  <path d="M46 4L40 16H46L42 26L54 12H47L52 4Z" fill="#f9ab00" stroke="#ffffff" stroke-width="1.5" stroke-linejoin="round"/>
+</svg>

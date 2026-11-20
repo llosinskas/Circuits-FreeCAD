@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64">
+  <!-- Ambientes: planta com dois cômodos em polilinha tracejada -->
+  <path d="M6 10H58V54H6Z M34 10V54 M6 34H34" fill="none" stroke="#ffffff" stroke-width="7" stroke-opacity="0.85" stroke-linejoin="round"/>
+  <path d="M6 10H58V54H6Z M34 10V54 M6 34H34" fill="none" stroke="#188038" stroke-width="3" stroke-dasharray="7 4" stroke-linejoin="round"/>
+  <path d="M40 22H52M40 28H48" stroke="#5f6368" stroke-width="3" stroke-linecap="round"/>
+</svg>
