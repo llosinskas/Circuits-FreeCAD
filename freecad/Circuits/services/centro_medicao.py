@@ -171,6 +171,144 @@ def valores_da_planilha(andares, parametros=None):
             "Tensao": float(parametros.get("tensao", 220.0) or 220.0)}
 
 
+# --- gerar e recriar o centro de medição -------------------------------------------------------------
+
+MARCA = "gerado_centro_medicao"  # chave do objeto gerado (centro e papel), para recriar no mesmo lugar
+SIMBOLOS_ANCORA = ("medicao_agrupada", "quadro_medicao")
+
+
+def gerados(doc):
+    """Objetos criados por ``gerar_centro``, {chave: objeto}."""
+    return {getattr(o, MARCA): o for o in doc.Objects if getattr(o, MARCA, "")}
+
+
+def _ancora(doc, pavimento):
+    """Placement do símbolo de medição agrupada (ou quadro de medição) do pavimento, ou None."""
+    for obj in doc.Objects:
+        if _tipo(obj) == "Ponto" and getattr(obj, "Simbolo", "") in SIMBOLOS_ANCORA:
+            if pavimento is None or pavimentos.pavimento_do_objeto(doc, obj) is pavimento:
+                return obj.Placement
+    return None
+
+
+def _pavimento_base(doc, andares):
+    """Pavimento do centro de medição único: o do andar de cota 0 da planilha, senão o mais baixo do projeto."""
+    zero = next((a for a in andares if abs(a["cota"]) < 1e-6), None)
+    pavimento = pavimentos.por_nome(doc, zero["nome"]) if zero else None
+    if pavimento is None:
+        lista = sorted(pavimentos.listar(doc), key=pavimentos.elevacao)
+        pavimento = lista[0] if lista else pavimentos.garantir_ativo(doc)
+    return pavimento
+
+
+def _marcar(obj, chave):
+    _propriedade(obj, "App::PropertyString", MARCA, "Gerado pelo Centro de medição (recriado no mesmo lugar)", chave)
+
+
+def _posicao(base, x, y=0.0):
+    """Placement de um ponto (x, y) no sistema da âncora ``base``."""
+    local = App.Placement(App.Vector(x, y, 0), App.Rotation())
+    return base.multiply(local)
+
+
+def gerar_centro(doc, andares, solucao="convencional", parametros=None):
+    """Cria (ou recria) no desenho o centro de medição da solução, a partir dos andares da planilha.
+
+    Para cada centro de ``core.centro_medicao.plano_de_geracao``: as colunas de medição paramétricas
+    (as diretas juntas e um conjunto indireto por andar com unidades acima de 100 A), o contorno do
+    abrigo em alvenaria com a área e, na solução descentralizada, o ramal de distribuição vertical do
+    QDC até o centro, com o texto da seção. Tudo vai para a pasta *Busway e medição* do pavimento do
+    centro. Os objetos gerados antes são apagados, e cada um novo volta à posição do antigo com a
+    mesma chave; os novos ficam no símbolo de medição agrupada do pavimento, se houver, ou na origem.
+
+    Returns:
+        (centros do plano, objetos criados).
+    """
+    parametros = parametros or {}
+    plano = regras.plano_de_geracao(
+        andares, solucao, tensao=float(parametros.get("tensao", 220.0) or 220.0),
+        distancia_horizontal=float(parametros.get("distancia_horizontal", 15.0) or 15.0),
+        demanda_total_a=float(parametros.get("demanda_total_a", 0.0) or 0.0),
+        andares_por_centro=int(parametros.get("andares_por_centro", regras.ANDARES_POR_CENTRO)
+                               or regras.ANDARES_POR_CENTRO))
+    antigos = gerados(doc)
+    posicoes = {chave: obj.Placement for chave, obj in antigos.items()}
+    for obj in antigos.values():
+        try:
+            doc.removeObject(obj.Name)
+        except Exception:
+            pass
+
+    base = _pavimento_base(doc, andares)
+    cota_base = pavimentos.elevacao(base) if base is not None else 0.0
+    referencia = _ancora(doc, base) or App.Placement()
+    criados = []
+    for centro in plano:
+        pavimento = pavimentos.por_nome(doc, centro["andar"]) if centro["andar"] else base
+        pavimento = pavimento or base
+        cota = pavimentos.elevacao(pavimento) if pavimento is not None else 0.0
+        ancora = App.Placement(_ancora(doc, pavimento) or referencia)
+        ancora.Base = App.Vector(ancora.Base.x, ancora.Base.y, cota)
+        pasta = pavimentos.pasta(doc, pavimento, "busway") if pavimento is not None else None
+        prefixo = f"{solucao} {centro['numero']}"
+
+        for objeto in centro["objetos"]:
+            chave = f"{prefixo} {objeto['chave']}"
+            coluna = create_coluna_medicao(doc, **objeto["valores"])
+            coluna.Label = f"Centro {centro['numero']} – colunas {objeto['chave']}"
+            coluna.Placement = posicoes.get(chave) or _posicao(ancora, objeto["x"])
+            _marcar(coluna, chave)
+            criados.append(coluna)
+            if pasta is not None:
+                pasta.addObject(coluna)
+
+        abrigo = centro["abrigo"]
+        chave = f"{prefixo} abrigo"
+        contorno = Draft.make_rectangle(abrigo["largura"], abrigo["profundidade"])
+        contorno.Label = f"Centro de medição {centro['numero']}"
+        contorno.Placement = posicoes.get(chave) or _posicao(ancora, -abrigo["largura"] / 2.0, abrigo["y0"])
+        _propriedade(contorno, "App::PropertyFloat", "AreaAbrigo", "Área do centro de medição abrigado [m²]",
+                     round(abrigo["area"], 2))
+        _marcar(contorno, chave)
+        try:
+            contorno.ViewObject.DrawStyle = "Dashed"
+        except Exception:
+            pass
+        criados.append(contorno)
+        texto = Draft.make_text([f"CENTRO DE MEDIÇÃO {centro['numero']}", f"{abrigo['area']:.1f} m²".replace(".", ","),
+                                 ", ".join(centro["andares"])], App.Vector(0, 0, 0))
+        texto.Placement = posicoes.get(f"{prefixo} texto") or _posicao(ancora, -abrigo["largura"] / 2.0 + 100.0,
+                                                                       abrigo["y0"] + 200.0)
+        _marcar(texto, f"{prefixo} texto")
+        criados.append(texto)
+        if pasta is not None:
+            pasta.addObject(contorno)
+            pasta.addObject(texto)
+
+        ramal = centro["ramal"]
+        if ramal and ramal["secao"]:
+            chave = f"{prefixo} ramal"
+            x = -abrigo["largura"] / 2.0 - 200.0 - 100.0 * centro["numero"]
+            pe = _posicao(referencia, x, 0.0).Base
+            linha = Draft.make_wire([App.Vector(pe.x, pe.y, cota_base), App.Vector(pe.x, pe.y, cota)])
+            linha.Label = f"Ramal do centro {centro['numero']}"
+            _propriedade(linha, "App::PropertyString", "RamalDistribuicao", "Ramal de distribuição do centro",
+                         f"{ramal['paralelos']} × 4 × {ramal['secao']} mm², chave vertical {ramal['chave']} A")
+            _marcar(linha, chave)
+            criados.append(linha)
+            rotulo = Draft.make_text([f"Ramal C{centro['numero']}: {ramal['paralelos']} × 4 × {ramal['secao']} mm²",
+                                      f"chave vertical {ramal['chave']} A no QDC"
+                                      + (f"; {ramal['qdc_local']} no centro" if ramal["qdc_local"] else "")],
+                                     App.Vector(pe.x, pe.y, cota))
+            _marcar(rotulo, f"{prefixo} ramal texto")
+            criados.append(rotulo)
+            if pasta is not None:
+                pasta.addObject(linha)
+                pasta.addObject(rotulo)
+    doc.recompute()
+    return plano, criados
+
+
 # --- busway ---------------------------------------------------------------------------------------
 
 def eh_busway(obj):

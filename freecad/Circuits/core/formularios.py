@@ -318,6 +318,12 @@ CENTRO_MEDICAO = [
         "dica": "Ramal de entrada (4 × 240 mm² por circuito de 300 A). Entra na queda do busway.",
     },
     {
+        "chave": "andares_por_centro", "rotulo": "Andares por centro (descentralizado)", "avancado": True,
+        "valor": 4, "minimo": 0, "maximo": 50,
+        "dica": "Na medição descentralizada, quantos andares cada centro (quadro) de medição atende; 0 deixa "
+                "essa solução de fora da comparação.",
+    },
+    {
         "chave": "altura_ultimo_pavimento", "rotulo": "Piso a piso do último andar", "avancado": True,
         "valor": 3.0, "minimo": 2.2, "maximo": 10.0, "sufixo": "m",
         "dica": "Até onde a prumada do busway sobe acima do piso do último andar.",

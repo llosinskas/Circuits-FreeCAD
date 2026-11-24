@@ -118,6 +118,7 @@ PRECOS = {
     "cdpm_Coluna simples": ("CDPM coluna simples", 2800.0),
     "cdpm_Coluna dupla": ("CDPM coluna dupla", 4500.0),
     "cdpm_Coluna MAX": ("CDPM coluna MAX", 6500.0),
+    "chave_vertical": ("Chave seccionadora vertical com fusíveis NH, no QDC", 2200.0),
     "caixa_E": ("Caixa de medição tipo E", 650.0),
     "cdpm_E": ("CDPM das caixas E (300 × 500 mm)", 900.0),
     "indireta_IND300": ("Conjunto de medição indireta até 300 A (policarbonato)", 4800.0),
@@ -548,9 +549,76 @@ def _cabo_da_unidade(demanda_a, fases, comprimento, tensao):
     return max(SECAO_MIN_UNIDADE, resultado["secao"]), resultado
 
 
+# profundidade da caixa e largura da folha da porta aberta a 90° [mm], por modelo de conjunto
+PORTA_E_FUNDO = {"P": (CAIXA_P_MM[1], CAIXA_P_MM[0]), "E": (CAIXA_E_MM[1], CAIXA_E_MM[0]),
+                 "IND300": (240.0, 560.0), "IND600": (250.0, 600.0)}
+
+
+def _conjuntos(lista, total, tensao):
+    """Conjuntos de medição das unidades da ``lista`` com a corrente ``total`` repartida pelo peso delas.
+
+    As diretas (até 100 A) vão juntas para ``dimensionar_colunas``; cada andar com unidades acima
+    de 100 A ganha os conjuntos indiretos dele.
+
+    Returns:
+        (conjuntos, modelo das diretas, disjuntor das unidades diretas, avisos).
+    """
+    avisos, conjuntos = [], []
+    diretas = [a for a in lista if a["demanda_a"] <= CORRENTE_MAX_P]
+    soma = sum(a["unidades"] * a["demanda_a"] for a in lista) or 1.0
+    modelo, disjuntor = None, None
+    if diretas:
+        corrente_diretas = total * sum(a["unidades"] * a["demanda_a"] for a in diretas) / soma
+        colunas = dimensionar_colunas(sum(a["unidades"] for a in diretas), max(a["demanda_a"] for a in diretas),
+                                      max(a["fases"] for a in diretas), demanda_total_a=corrente_diretas,
+                                      tensao=tensao)
+        conjuntos += colunas["conjuntos"]
+        avisos += colunas["avisos"]
+        modelo, disjuntor = colunas["modelo"], colunas["disjuntor_unidade"]
+    for a in lista:
+        if a["demanda_a"] > CORRENTE_MAX_P:
+            indireta = dimensionar_colunas(a["unidades"], a["demanda_a"], a["fases"], tensao=tensao)
+            conjuntos += indireta["conjuntos"]
+            avisos += [f"{a['nome']}: {texto}" for texto in indireta["avisos"]]
+    return conjuntos, modelo, disjuntor, avisos
+
+
+def abrigo_do_centro(conjuntos):
+    """Dimensões do centro de medição abrigado [m, m²]: os conjuntos numa parede, a porta aberta e a circulação."""
+    comprimento_mm = (sum(g["largura_mm"] for g in conjuntos) + FOLGA_ENTRE_AGRUPAMENTOS_MM * max(0, len(conjuntos) - 1)
+                      + 2 * MARGEM_LATERAL_MM)
+    fundos = [PORTA_E_FUNDO.get(g.get("modelo", "P"), (PROFUNDIDADE_METALICA_MM, 600.0)) for g in conjuntos] or \
+        [PORTA_E_FUNDO["P"]]
+    profundidade_mm = max(f + p for f, p in fundos) + max(FOLGA_PORTA_ABERTA_MM, CIRCULACAO_MM)
+    return {"comprimento": comprimento_mm / 1000.0, "profundidade": profundidade_mm / 1000.0,
+            "area": comprimento_mm * profundidade_mm / 1e6}
+
+
+def _alimentadores(lista, cota_centro, horizontal, tensao, comprimento_no_andar):
+    """Alimentador de cada unidade, do centro de medição (na ``cota_centro``) ao quadro dela."""
+    avisos, alimentadores, cabo, eletroduto = [], [], 0.0, 0.0
+    for a in lista:
+        comprimento = horizontal + abs(a["cota"] - cota_centro) + comprimento_no_andar
+        try:
+            secao, calculo = _cabo_da_unidade(a["demanda_a"], a["fases"], comprimento, tensao)
+        except ValueError as erro:
+            raise ValueError(f"{a['nome']}: {erro}") from erro
+        if secao > SECAO_MAX_UNIDADE and a["demanda_a"] <= CORRENTE_MAX_P:
+            avisos.append(f"{a['nome']}: alimentador de {secao} mm² acima dos {SECAO_MAX_UNIDADE} mm² do borne do "
+                          "medidor")
+        condutores = a["fases"] + 1  # fases e neutro
+        secao_pe = nbr5410.secao_protecao(secao)
+        cabo += a["unidades"] * comprimento * (condutores * secao + secao_pe)
+        eletroduto += a["unidades"] * comprimento
+        alimentadores.append({"andar": a["nome"], "unidades": a["unidades"], "secao": secao, "pe": secao_pe,
+                              "condutores": condutores, "comprimento": comprimento, "queda": calculo["queda"],
+                              "disjuntor": calculo["disjuntor"]})
+    return alimentadores, cabo, eletroduto, avisos
+
+
 def convencional(andares, tensao=220.0, distancia_horizontal=15.0, demanda_total_a=0.0,
                  comprimento_no_andar=COMPRIMENTO_NO_ANDAR_M):
-    """Medição agrupada com caixas P num centro de medição no térreo.
+    """Medição agrupada num único centro de medição, no piso de cota 0 (o térreo).
 
     Args:
         andares: de ``andar``; a cota é medida do piso do centro de medição.
@@ -564,59 +632,173 @@ def convencional(andares, tensao=220.0, distancia_horizontal=15.0, demanda_total
     lista = _com_unidades(andares)
     if not lista:
         raise ValueError("Nenhum andar com unidades.")
-    avisos = []
-    correntes = corrente_dos_andares(lista, demanda_total_a)
-    total = sum(correntes)
-    caixas = sum(a["unidades"] for a in lista)
-    diretas = [a for a in lista if a["demanda_a"] <= CORRENTE_MAX_P]
-    unidades_diretas = sum(a["unidades"] for a in diretas)
-    soma = sum(a["unidades"] * a["demanda_a"] for a in lista) or 1.0
-    grupos = []
-    colunas = {"modelo": None, "avisos": [], "disjuntor_unidade": None}
-    if unidades_diretas:  # a demanda do edifício é repartida pelo peso das unidades diretas
-        corrente_diretas = total * sum(a["unidades"] * a["demanda_a"] for a in diretas) / soma
-        colunas = dimensionar_colunas(unidades_diretas, max(a["demanda_a"] for a in diretas),
-                                      max(a["fases"] for a in diretas), demanda_total_a=corrente_diretas,
-                                      tensao=tensao)
-        grupos += colunas["conjuntos"]
-        avisos += colunas["avisos"]
-    for a in lista:
-        if a["demanda_a"] > CORRENTE_MAX_P:
-            indireta = dimensionar_colunas(a["unidades"], a["demanda_a"], a["fases"], tensao=tensao)
-            grupos += indireta["conjuntos"]
-            avisos += [f"{a['nome']}: {texto}" for texto in indireta["avisos"]]
-
-    comprimento_mm = (sum(g["largura_mm"] for g in grupos) + FOLGA_ENTRE_AGRUPAMENTOS_MM * (len(grupos) - 1)
-                      + 2 * MARGEM_LATERAL_MM)
-    porta = CAIXA_P_MM[0] if colunas["modelo"] == "P" else 600.0  # folha da porta aberta a 90°
-    fundo = CAIXA_P_MM[1] if colunas["modelo"] == "P" else PROFUNDIDADE_METALICA_MM
-    profundidade_mm = fundo + porta + max(FOLGA_PORTA_ABERTA_MM, CIRCULACAO_MM)
-    abrigo = {"comprimento": comprimento_mm / 1000.0, "profundidade": profundidade_mm / 1000.0,
-              "area": comprimento_mm * profundidade_mm / 1e6}
-
-    alimentadores, cabo, eletroduto = [], 0.0, 0.0
-    for a in lista:
-        comprimento = distancia_horizontal + max(0.0, a["cota"]) + comprimento_no_andar
-        try:
-            secao, calculo = _cabo_da_unidade(a["demanda_a"], a["fases"], comprimento, tensao)
-        except ValueError as erro:
-            raise ValueError(f"{a['nome']}: {erro}") from erro
-        if secao > SECAO_MAX_UNIDADE and a["demanda_a"] <= CORRENTE_MAX_P:
-            avisos.append(f"{a['nome']}: alimentador de {secao} mm² acima dos {SECAO_MAX_UNIDADE} mm² do borne do "
-                          "medidor")
-        condutores = a["fases"] + 1  # fases e neutro
-        secao_pe = nbr5410.secao_protecao(secao)
-        mm2_m = a["unidades"] * comprimento * (condutores * secao + secao_pe)
-        cabo += mm2_m
-        eletroduto += a["unidades"] * comprimento
-        alimentadores.append({"andar": a["nome"], "unidades": a["unidades"], "secao": secao, "pe": secao_pe,
-                              "condutores": condutores, "comprimento": comprimento, "queda": calculo["queda"],
-                              "disjuntor": calculo["disjuntor"]})
+    total = sum(corrente_dos_andares(lista, demanda_total_a))
+    grupos, modelo, disjuntor, avisos = _conjuntos(lista, total, tensao)
+    alimentadores, cabo, eletroduto, mais = _alimentadores(lista, 0.0, distancia_horizontal, tensao,
+                                                           comprimento_no_andar)
     qdc, circuitos, _ = entrada(total)
-    return {"solucao": "convencional", "agrupamentos": grupos, "modelo": colunas["modelo"], "caixas": caixas,
-            "corrente": total, "disjuntor_unidade": colunas["disjuntor_unidade"],
-            "abrigo": abrigo, "alimentadores": alimentadores, "cabo_mm2_m": cabo, "eletroduto_m": eletroduto,
-            "qdc": qdc, "ramal": circuitos, "avisos": avisos}
+    return {"solucao": "convencional", "agrupamentos": grupos, "modelo": modelo,
+            "caixas": sum(a["unidades"] for a in lista), "corrente": total, "disjuntor_unidade": disjuntor,
+            "abrigo": abrigo_do_centro(grupos), "alimentadores": alimentadores, "cabo_mm2_m": cabo,
+            "eletroduto_m": eletroduto, "qdc": qdc, "ramal": circuitos, "avisos": avisos + mais}
+
+
+# --- medição descentralizada: um centro de medição a cada grupo de andares ---------------------------
+
+ANDARES_POR_CENTRO = 4
+DISTANCIA_CENTRO_INDEPENDENTE_M = 15.0  # 7.18.2: acima disso, QDC ou CPG no centro e chave na entrada
+CHAVES_VERTICAIS = [160, 250, 400, 630]  # chaves seccionadoras verticais com fusíveis NH no QDC (Tabela 46)
+MAX_PARALELOS_RAMAL = 4
+
+
+def grupos_de_andares(lista, andares_por_centro=ANDARES_POR_CENTRO):
+    """Andares com unidades, de baixo para cima, em grupos seguidos de até ``andares_por_centro``."""
+    n = max(1, int(andares_por_centro))
+    ordenados = sorted(lista, key=lambda a: a["cota"])
+    return [ordenados[i:i + n] for i in range(0, len(ordenados), n)]
+
+
+def descentralizado(andares, tensao=220.0, distancia_horizontal=15.0, demanda_total_a=0.0,
+                    andares_por_centro=ANDARES_POR_CENTRO, comprimento_no_andar=COMPRIMENTO_NO_ANDAR_M):
+    """Medição convencional descentralizada: um centro (quadro) de medição a cada grupo de andares.
+
+    Cada centro fica no andar de baixo do grupo e é alimentado do QDC da entrada por um ramal de
+    distribuição próprio (3 fases e neutro, com circuitos em paralelo se preciso), protegido por
+    uma chave seccionadora vertical com fusíveis no QDC. Se o ramal passa de 15 m, o centro é
+    independente (7.18.2): leva QDC ou CPG próprio para receber o ramal. Os alimentadores das
+    unidades vão só do centro ao andar delas.
+
+    Returns:
+        dict com ``centros`` (cada um: ``andares``, ``andar`` e ``cota`` do centro, ``unidades``,
+        ``corrente``, ``conjuntos``, ``abrigo``, ``alimentadores``, ``ramal`` {seção, paralelos,
+        comprimento}, ``chave``, ``qdc_local``), ``cabo_mm2_m``, ``eletroduto_m``,
+        ``ramais_mm2_m``, ``qdc``, ``ramal``, ``corrente``, ``caixas`` e ``avisos``.
+    """
+    lista = _com_unidades(andares)
+    if not lista:
+        raise ValueError("Nenhum andar com unidades.")
+    correntes = dict(zip((id(a) for a in lista), corrente_dos_andares(lista, demanda_total_a)))
+    total = sum(correntes.values())
+    avisos, centros = [], []
+    cabo = eletroduto = ramais = 0.0
+    for numero, grupo in enumerate(grupos_de_andares(lista, andares_por_centro), start=1):
+        base = grupo[0]
+        corrente = sum(correntes[id(a)] for a in grupo)
+        conjuntos, _, _, mais = _conjuntos(grupo, corrente, tensao)
+        avisos += [f"Centro {numero}: {texto}" for texto in mais]
+        alimentadores, c, e, mais = _alimentadores(grupo, base["cota"], 0.0, tensao, comprimento_no_andar)
+        avisos += [f"Centro {numero}: {texto}" for texto in mais]
+        comprimento = distancia_horizontal + abs(base["cota"])
+        chave = comercial(CHAVES_VERTICAIS, corrente)
+        protecao = chave or comercial(DISJUNTORES_GERAL_INDIRETA, corrente) or corrente
+        secao, paralelos = None, 1
+        for paralelos in range(1, MAX_PARALELOS_RAMAL + 1):
+            secao = ramal_de_distribuicao(protecao, comprimento, tensao, paralelos)
+            if secao is not None:
+                break
+        if secao is None:
+            avisos.append(f"Centro {numero}: nenhum ramal de até {MAX_PARALELOS_RAMAL} × 300 mm² atende "
+                          f"{corrente:.0f} A; use menos andares por centro")
+        if chave is None:
+            avisos.append(f"Centro {numero}: {corrente:.0f} A passa da maior chave vertical ({CHAVES_VERTICAIS[-1]} A): "
+                          "use disjuntor na cabine de barramentos")
+        independente = comprimento > DISTANCIA_CENTRO_INDEPENDENTE_M
+        qdc_local = entrada(corrente)[0] if independente else None
+        cabo += c
+        eletroduto += e + comprimento * paralelos
+        ramais += 4 * (secao or 0) * paralelos * comprimento + nbr5410.secao_protecao(secao or 16) * comprimento
+        centros.append({"numero": numero, "andares": [a["nome"] for a in grupo], "andar": base["nome"],
+                        "cota": base["cota"], "unidades": sum(a["unidades"] for a in grupo), "corrente": corrente,
+                        "conjuntos": conjuntos, "abrigo": abrigo_do_centro(conjuntos),
+                        "alimentadores": alimentadores, "chave": chave, "qdc_local": qdc_local,
+                        "ramal": {"secao": secao, "paralelos": paralelos, "comprimento": comprimento}})
+    qdc, circuitos, _ = entrada(total)
+    if len(centros) > 1:
+        avisos.append(f"{len(centros)} centros de medição: cada um com chave vertical e fusíveis no QDC da entrada "
+                      "(7.18.2); confirme com a Enel a medição fora do térreo")
+    return {"solucao": "descentralizado", "centros": centros, "corrente": total,
+            "caixas": sum(a["unidades"] for a in lista), "cabo_mm2_m": cabo, "eletroduto_m": eletroduto,
+            "ramais_mm2_m": ramais, "qdc": qdc, "ramal": circuitos, "avisos": avisos}
+
+
+# --- geração no desenho ----------------------------------------------------------------------------
+
+SOLUCOES_DESENHAVEIS = ("convencional", "descentralizado")
+
+
+def _valores_das_colunas(grupo, correntes, tensao):
+    """Entradas dos objetos de colunas de medição de um grupo de andares: as diretas juntas e um
+    objeto indireto por andar com unidades acima de 100 A."""
+    objetos = []
+    diretas = [a for a in grupo if a["demanda_a"] <= CORRENTE_MAX_P]
+    if diretas:
+        objetos.append(("diretas", {"Medidores": sum(a["unidades"] for a in diretas),
+                                    "DemandaPorMedidor": max(a["demanda_a"] for a in diretas),
+                                    "Fases": max(a["fases"] for a in diretas),
+                                    "DemandaTotal": round(sum(correntes[id(a)] for a in diretas), 1),
+                                    "Tensao": float(tensao)}))
+    for a in grupo:
+        if a["demanda_a"] > CORRENTE_MAX_P:
+            objetos.append((f"indireta {a['nome']}", {"Medidores": a["unidades"], "DemandaPorMedidor": a["demanda_a"],
+                                                      "Fases": a["fases"], "Modelo": "Indireta",
+                                                      "Tensao": float(tensao)}))
+    return objetos
+
+
+def _largura(conjuntos):
+    return sum(g["largura_mm"] for g in conjuntos) + FOLGA_ENTRE_AGRUPAMENTOS_MM * max(0, len(conjuntos) - 1)
+
+
+def plano_de_geracao(andares, solucao="convencional", tensao=220.0, distancia_horizontal=15.0,
+                     demanda_total_a=0.0, andares_por_centro=ANDARES_POR_CENTRO):
+    """O que desenhar para a solução: um item por centro de medição.
+
+    Returns:
+        [{'numero', 'andar' (onde fica), 'cota' [m], 'andares' atendidos, 'objetos': [{'chave', 'valores'
+          (entradas do objeto ``ColunaMedicao``), 'x' (meio dele em relação ao meio do centro) [mm]}],
+          'abrigo' {'largura', 'profundidade', 'y0' [mm], 'area' [m²]}, 'ramal' (só no descentralizado)}].
+        As caixas têm a frente em y = 0 e o fundo para +y; o abrigo vai de ``y0`` ao fundo.
+    """
+    if solucao not in SOLUCOES_DESENHAVEIS:
+        raise ValueError("Só a medição agrupada e a descentralizada são desenhadas aqui; o busway é desenhado "
+                         "pelo botão Busway, a partir do caminho do QDC ao shaft.")
+    lista = _com_unidades(andares)
+    if not lista:
+        raise ValueError("Nenhum andar com unidades.")
+    correntes = dict(zip((id(a) for a in lista), corrente_dos_andares(lista, demanda_total_a)))
+    if solucao == "convencional":
+        grupos, ramais = [sorted(lista, key=lambda a: a["cota"])], [None]
+        cotas = [0.0]
+    else:
+        grupos = grupos_de_andares(lista, andares_por_centro)
+        resultado = descentralizado(andares, tensao, distancia_horizontal, demanda_total_a, andares_por_centro)
+        ramais = [dict(c["ramal"], chave=c["chave"], qdc_local=c["qdc_local"], corrente=c["corrente"])
+                  for c in resultado["centros"]]
+        cotas = [g[0]["cota"] for g in grupos]
+    centros = []
+    for numero, (grupo, ramal, cota) in enumerate(zip(grupos, ramais, cotas), start=1):
+        objetos, todos = [], []
+        for chave, valores in _valores_das_colunas(grupo, correntes, tensao):
+            dados = dimensionar_colunas(valores["Medidores"], valores["DemandaPorMedidor"], valores["Fases"],
+                                        modelo=valores.get("Modelo", "Automático"),
+                                        demanda_total_a=valores.get("DemandaTotal", 0.0), tensao=tensao)
+            objetos.append({"chave": chave, "valores": valores, "largura": _largura(dados["conjuntos"])})
+            todos += dados["conjuntos"]
+        total = sum(o["largura"] for o in objetos) + FOLGA_ENTRE_AGRUPAMENTOS_MM * max(0, len(objetos) - 1)
+        x = -total / 2.0
+        for o in objetos:
+            o["x"] = x + o["largura"] / 2.0
+            x += o["largura"] + FOLGA_ENTRE_AGRUPAMENTOS_MM
+        abrigo = abrigo_do_centro(todos)
+        fundo = max([PORTA_E_FUNDO.get(g.get("modelo", "P"), (PROFUNDIDADE_METALICA_MM, 0.0))[0] for g in todos]
+                    or [CAIXA_P_MM[1]])
+        centros.append({"numero": numero, "andar": grupo[0]["nome"] if solucao == "descentralizado" else None,
+                        "cota": cota, "andares": [a["nome"] for a in grupo], "objetos": objetos, "ramal": ramal,
+                        "abrigo": {"largura": abrigo["comprimento"] * 1000.0,
+                                   "profundidade": abrigo["profundidade"] * 1000.0,
+                                   "y0": fundo - abrigo["profundidade"] * 1000.0, "fundo": fundo,
+                                   "area": abrigo["area"]}})
+    return centros
 
 
 # --- busway -------------------------------------------------------------------------------------
@@ -788,28 +970,44 @@ def _item(itens, precos, chave, quantidade, unidade="un", multiplicador=1.0, des
                   "total": quantidade * unitario})
 
 
+def _itens_dos_conjuntos(itens, precos, conjuntos):
+    for g in conjuntos:
+        if g.get("modelo", "P") == "P":
+            _item(itens, precos, "caixa_p", g["caixas"])
+            _item(itens, precos, f"cdpm_{g['cdpm']}", 1)
+        elif g["modelo"] == "E":
+            _item(itens, precos, "caixa_E", g["caixas"])
+            if g["caixas"] > 1:
+                _item(itens, precos, "cdpm_E", 1)
+        elif g["modelo"] in INDIRETAS:
+            _item(itens, precos, f"indireta_{g['modelo']}", 1)
+        else:
+            _item(itens, precos, f"caixa_{g['modelo']}", 1)
+            if g["modelo"] != "O":
+                _item(itens, precos, "caixa_barramentos", 1)
+
+
 def orcamento(resultado, precos=None):
     """Estimativa de custo da solução: {'itens', 'material', 'mao_de_obra', 'total'} [R$]."""
     precos = dict(precos_padrao(), **(precos or {}))
     itens = []
     if resultado["solucao"] == "convencional":
-        for g in resultado["agrupamentos"]:
-            if g.get("modelo", "P") == "P":
-                _item(itens, precos, "caixa_p", g["caixas"])
-                _item(itens, precos, f"cdpm_{g['cdpm']}", 1)
-            elif g["modelo"] == "E":
-                _item(itens, precos, "caixa_E", g["caixas"])
-                if g["caixas"] > 1:
-                    _item(itens, precos, "cdpm_E", 1)
-            elif g["modelo"] in INDIRETAS:
-                _item(itens, precos, f"indireta_{g['modelo']}", 1)
-            else:
-                _item(itens, precos, f"caixa_{g['modelo']}", 1)
-                if g["modelo"] != "O":
-                    _item(itens, precos, "caixa_barramentos", 1)
+        _itens_dos_conjuntos(itens, precos, resultado["agrupamentos"])
         _item(itens, precos, "cabo_mm2_m", round(resultado["cabo_mm2_m"]), "mm²·m")
         _item(itens, precos, "eletroduto_m", round(resultado["eletroduto_m"], 1), "m")
         _item(itens, precos, "abrigo_m2", round(resultado["abrigo"]["area"], 2), "m²")
+    elif resultado["solucao"] == "descentralizado":
+        for centro in resultado["centros"]:
+            _itens_dos_conjuntos(itens, precos, centro["conjuntos"])
+            _item(itens, precos, "abrigo_m2", round(centro["abrigo"]["area"], 2), "m²",
+                  descricao=f"Centro de medição {centro['numero']} ({centro['andar']}), por m²")
+            _item(itens, precos, "chave_vertical", 1)
+            if centro["qdc_local"]:
+                _item(itens, precos, f"qdc_{centro['qdc_local']}", 1,
+                      descricao=f"{centro['qdc_local']} no centro {centro['numero']} (7.18.2)")
+        _item(itens, precos, "cabo_mm2_m", round(resultado["cabo_mm2_m"] + resultado["ramais_mm2_m"]), "mm²·m",
+              descricao="Cabos dos alimentadores e dos ramais de distribuição, por mm² × m")
+        _item(itens, precos, "eletroduto_m", round(resultado["eletroduto_m"], 1), "m")
     else:
         m = resultado["materiais"]
         for nominal, metros in sorted(m["metros"].items()):
@@ -834,15 +1032,21 @@ def orcamento(resultado, precos=None):
 
 
 def comparar(andares, tensao=220.0, uso=2.0, distancia_horizontal=15.0, comprimento_ramal=0.0,
-             demanda_total_a=0.0, altura_ultimo_pavimento=3.0, precos=None):
-    """As duas soluções com o orçamento de cada uma e a recomendação.
+             demanda_total_a=0.0, altura_ultimo_pavimento=3.0, precos=None, andares_por_centro=ANDARES_POR_CENTRO):
+    """As três soluções com o orçamento de cada uma e a recomendação pelo menor custo.
+
+    ``andares_por_centro`` 0 deixa a medição descentralizada de fora.
 
     Returns:
-        {'convencional', 'busway': resultado ou None, 'erro_busway', 'custos': {solução: orçamento},
-         'recomendada', 'economia' [R$]}.
+        {'convencional', 'descentralizado' e 'busway': resultado ou None, 'erro_busway',
+         'custos': {solução: orçamento}, 'recomendada', 'economia' [R$] para a segunda mais barata}.
     """
     conv = convencional(andares, tensao, distancia_horizontal, demanda_total_a)
     custos = {"convencional": orcamento(conv, precos)}
+    desc = None
+    if andares_por_centro and len(_com_unidades(andares)) > int(andares_por_centro):
+        desc = descentralizado(andares, tensao, distancia_horizontal, demanda_total_a, andares_por_centro)
+        custos["descentralizado"] = orcamento(desc, precos)
     bus, erro = None, ""
     try:
         bus = busway(andares, tensao, uso, distancia_horizontal, comprimento_ramal, demanda_total_a,
@@ -853,22 +1057,37 @@ def comparar(andares, tensao=220.0, uso=2.0, distancia_horizontal=15.0, comprime
     if not demanda_total_a and conv["caixas"] > 1:
         conv["avisos"].insert(0, "sem a demanda do edifício, as unidades foram somadas sem diversidade: informe a "
                                  "demanda do cálculo de demanda para não superdimensionar")
-    if bus is None:
-        recomendada = "convencional"
-    else:
-        recomendada = min(custos, key=lambda s: custos[s]["total"])
-    outros = [s for s in custos if s != recomendada]
-    economia = custos[outros[0]]["total"] - custos[recomendada]["total"] if outros else 0.0
-    return {"convencional": conv, "busway": bus, "erro_busway": erro, "custos": custos, "recomendada": recomendada,
-            "economia": economia}
+    recomendada = min(custos, key=lambda s: custos[s]["total"])
+    outros = [custos[s]["total"] for s in custos if s != recomendada]
+    economia = min(outros) - custos[recomendada]["total"] if outros else 0.0
+    return {"convencional": conv, "descentralizado": desc, "busway": bus, "erro_busway": erro, "custos": custos,
+            "recomendada": recomendada, "economia": economia}
 
 
-NOMES = {"convencional": "Medição agrupada no térreo (caixas P ou coletivas)", "busway": "Busway com medição centralizada"}
+NOMES = {"convencional": "Medição agrupada no térreo (caixas P ou coletivas)",
+         "descentralizado": "Medição descentralizada (um centro a cada grupo de andares)",
+         "busway": "Busway com medição centralizada"}
 
 
 def _br(valor, casas=0):
     texto = f"{valor:,.{casas}f}"
     return texto.replace(",", "X").replace(".", ",").replace("X", ".")
+
+
+def _linhas_dos_conjuntos(conjuntos, recuo):
+    linhas = []
+    for i, g in enumerate(conjuntos, start=1):
+        if g.get("modelo") in INDIRETAS:
+            linhas.append(f"{recuo}Conjunto {i}: {g['cdpm']}, {_br(g['corrente'])} A, chave seccionadora {g['chave']} A, "
+                          f"TC {g['tc']}, proteção geral {g['disjuntor_geral']} A, ramal "
+                          f"{g.get('paralelos', 1)} × {g.get('ramal')} mm²")
+            continue
+        caixa = f"{g['caixas']} caixas P, {g['cdpm']}" if g.get("modelo", "P") == "P" else \
+            f"{g['cdpm']} com {g['caixas']} medição(ões)"
+        linhas.append(f"{recuo}Conjunto {i}: {caixa}, {_br(g['corrente'])} A, disjuntor geral {g.get('disjuntor_geral')} A, "
+                      f"barramento {g.get('barramento')}, ramal {g.get('ramal')} mm², "
+                      f"{_br(g['largura_mm'])} mm de largura")
+    return linhas
 
 
 def relatorio(r):
@@ -877,17 +1096,7 @@ def relatorio(r):
     linhas = [f"Corrente de demanda total: {_br(conv['corrente'])} A · {conv['caixas']} medições · "
               f"entrada {conv['qdc']} com {conv['ramal']} circuito(s) de 4 × 240 mm²", "",
               f"1) {NOMES['convencional']}"]
-    for i, g in enumerate(conv["agrupamentos"], start=1):
-        if g.get("modelo") in INDIRETAS:
-            linhas.append(f"   Conjunto {i}: {g['cdpm']}, {_br(g['corrente'])} A, chave seccionadora {g['chave']} A, "
-                          f"TC {g['tc']}, proteção geral {g['disjuntor_geral']} A, ramal "
-                          f"{g.get('paralelos', 1)} × {g.get('ramal')} mm²")
-            continue
-        caixa = f"{g['caixas']} caixas P, {g['cdpm']}" if g.get("modelo", "P") == "P" else \
-            f"{g['cdpm']} com {g['caixas']} medição(ões)"
-        linhas.append(f"   Conjunto {i}: {caixa}, {_br(g['corrente'])} A, disjuntor geral {g.get('disjuntor_geral')} A, "
-                      f"barramento {g.get('barramento')}, ramal {g.get('ramal')} mm², "
-                      f"{_br(g['largura_mm'])} mm de largura")
+    linhas += _linhas_dos_conjuntos(conv["agrupamentos"], "   ")
     ab = conv["abrigo"]
     linhas.append(f"   Centro de medição: {_br(ab['comprimento'], 2)} × {_br(ab['profundidade'], 2)} m = "
                   f"{_br(ab['area'], 1)} m²")
@@ -895,7 +1104,21 @@ def relatorio(r):
         linhas.append(f"   {a['andar']}: {a['unidades']} × ({a['condutores']} × {a['secao']} + PE {a['pe']}) mm², "
                       f"{_br(a['comprimento'], 1)} m, queda {_br(a['queda'], 2)} %")
     linhas.append(f"   Custo estimado: R$ {_br(r['custos']['convencional']['total'])}")
-    linhas += ["", f"2) {NOMES['busway']}"]
+    desc = r.get("descentralizado")
+    if desc:
+        linhas += ["", f"2) {NOMES['descentralizado']}"]
+        for centro in desc["centros"]:
+            ramal = centro["ramal"]
+            linhas.append(f"   Centro {centro['numero']} no {centro['andar']} ({', '.join(centro['andares'])}): "
+                          f"{centro['unidades']} medições, {_br(centro['corrente'])} A, chave vertical "
+                          f"{centro['chave']} A no QDC, ramal {ramal['paralelos']} × 4 × {ramal['secao']} mm² com "
+                          f"{_br(ramal['comprimento'], 1)} m" + (f", {centro['qdc_local']} no centro"
+                                                                if centro["qdc_local"] else ""))
+            linhas += _linhas_dos_conjuntos(centro["conjuntos"], "      ")
+            ab = centro["abrigo"]
+            linhas.append(f"      Abrigo: {_br(ab['comprimento'], 2)} × {_br(ab['profundidade'], 2)} m")
+        linhas.append(f"   Custo estimado: R$ {_br(r['custos']['descentralizado']['total'])}")
+    linhas += ["", f"{3 if desc else 2}) {NOMES['busway']}"]
     if bus is None:
         linhas.append(f"   Não atende: {r['erro_busway']}")
     else:
@@ -913,7 +1136,7 @@ def relatorio(r):
         linhas.append(f"   Custo estimado: R$ {_br(r['custos']['busway']['total'])}")
     linhas += ["", f"Recomendada pelo custo: {NOMES[r['recomendada']]}"
                + (f" (R$ {_br(r['economia'])} a menos)" if r["economia"] else "")]
-    avisos = conv["avisos"] + (bus["avisos"] if bus else [])
+    avisos = conv["avisos"] + (desc["avisos"] if desc else []) + (bus["avisos"] if bus else [])
     if avisos:
         linhas += ["", "Avisos:"] + [f" - {a}" for a in avisos]
     linhas += ["", "Preços de referência (edite na planilha) e k/medidas típicos: confirme com o fabricante "
@@ -929,6 +1152,9 @@ def resumo(r):
               ("Agrupamentos (caixas P)", str(len(r["convencional"]["agrupamentos"]))),
               ("Centro de medição [m²]", _br(r["convencional"]["abrigo"]["area"], 1)),
               ("Custo convencional [R$]", _br(r["custos"]["convencional"]["total"]))]
+    if r.get("descentralizado"):
+        linhas += [("Centros descentralizados", str(len(r["descentralizado"]["centros"]))),
+                   ("Custo descentralizado [R$]", _br(r["custos"]["descentralizado"]["total"]))]
     if r["busway"]:
         linhas += [("Busway", " + ".join(f"{l['nominal']} A" for l in r["busway"]["linhas"])),
                    ("Queda no busway [%]", " / ".join(_br(l["queda"], 2) for l in r["busway"]["linhas"])),

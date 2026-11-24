@@ -127,6 +127,71 @@ class InserirColunaMedicao:
         )
 
 
+class GerarCentroMedicao:
+    """Cria ou recria no desenho o centro de medição (único ou descentralizado) a partir da planilha."""
+
+    def Activated(self):
+        doc = documento_ou_aviso()
+        if not doc:
+            return
+        folha = _planilha_ou_criar(doc)
+        if folha is None:
+            return
+        andares = _andares(folha)
+        if andares is None:
+            return
+        parametros = servico.ler_parametros(folha)
+        try:
+            comparacao = regras.comparar(andares, precos=servico.ler_precos(folha), **{
+                k: parametros[k] for k in ("tensao", "uso", "distancia_horizontal", "comprimento_ramal",
+                                           "demanda_total_a", "altura_ultimo_pavimento", "andares_por_centro")
+                if k in parametros})
+        except ValueError as erro:
+            QtWidgets.QMessageBox.warning(None, TITULO, str(erro))
+            return
+        recomendada = comparacao["recomendada"]
+        opcoes = [s for s in regras.SOLUCOES_DESENHAVEIS if s in comparacao["custos"]]
+        opcoes.sort(key=lambda s: (s != recomendada, comparacao["custos"][s]["total"]))
+        rotulos = [f"{regras.NOMES[s]} – R$ {comparacao['custos'][s]['total']:,.0f}".replace(",", ".")
+                   + (" (recomendada)" if s == recomendada else "") for s in opcoes]
+        dica = ""
+        if recomendada == "busway":
+            dica = ("\nA mais barata é o busway: para ele, desenhe o caminho do QDC ao shaft e use o botão Busway.\n")
+        escolha, ok = QtWidgets.QInputDialog.getItem(
+            None, TITULO, "Solução para desenhar (os objetos gerados antes são recriados no mesmo lugar):" + dica,
+            rotulos, 0, False)
+        if not ok:
+            return
+        solucao = opcoes[rotulos.index(escolha)]
+        doc.openTransaction("Gerar centro de medição")
+        try:
+            plano, criados = servico.gerar_centro(doc, andares, solucao, parametros)
+            doc.commitTransaction()
+        except ValueError as erro:
+            doc.abortTransaction()
+            QtWidgets.QMessageBox.warning(None, TITULO, str(erro))
+            return
+        except Exception:
+            doc.abortTransaction()
+            raise
+        centros = "; ".join(f"centro {c['numero']} ({', '.join(c['andares'])}), {c['abrigo']['area']:.1f} m²"
+                            for c in plano).replace(".", ",")
+        App.Console.PrintMessage(f"{regras.NOMES[solucao]}: {centros}. {len(criados)} objetos na pasta Busway e "
+                                 "medição; mova à vontade, que o próximo Gerar mantém a posição.\n")
+
+    def IsActive(self):
+        return True
+
+    def GetResources(self):
+        return recursos(
+            "gerar_centro_medicao.svg",
+            "Gerar centro de medição",
+            "Cria ou recria no desenho o centro de medição da planilha: único no térreo ou descentralizado (um "
+            "centro a cada grupo de andares, com o ramal de cada um), com as colunas paramétricas e o abrigo. "
+            "Recriar mantém o que você moveu",
+        )
+
+
 class InserirBusway:
     """Marca as linhas selecionadas como busway e sobe a prumada com as caixas MEC dos andares."""
 
@@ -191,3 +256,4 @@ class InserirBusway:
 Gui.addCommand("PlanejarMedicao", PlanejarMedicao())
 Gui.addCommand("InserirColunaMedicao", InserirColunaMedicao())
 Gui.addCommand("InserirBusway", InserirBusway())
+Gui.addCommand("GerarCentroMedicao", GerarCentroMedicao())

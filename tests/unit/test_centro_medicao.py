@@ -117,11 +117,11 @@ class TestComparacao(unittest.TestCase):
         r = c.comparar(predio(), tensao=220.0, uso=2.0, distancia_horizontal=15.0, demanda_total_a=600.0)
         self.assertIn(r["recomendada"], ("convencional", "busway"))
         custos = r["custos"]
-        self.assertEqual(set(custos), {"convencional", "busway"})
+        self.assertEqual(set(custos), {"convencional", "descentralizado", "busway"})
         for orcamento in custos.values():
             self.assertAlmostEqual(orcamento["total"], orcamento["material"] * 1.30)
-        mais_caro = max(custos.values(), key=lambda o: o["total"])["total"]
-        self.assertAlmostEqual(r["economia"], mais_caro - custos[r["recomendada"]]["total"])
+        segunda = sorted(o["total"] for o in custos.values())[1]
+        self.assertAlmostEqual(r["economia"], segunda - custos[r["recomendada"]]["total"])
         texto = c.relatorio(r)
         self.assertIn("Busway", texto)
         self.assertIn("Coluna", texto)
@@ -129,8 +129,9 @@ class TestComparacao(unittest.TestCase):
     def test_precos_da_planilha_mudam_a_escolha(self):
         base = c.comparar(predio(), demanda_total_a=600.0)
         caro = {f"busway_m_{n}": 1e6 for n in c.CORRENTES_BUSWAY}
-        r = c.comparar(predio(), demanda_total_a=600.0, precos=caro)
+        r = c.comparar(predio(), demanda_total_a=600.0, precos=caro, andares_por_centro=0)
         self.assertEqual(r["recomendada"], "convencional")
+        self.assertNotIn("descentralizado", r["custos"])
         self.assertGreater(r["custos"]["busway"]["total"], base["custos"]["busway"]["total"])
 
     def test_sem_demanda_do_edificio_avisa(self):
@@ -361,6 +362,78 @@ class TestDimensionarColunas(unittest.TestCase):
         fim_1 = max(p["origem"][0] + p["dims"][0] for p in caixas if p["conjunto"] == 1)
         inicio_2 = min(p["origem"][0] for p in caixas if p["conjunto"] == 2)
         self.assertAlmostEqual(inicio_2 - fim_1, c.FOLGA_ENTRE_AGRUPAMENTOS_MM)
+
+
+
+class TestDescentralizado(unittest.TestCase):
+    def test_um_centro_a_cada_grupo_de_andares(self):
+        r = c.descentralizado(predio(), tensao=220.0, distancia_horizontal=15.0, demanda_total_a=600.0,
+                              andares_por_centro=4)
+        self.assertEqual(len(r["centros"]), 3)
+        self.assertEqual([x["andar"] for x in r["centros"]], ["1º", "5º", "9º"])
+        self.assertEqual(sum(x["unidades"] for x in r["centros"]), 48)
+        self.assertAlmostEqual(sum(x["corrente"] for x in r["centros"]), 600.0)
+        primeiro, ultimo = r["centros"][0], r["centros"][-1]
+        self.assertAlmostEqual(primeiro["ramal"]["comprimento"], 15.0 + 3.0)
+        self.assertGreater(ultimo["ramal"]["secao"], primeiro["ramal"]["secao"])  # mais longe, mais queda
+        self.assertTrue(all(x["chave"] in c.CHAVES_VERTICAIS for x in r["centros"]))
+        self.assertTrue(all(x["qdc_local"] for x in r["centros"]))  # todos a mais de 15 m: independentes
+        # alimentadores só do centro ao andar: o mais longo é de 3 andares acima mais o trecho no andar
+        self.assertAlmostEqual(max(a["comprimento"] for a in primeiro["alimentadores"]),
+                               9.0 + c.COMPRIMENTO_NO_ANDAR_M)
+
+    def test_centro_perto_da_entrada_nao_e_independente(self):
+        r = c.descentralizado([c.andar("Térreo", 0, 8, 40), c.andar("1º", 3, 8, 40)], distancia_horizontal=5.0,
+                              demanda_total_a=300.0, andares_por_centro=1)
+        self.assertEqual([x["qdc_local"] for x in r["centros"]], [None, None])  # 5 m e 8 m
+
+    def test_menos_cabo_que_o_centro_unico(self):
+        conv = c.convencional(predio(), demanda_total_a=600.0)
+        desc = c.descentralizado(predio(), demanda_total_a=600.0)
+        self.assertLess(desc["cabo_mm2_m"], conv["cabo_mm2_m"])
+        itens = [i["descricao"] for i in c.orcamento(desc)["itens"]]
+        self.assertIn(c.PRECOS["chave_vertical"][0], itens)
+        self.assertTrue(any(d.startswith("QDC 5 no centro") for d in itens))
+
+    def test_comparacao_com_tres_solucoes(self):
+        r = c.comparar(predio(), demanda_total_a=600.0)
+        self.assertIsNotNone(r["descentralizado"])
+        texto = c.relatorio(r)
+        self.assertIn("2) Medição descentralizada", texto)
+        self.assertIn("3) Busway", texto)
+        self.assertIn("chave vertical", texto)
+        self.assertIn(("Centros descentralizados", "3"), c.resumo(r))
+        poucos = c.comparar(predio(andares=3), demanda_total_a=200.0)
+        self.assertIsNone(poucos["descentralizado"])  # cabem num centro só
+
+
+class TestPlanoDeGeracao(unittest.TestCase):
+    ANDARES = [c.andar("Térreo", 0, 0)] + [c.andar(f"{i}º", 3 * i, 4, 63, 2) for i in range(1, 7)] + \
+        [c.andar("Loja", 0, 1, 250, 3)]
+
+    def test_centro_unico_com_diretas_e_indireta(self):
+        centro, = c.plano_de_geracao(self.ANDARES, "convencional", demanda_total_a=400.0)
+        self.assertEqual([o["chave"] for o in centro["objetos"]], ["diretas", "indireta Loja"])
+        diretas, indireta = centro["objetos"]
+        self.assertEqual((diretas["valores"]["Medidores"], indireta["valores"]["Modelo"]), (24, "Indireta"))
+        self.assertAlmostEqual(diretas["valores"]["DemandaTotal"] + 400.0 * 250 / (24 * 63 + 250), 400.0, places=0)
+        # lado a lado, centrados, com a folga entre eles
+        self.assertAlmostEqual(diretas["x"] - diretas["largura"] / 2 + indireta["x"] + indireta["largura"] / 2, 0.0)
+        self.assertAlmostEqual(indireta["x"] - indireta["largura"] / 2 - (diretas["x"] + diretas["largura"] / 2),
+                               c.FOLGA_ENTRE_AGRUPAMENTOS_MM)
+        ab = centro["abrigo"]
+        self.assertAlmostEqual(ab["y0"] + ab["profundidade"], ab["fundo"])  # o fundo das caixas na parede
+        self.assertIsNone(centro["ramal"])
+
+    def test_descentralizado_com_ramal_por_centro(self):
+        centros = c.plano_de_geracao(self.ANDARES, "descentralizado", demanda_total_a=400.0, andares_por_centro=4)
+        self.assertEqual([x["andar"] for x in centros], ["Loja", "4º"])
+        self.assertTrue(all(x["ramal"]["secao"] for x in centros))
+        self.assertEqual(centros[1]["cota"], 12.0)
+
+    def test_busway_nao_e_desenhado_aqui(self):
+        with self.assertRaises(ValueError):
+            c.plano_de_geracao(self.ANDARES, "busway")
 
 
 if __name__ == "__main__":

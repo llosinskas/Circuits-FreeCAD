@@ -136,6 +136,63 @@ class TestServico(unittest.TestCase):
         self.assertIs(resultado, coluna)
         self.assertEqual(coluna.Placement.Base.z, 3000.0)
 
+    def test_gerar_e_recriar_o_centro_no_mesmo_lugar(self):
+        class Lugar:
+            def __init__(self, base=None):
+                self.Base = base or Vetor()
+
+            def multiply(self, outro):
+                return Lugar(Vetor(self.Base.x + outro.Base.x, self.Base.y + outro.Base.y, self.Base.z))
+
+        app = sys.modules["FreeCAD"]
+        app.Placement = lambda *a: Lugar(a[0].Base if a and hasattr(a[0], "Base") else (a[0] if a else None))
+        app.Rotation = lambda *a: None
+        draft = sys.modules["Draft"]
+        draft.make_rectangle = lambda l, p: Objeto(Name=f"Rect{len(self.doc.Objects)}", Label="", ViewObject=Objeto(),
+                                                   Placement=Lugar(), dims=(l, p))
+        draft.make_text = lambda t, pos: Objeto(Name=f"Texto{len(self.doc.Objects)}", Text=t, Placement=Lugar(pos))
+        draft.make_wire = lambda pontos, **_: Objeto(Name=f"Wire{len(self.doc.Objects)}", Points=pontos, Label="",
+                                                     Placement=Lugar())
+        criadas = []
+
+        def coluna(doc, **valores):
+            obj = Objeto(Name=f"Col{len(criadas)}", Label="", Placement=Lugar(), valores=valores)
+            criadas.append(obj)
+            doc.Objects.append(obj)
+            return obj
+
+        pavs = {"Térreo": Objeto(Label="Térreo", e=0.0), "4º": Objeto(Label="4º", e=12000.0)}
+        pasta = Objeto(Group=[])
+        pasta.addObject = lambda o: (pasta.Group.append(o), self.doc.Objects.append(o)
+                                     if o not in self.doc.Objects else None)
+        andares = [regras.andar("Térreo", 0, 0)] + [regras.andar(f"{i}º", 3 * i, 4, 63, 2) for i in range(1, 7)]
+        with mock.patch.object(self.s, "create_coluna_medicao", side_effect=coluna), \
+                mock.patch.multiple(self.s.pavimentos, por_nome=mock.DEFAULT, elevacao=mock.DEFAULT,
+                                    pasta=mock.DEFAULT, listar=mock.DEFAULT, pavimento_do_objeto=mock.DEFAULT) as pav:
+            pav["por_nome"].side_effect = lambda d, n: pavs.get(n)
+            pav["elevacao"].side_effect = lambda p: p.e
+            pav["pasta"].return_value = pasta
+            pav["listar"].return_value = list(pavs.values())
+            plano, objetos = self.s.gerar_centro(self.doc, andares, "descentralizado",
+                                                 {"demanda_total_a": 300.0, "andares_por_centro": 3.0})
+            self.assertEqual(len(plano), 2)
+            chaves = set(self.s.gerados(self.doc))
+            self.assertIn("descentralizado 1 diretas", chaves)
+            self.assertIn("descentralizado 2 ramal", chaves)
+            ramal = self.s.gerados(self.doc)["descentralizado 2 ramal"]
+            self.assertEqual((ramal.Points[0].z, ramal.Points[-1].z), (0.0, 12000.0))
+            self.assertIn("mm²", ramal.RamalDistribuicao)
+            # o usuário move a coluna; recriar a mantém onde está e não duplica nada
+            movida = self.s.gerados(self.doc)["descentralizado 1 diretas"]
+            movida.Placement = Lugar(Vetor(5000, 7000, 0))
+            antes = len(self.s.gerados(self.doc))
+            self.s.gerar_centro(self.doc, andares, "descentralizado",
+                                {"demanda_total_a": 300.0, "andares_por_centro": 3.0})
+            nova = self.s.gerados(self.doc)["descentralizado 1 diretas"]
+            self.assertIsNot(nova, movida)
+            self.assertEqual((nova.Placement.Base.x, nova.Placement.Base.y), (5000, 7000))
+            self.assertEqual(len(self.s.gerados(self.doc)), antes)
+
     def test_valores_da_planilha(self):
         andares = [regras.andar("Térreo", 0, 0), regras.andar("1º", 3, 4, 50, 2), regras.andar("2º", 6, 6, 63, 3)]
         valores = self.s.valores_da_planilha(andares, {"demanda_total_a": 180.0, "tensao": 220.0})

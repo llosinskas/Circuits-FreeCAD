@@ -116,7 +116,8 @@ GROUNDING_TOOLS = [
 ]
 BOARD_SYMBOL_TOOLS = [
     "Ponto_quadro_distribuicao", "Ponto_quadro_comando", "Ponto_quadro_medicao", "Ponto_medicao_agrupada",
-    "Ponto_gerador", "Ponto_qta", "PlanejarMedicao", "InserirColunaMedicao", "InserirBusway",
+    "Ponto_gerador", "Ponto_qta", "PlanejarMedicao", "GerarCentroMedicao", "InserirColunaMedicao",
+    "InserirBusway",
 ]
 CIRCUIT_TOOLS = ["DefinirCircuito", "LigarInterruptor", "IdentificarPontos"]
 INFRA_TOOLS = [
