@@ -121,8 +121,10 @@ Pela especificação Enel 0018 (conexão coletiva, versão 2 de 2025), no grupo 
    - **Medição agrupada**: agrupamentos de caixas P com a CDPM (até 30 caixas e 300 A cada), o tamanho do centro de medição abrigado e o cabo de cada unidade do térreo até o andar.
    - **Busway com medição centralizada**: corrente nominal do barramento blindado, queda trecho a trecho pela fórmula da Enel (outra linha se não atender), caixas MEC por andar, shaft mínimo, emendas, suportes e barreiras corta-fogo.
    - O custo estimado de cada uma e a recomendada pelo menor custo. O resultado fica gravado na planilha.
-2. **Coluna de medição**: insere as colunas no padrão Enel (caixas P 260 × 520 mm, três sobrepostas, CDPM no meio, altura da base pela Tabela 29) em 3D e você posiciona com o mouse.
+2. **Coluna de medição**: insere as colunas no padrão Enel (caixas P 260 × 520 mm, três sobrepostas, CDPM no meio, altura da base pela Tabela 29) em 3D detalhado: em cada caixa a tampa transparente, o medidor em cima, o disjuntor embaixo, a identificação e o eletroduto de saída pelo fundo; na CDPM os barramentos R, S, T, N e PE, o disjuntor geral, os DPS e o eletroduto de entrada até o piso. Você posiciona com o mouse.
 3. **Busway**: desenhe com Linha ou Polilinha o caminho do QDC até o shaft, selecione e clique. O caminho vira busway e, do último ponto, sobe a prumada pelos andares com os plug-ins e as caixas MEC, em 3D, e um texto por andar na pasta *Busway e medição*.
+
+O busway, as caixas MEC e as colunas entram nos **Quantitativos**, no grupo *Busway e medição* (metros por corrente, cotovelos, emendas, suportes, corta-fogo, fitas, caixas MEC, plug-ins, caixas P, CDPM, barramentos, DPS), por pavimento.
 
 Os k e as medidas dos busways e das caixas MEC e os preços são valores típicos: confirme com o fabricante homologado e com a Enel.
 

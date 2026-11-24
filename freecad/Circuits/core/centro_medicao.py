@@ -692,6 +692,159 @@ def coluna_de_medicao(caixas, cdpm=None):
             "cdpm": cdpm}
 
 
+# Detalhes da coluna (Desenhos 23 a 26 e 55): medidas aproximadas [mm]
+TAMPA_MM = 4.0  # tampa de policarbonato transparente
+DIVISORIA = 0.62  # fração da altura da caixa P acima da divisória (medição em cima, proteção embaixo)
+MEDIDOR_MM = (130.0, 60.0, 190.0)  # largura, profundidade, altura
+DISJUNTOR_UNIDADE_MM = (36.0, 70.0, 90.0)  # bipolar DIN até 100 A
+DISJUNTOR_GERAL_MM = (105.0, 90.0, 160.0)  # tripolar, até 300 A
+DPS_MM = (18.0, 65.0, 90.0)
+BARRA_CDPM = {"Coluna simples": (20.0, 5.0), "Coluna dupla": (25.0, 5.0), "Coluna MAX": (25.0, 5.0)}  # Tabela 28
+COMPRIMENTO_BARRA_MM = {"Coluna simples": 600.0, "Coluna dupla": 600.0, "Coluna MAX": 600.0}
+DIAMETRO_SAIDA_MM = 40.0  # eletroduto do ramal alimentador de cada unidade, pelo fundo da caixa
+DIAMETRO_ENTRADA_MM = 100.0  # eletroduto do ramal de entrada, por baixo da CDPM
+DPS_POR_CDPM = 4  # 3 fases e neutro
+
+# Tipo de peça -> (cor RGB, transparência %)
+CORES_DAS_PECAS = {
+    "corpo": ((0.82, 0.84, 0.86), 0), "tampa": ((0.75, 0.88, 1.0), 70), "cdpm": ((0.70, 0.71, 0.74), 0),
+    "medidor": ((0.25, 0.27, 0.30), 0), "disjuntor": ((0.12, 0.12, 0.12), 0), "barra": ((0.85, 0.5, 0.25), 0),
+    "dps": ((0.15, 0.35, 0.65), 0), "eletroduto": ((0.55, 0.55, 0.55), 0), "etiqueta": ((1.0, 1.0, 1.0), 0),
+}
+
+
+def _peca(pecas, tipo, rotulo, origem, dims):
+    pecas.append({"tipo": tipo, "rotulo": rotulo, "forma": "caixa", "origem": origem, "dims": dims})
+
+
+def _tubo(pecas, rotulo, centro, raio, comprimento, eixo):
+    pecas.append({"tipo": "eletroduto", "rotulo": rotulo, "forma": "cilindro", "origem": centro, "raio": raio,
+                  "comprimento": comprimento, "eixo": eixo})
+
+
+def pecas_da_coluna(caixas, cdpm=None):
+    """Coluna detalhada: cada caixa P com corpo, tampa transparente, divisória, medidor, disjuntor,
+    etiqueta e eletroduto de saída pelo fundo; a CDPM com corpo, tampa, barramentos R, S, T, N e PE,
+    disjuntor geral, DPS e o eletroduto de entrada até o piso.
+
+    Mesma origem e orientação de ``coluna_de_medicao`` (frente em y = 0, fundo na parede, em +y).
+
+    Returns:
+        [{'tipo' (chave de ``CORES_DAS_PECAS``), 'rotulo', 'forma': 'caixa' com 'origem' e 'dims',
+          ou 'cilindro' com 'origem' (centro da base), 'raio', 'comprimento' e 'eixo'}] em mm.
+    """
+    geral = coluna_de_medicao(caixas, cdpm)
+    pecas = []
+    for rotulo, (x, y, z), (dx, dy, dz) in geral["caixas"]:
+        _peca(pecas, "cdpm" if rotulo == "CDPM" else "corpo", rotulo, (x, y + TAMPA_MM, z), (dx, dy - TAMPA_MM, dz))
+        _peca(pecas, "tampa", f"{rotulo} tampa", (x, y, z), (dx, TAMPA_MM, dz))
+        meio = x + dx / 2.0
+        if rotulo == "CDPM":
+            largura_barra, espessura = BARRA_CDPM[geral["cdpm"]]
+            comprimento = min(COMPRIMENTO_BARRA_MM[geral["cdpm"]], dz * 0.45)
+            topo = z + dz - 60.0
+            for i, fase in enumerate(("R", "S", "T", "N", "PE")):
+                bx = meio - 2 * (largura_barra + 25.0) + i * (largura_barra + 25.0) - largura_barra / 2.0
+                _peca(pecas, "barra", f"Barra {fase}", (bx, y + dy - 40.0, topo - comprimento),
+                      (largura_barra, espessura, comprimento))
+            lx, ly, lz = DISJUNTOR_GERAL_MM
+            base_disjuntor = z + dz * 0.25
+            _peca(pecas, "disjuntor", "Disjuntor geral", (meio - lx / 2.0, y + dy - 15.0 - ly, base_disjuntor),
+                  (lx, ly, lz))
+            px, py, pz = DPS_MM
+            inicio = meio - DPS_POR_CDPM * px / 2.0
+            for i in range(DPS_POR_CDPM):
+                _peca(pecas, "dps", f"DPS {i + 1}", (inicio + i * px, y + dy - 15.0 - py, z + 60.0), (px, py, pz))
+            _tubo(pecas, "Eletroduto de entrada", (meio, y + dy / 2.0, 0.0), DIAMETRO_ENTRADA_MM / 2.0, z,
+                  (0.0, 0.0, 1.0))
+            continue
+        divisoria = z + dz * (1 - DIVISORIA)
+        _peca(pecas, "corpo", f"{rotulo} divisória", (x + 5.0, y + TAMPA_MM, divisoria), (dx - 10.0, dy - 20.0, 3.0))
+        mx, my, mz = MEDIDOR_MM
+        _peca(pecas, "medidor", f"{rotulo} medidor", (meio - mx / 2.0, y + dy - 15.0 - my,
+                                                      divisoria + (z + dz - divisoria - mz) / 2.0), (mx, my, mz))
+        jx, jy, jz = DISJUNTOR_UNIDADE_MM
+        _peca(pecas, "disjuntor", f"{rotulo} disjuntor", (meio - jx / 2.0, y + dy - 15.0 - jy,
+                                                          z + (divisoria - z - jz) / 2.0), (jx, jy, jz))
+        _peca(pecas, "etiqueta", f"{rotulo} identificação", (meio - 40.0, y - 1.0, z + dz - 45.0), (80.0, 1.0, 30.0))
+        _tubo(pecas, f"{rotulo} eletroduto", (x + dx * 0.3, y + dy, z + (divisoria - z) / 2.0),
+              DIAMETRO_SAIDA_MM / 2.0, 100.0, (0.0, 1.0, 0.0))
+    return pecas
+
+
+# --- quantitativos --------------------------------------------------------------------------------
+
+GRUPO = "Busway e medição"
+
+
+def _linha(item, especificacao, quantidade, unidade="un"):
+    return {"item": item, "especificacao": especificacao, "quantidade": quantidade, "unidade": unidade,
+            "grupo": GRUPO}
+
+
+def materiais_do_busway(trechos):
+    """Materiais das linhas de busway desenhadas.
+
+    Args:
+        trechos: [{'nominal' [A], 'horizontal' [m], 'vertical' [m], 'cotovelos', 'lajes'}], um por linha.
+    Returns:
+        itens no formato de ``core.quadro.componentes`` (grupo "Busway e medição").
+    """
+    itens = []
+    for t in trechos:
+        espec = f"{t['nominal']} A, cobre, IP 54"
+        comprimento = float(t.get("horizontal", 0.0)) + float(t.get("vertical", 0.0))
+        itens.append(_linha("Busway (barramento blindado)", espec, round(comprimento, 2), "m"))
+        itens.append(_linha("Cotovelo de busway", espec, int(t.get("cotovelos", 0))))
+        itens.append(_linha("Flange de ligação ao QDC", espec, 1))
+        itens.append(_linha("Tampa final de busway", espec, 1))
+        emendas = max(0, math.ceil(comprimento / ELEMENTO_RETO_M - 1e-9) - 1) + int(t.get("cotovelos", 0))
+        itens.append(_linha("Emenda (junção) de busway", espec, emendas))
+        itens.append(_linha("Suporte de busway", f"vão até {VAO_SUPORTE_M:g} m",
+                            math.ceil(comprimento / VAO_SUPORTE_M - 1e-9)))
+        itens.append(_linha("Barreira corta-fogo", espec, int(t.get("lajes", 0))))
+        fitas = math.ceil(float(t.get("horizontal", 0.0)) / 12.0 - 1e-9) + 1  # 7.22.11: a cada 10 a 15 m
+        itens.append(_linha("Fita de advertência", "\"Barramento Blindado – Cuidado Risco de Choque\"", fitas))
+    return [i for i in itens if i["quantidade"]]
+
+
+def materiais_das_caixas_mec(tipos):
+    """Caixas MEC, plug-ins com disjuntor e placas de comunicação de uma lista de tipos ('MEC IV', ...)."""
+    itens, contagem = [], {}
+    for tipo in tipos:
+        contagem[tipo] = contagem.get(tipo, 0) + 1
+    for tipo in MEC:
+        if contagem.get(tipo):
+            itens.append(_linha("Caixa de medição centralizada", tipo, contagem[tipo]))
+    if tipos:
+        itens.append(_linha("Plug-in com disjuntor (derivação)", "63 a 400 A", len(tipos)))
+        placas = sum(2 if t in ("MEC IX", "MEC XII") else 1 for t in tipos)  # 7.21.2
+        itens.append(_linha("Placa de comunicação", "", placas))
+    return itens
+
+
+def materiais_das_colunas(colunas):
+    """Materiais das colunas de medição: [{'caixas', 'cdpms': [tipos]}] de cada conjunto inserido."""
+    itens, cdpms = [], {}
+    caixas = sum(int(c.get("caixas", 0)) for c in colunas)
+    for c in colunas:
+        for tipo in c.get("cdpms", []):
+            cdpms[tipo] = cdpms.get(tipo, 0) + 1
+    if caixas:
+        itens.append(_linha("Caixa de medição tipo P", "policarbonato, 260 × 520 × 190 mm", caixas))
+        itens.append(_linha("Disjuntor da unidade", "bipolar DIN até 100 A", caixas))
+    for tipo in CDPM:
+        if cdpms.get(tipo):
+            itens.append(_linha("CDPM", tipo, cdpms[tipo]))
+            barra = "x".join(f"{v:g}" for v in BARRA_CDPM[tipo])
+            itens.append(_linha("Barramento de cobre", f"{barra} mm", round(
+                cdpms[tipo] * 5 * COMPRIMENTO_BARRA_MM[tipo] / 1000.0, 2), "m"))
+    total = sum(cdpms.values())
+    if total:
+        itens.append(_linha("DPS", "classe II, 3 fases e neutro", total * DPS_POR_CDPM))
+    return itens
+
+
 # --- geometria: busway ------------------------------------------------------------------------------
 
 def secao_busway(nominal):

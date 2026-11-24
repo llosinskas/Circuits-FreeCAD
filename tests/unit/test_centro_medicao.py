@@ -165,6 +165,50 @@ class TestPlanilhaEGeometria(unittest.TestCase):
                 self.assertFalse(x1 < x2 + dx2 - 1e-6 and x2 < x1 + dx1 - 1e-6
                                  and z1 < z2 + dz2 - 1e-6 and z2 < z1 + dz1 - 1e-6)
 
+    def test_coluna_detalhada_com_pecas_dentro_das_caixas(self):
+        pecas = c.pecas_da_coluna(12, "Coluna simples")
+        caixas = {p[0]: p for p in c.coluna_de_medicao(12, "Coluna simples")["caixas"]}
+        por_tipo = {}
+        for peca in pecas:
+            por_tipo.setdefault(peca["tipo"], []).append(peca)
+        self.assertEqual(len(por_tipo["medidor"]), 12)
+        self.assertEqual(len(por_tipo["tampa"]), 13)  # 12 caixas e a CDPM
+        self.assertEqual([p["rotulo"] for p in por_tipo["barra"]], ["Barra R", "Barra S", "Barra T", "Barra N",
+                                                                     "Barra PE"])
+        self.assertEqual(len(por_tipo["dps"]), c.DPS_POR_CDPM)
+        self.assertEqual(len(por_tipo["eletroduto"]), 13)
+        entrada = next(p for p in por_tipo["eletroduto"] if p["rotulo"] == "Eletroduto de entrada")
+        self.assertEqual(entrada["origem"][2], 0.0)  # desce até o piso
+        for peca in pecas:
+            if peca["forma"] != "caixa" or peca["tipo"] in ("tampa", "etiqueta"):
+                continue
+            dono = caixas[peca["rotulo"].split()[0]] if peca["rotulo"].split()[0] in caixas else caixas["CDPM"]
+            (x, y, z), (dx, dy, dz) = dono[1], dono[2]
+            (px, py, pz), (qx, qy, qz) = peca["origem"], peca["dims"]
+            self.assertTrue(x - 1e-6 <= px and px + qx <= x + dx + 1e-6, peca["rotulo"])
+            self.assertTrue(y - 1e-6 <= py and py + qy <= y + dy + 1e-6, peca["rotulo"])
+            self.assertTrue(z - 1e-6 <= pz and pz + qz <= z + dz + 1e-6, peca["rotulo"])
+        medidor, disjuntor = (next(p for p in pecas if p["rotulo"] == f"M01 {n}") for n in ("medidor", "disjuntor"))
+        self.assertGreater(medidor["origem"][2], disjuntor["origem"][2])  # medição em cima, proteção embaixo
+
+    def test_materiais_do_busway_e_das_colunas(self):
+        itens = {i["item"]: i["quantidade"] for i in c.materiais_do_busway(
+            [{"nominal": 630, "horizontal": 10.0, "vertical": 20.0, "cotovelos": 1, "lajes": 6}])}
+        self.assertEqual(itens["Busway (barramento blindado)"], 30.0)
+        self.assertEqual(itens["Emenda (junção) de busway"], 9 + 1)
+        self.assertEqual(itens["Suporte de busway"], 20)
+        self.assertEqual(itens["Barreira corta-fogo"], 6)
+        self.assertEqual(itens["Fita de advertência"], 2)
+        colunas = {(i["item"], i["especificacao"]): i["quantidade"] for i in c.materiais_das_colunas(
+            [{"caixas": 30, "cdpms": ["Coluna MAX"]}, {"caixas": 6, "cdpms": ["Coluna simples"]}])}
+        self.assertEqual(colunas[("Caixa de medição tipo P", "policarbonato, 260 × 520 × 190 mm")], 36)
+        self.assertEqual(colunas[("DPS", "classe II, 3 fases e neutro")], 8)
+        self.assertEqual(colunas[("Barramento de cobre", "20x5 mm")], 3.0)
+        mec = {(i["item"], i["especificacao"]): i["quantidade"] for i in c.materiais_das_caixas_mec(
+            ["MEC IV", "MEC IV", "MEC XII"])}
+        self.assertEqual(mec[("Caixa de medição centralizada", "MEC IV")], 2)
+        self.assertEqual(mec[("Placa de comunicação", "")], 4)
+
     def test_emendas_a_cada_3_m_e_suportes_fora_delas(self):
         emendas, suportes = c.emendas_e_suportes(10000)
         self.assertEqual(emendas, [3000, 6000, 9000])

@@ -141,28 +141,51 @@ def _caixa(x, y, z, dx, dy, dz):
     return Part.makeBox(dx, dy, dz, App.Vector(x, y, z))
 
 
-def inserir_colunas(doc, grupos, pavimento=None):
-    """Os agrupamentos (``core.centro_medicao.agrupamentos``) lado a lado, num ``App::Part``.
+def _solido(peca, deslocamento_x=0.0):
+    if peca["forma"] == "caixa":
+        (x, y, z), (dx, dy, dz) = peca["origem"], peca["dims"]
+        return Part.makeBox(dx, dy, dz, App.Vector(x + deslocamento_x, y, z))
+    x, y, z = peca["origem"]
+    return Part.makeCylinder(peca["raio"], peca["comprimento"], App.Vector(x + deslocamento_x, y, z),
+                             App.Vector(*peca["eixo"]))
 
-    A origem do Part é o meio da frente do conjunto, no piso; o fundo fica para +y (parede).
+
+NOMES_DAS_PECAS = {"corpo": "Caixas", "tampa": "Tampas", "cdpm": "CDPM", "medidor": "Medidores",
+                   "disjuntor": "Disjuntores", "barra": "Barramentos", "dps": "DPS", "eletroduto": "Eletrodutos",
+                   "etiqueta": "Identificação"}
+
+
+def inserir_colunas(doc, grupos, pavimento=None):
+    """Os agrupamentos (``core.centro_medicao.agrupamentos``) lado a lado, num ``App::Part`` detalhado.
+
+    Cada agrupamento ganha um objeto por tipo de peça (``core.centro_medicao.pecas_da_coluna``:
+    caixas, tampas, CDPM, medidores, disjuntores, barramentos, DPS, eletrodutos, identificação),
+    com a cor do tipo. A origem do Part é o meio da frente do conjunto, no piso; o fundo fica
+    para +y (parede).
     """
     total = sum(g["caixas"] for g in grupos)
     parte = doc.addObject("App::Part", "Colunas_medicao")
     parte.Label = f"Colunas de medição ({total} caixas P)"
     parte.addProperty("App::PropertyInteger", "coluna_medicao", "Medição", "Caixas de medição tipo P")
     parte.coluna_medicao = total
+    parte.addProperty("App::PropertyStringList", "CDPMs", "Medição", "Tipo da CDPM de cada agrupamento (Tabela 28)")
+    parte.CDPMs = [g["cdpm"] for g in grupos]
     larguras = [regras.coluna_de_medicao(g["caixas"], g["cdpm"])["largura"] for g in grupos]
     x = -(sum(larguras) + regras.FOLGA_ENTRE_AGRUPAMENTOS_MM * (len(grupos) - 1)) / 2.0
     for numero, (grupo, largura) in enumerate(zip(grupos, larguras), start=1):
         dados = regras.coluna_de_medicao(grupo["caixas"], grupo["cdpm"])
-        meio = x + largura / 2.0 - (min(p[1][0] for p in dados["caixas"]) + largura / 2.0)
-        for rotulo, (px, py, pz), (dx, dy, dz) in dados["caixas"]:
-            corpo = doc.addObject("Part::Feature", "CDPM" if rotulo == "CDPM" else "Caixa_P")
-            corpo.Label = f"A{numero} {rotulo}"
-            corpo.Shape = _caixa(meio + px, py, pz, dx, dy, dz)
+        deslocamento = x - min(p[1][0] for p in dados["caixas"])
+        por_tipo = {}
+        for peca in regras.pecas_da_coluna(grupo["caixas"], grupo["cdpm"]):
+            por_tipo.setdefault(peca["tipo"], []).append(_solido(peca, deslocamento))
+        for tipo, solidos in por_tipo.items():
+            corpo = doc.addObject("Part::Feature", f"A{numero}_{tipo}")
+            corpo.Label = f"A{numero} {NOMES_DAS_PECAS[tipo]}"
+            corpo.Shape = Part.makeCompound(solidos)
+            cor, transparencia = regras.CORES_DAS_PECAS[tipo]
             try:
-                corpo.ViewObject.ShapeColor = COR_CDPM if rotulo == "CDPM" else COR_P
-                corpo.ViewObject.Transparency = 0 if rotulo == "CDPM" else 40
+                corpo.ViewObject.ShapeColor = cor
+                corpo.ViewObject.Transparency = transparencia
             except Exception:
                 pass
             parte.addObject(corpo)
@@ -263,6 +286,8 @@ def criar_prumada(doc, linha, dados_linha, andares_mec, base_pavimento, topo_mm)
     marcar(vertical, nominal, None, dados_linha["k"])
     _propriedade(vertical, "App::PropertyString", "prumada_busway_de", "Trecho horizontal que alimenta a prumada",
                  linha.Name)
+    lajes = sum(1 for cota in cotas.values() if base + altura < cota < topo)
+    _propriedade(vertical, "App::PropertyInteger", "LajesAtravessadas", "Lajes com barreira corta-fogo", lajes)
 
     solidos = []
     for a, b in zip(pontos, pontos[1:]):
@@ -296,6 +321,8 @@ def criar_prumada(doc, linha, dados_linha, andares_mec, base_pavimento, topo_mm)
                                 App.Vector(fim.x + nx * 600.0, fim.y + ny * 600.0, cota))
         _propriedade(texto, "App::PropertyString", "prumada_busway_de", "Trecho horizontal que alimenta a prumada",
                      linha.Name)
+        _propriedade(texto, "App::PropertyStringList", "CaixasMEC", "Caixas MEC do andar (Tabela 30)",
+                     [c["tipo"] for c in andar["caixas"]])
         pavimento = pavimentos.por_nome(doc, andar["andar"])
         if pavimento is not None:
             pavimentos.pasta(doc, pavimento, "busway").addObject(texto)
@@ -317,3 +344,40 @@ def criar_prumada(doc, linha, dados_linha, andares_mec, base_pavimento, topo_mm)
         pasta.addObject(corpo)
     doc.recompute()
     return vertical, corpo, textos
+
+
+# --- quantitativos ----------------------------------------------------------------------------------
+
+def _comprimento(pontos):
+    return sum(math.dist((a.x, a.y, a.z), (b.x, b.y, b.z)) for a, b in zip(pontos, pontos[1:]))
+
+
+def materiais_por_pavimento(doc):
+    """(pavimento, itens) do busway, das caixas MEC e das colunas de medição do documento.
+
+    O busway (metros, cotovelos, emendas, suportes, corta-fogo) entra no pavimento do
+    trecho horizontal; as caixas MEC, no andar de cada uma; as colunas, no pavimento delas.
+    """
+    nome = lambda obj: getattr(pavimentos.pavimento_do_objeto(doc, obj), "Label", "")  # noqa: E731
+    verticais = {getattr(o, "prumada_busway_de", ""): o for o in doc.Objects
+                 if eh_busway(o) and getattr(o, "prumada_busway_de", "")}
+    por_pavimento = {}
+    for obj in doc.Objects:
+        if eh_busway(obj) and not getattr(obj, "prumada_busway_de", ""):
+            pontos = _pontos(obj)
+            vertical = verticais.get(obj.Name)
+            trecho = {"nominal": int(obj.CorrenteBusway), "horizontal": _comprimento(pontos) / 1000.0,
+                      "vertical": _comprimento(_pontos(vertical)) / 1000.0 if vertical is not None else 0.0,
+                      "cotovelos": max(0, len(pontos) - 2) + (1 if vertical is not None else 0),
+                      "lajes": int(getattr(vertical, "LajesAtravessadas", 0) or 0) if vertical is not None else 0}
+            por_pavimento.setdefault(nome(obj), []).extend(regras.materiais_do_busway([trecho]))
+    caixas = {}
+    for obj in doc.Objects:
+        if getattr(obj, "CaixasMEC", None) and getattr(obj, "prumada_busway_de", ""):
+            caixas.setdefault(nome(obj), []).extend(list(obj.CaixasMEC))
+        if getattr(obj, "coluna_medicao", 0):
+            por_pavimento.setdefault(nome(obj), []).extend(regras.materiais_das_colunas(
+                [{"caixas": int(obj.coluna_medicao), "cdpms": list(getattr(obj, "CDPMs", []) or [])}]))
+    for pavimento, tipos in caixas.items():
+        por_pavimento.setdefault(pavimento, []).extend(regras.materiais_das_caixas_mec(tipos))
+    return list(por_pavimento.items())

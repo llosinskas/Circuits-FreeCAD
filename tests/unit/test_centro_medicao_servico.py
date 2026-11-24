@@ -85,6 +85,7 @@ class TestServico(unittest.TestCase):
         app.Vector = Vetor
         part = sys.modules["Part"]
         part.makeBox = lambda dx, dy, dz, base=None: Forma(dx, dy, dz, base)
+        part.makeCylinder = lambda raio, altura, base=None, eixo=None: Forma(raio, raio, altura, base)
         part.makeCompound = lambda solidos: list(solidos)
         draft = sys.modules["Draft"]
         draft.make_wire = lambda pontos, **_: Objeto(Name="Wire", Label="", Points=pontos, ViewObject=Objeto())
@@ -131,11 +132,46 @@ class TestServico(unittest.TestCase):
             parte = self.s.inserir_colunas(self.doc, grupos, pavimento)
         pasta_de.assert_called_once_with(self.doc, pavimento, "busway")
         self.assertEqual(parte.coluna_medicao, 36)
-        caixas = [o for o in parte.Group if o.Name == "Caixa_P"]
-        self.assertEqual(len(caixas), 36)
-        self.assertEqual(sum(1 for o in parte.Group if o.Name == "CDPM"), 2)
-        xs = sorted(o.Shape.base.x for o in parte.Group)
-        self.assertAlmostEqual(xs[0] + max(o.Shape.base.x + o.Shape.dims[0] for o in parte.Group), 0.0, delta=1.0)
+        self.assertEqual(parte.CDPMs, [g["cdpm"] for g in grupos])
+        rotulos = [o.Label for o in parte.Group]
+        for tipo in ("Caixas", "Tampas", "CDPM", "Medidores", "Disjuntores", "Barramentos", "DPS", "Eletrodutos"):
+            self.assertIn(f"A1 {tipo}", rotulos)
+            self.assertIn(f"A2 {tipo}", rotulos)
+        medidores = [o for o in parte.Group if o.Label.endswith("Medidores")]
+        self.assertEqual(sum(len(o.Shape) for o in medidores), 36)
+        tampas = next(o for o in parte.Group if o.Label == "A1 Tampas")
+        self.assertGreater(tampas.ViewObject.Transparency, 0)
+        corpos = [f for o in parte.Group if o.Label.endswith(("Caixas", "CDPM")) for f in o.Shape
+                  if f.dims[2] > 100]
+        xs = [f.base.x for f in corpos] + [f.base.x + f.dims[0] for f in corpos]
+        self.assertAlmostEqual(min(xs) + max(xs), 0.0, delta=1.0)  # conjunto centrado na origem
+
+    def test_quantitativos_do_busway_das_caixas_mec_e_das_colunas(self):
+        linha = Objeto(Name="Wire001", CorrenteBusway=630, Points=[Vetor(0, 0, 0), Vetor(6000, 0, 0),
+                                                                    Vetor(6000, 4000, 0)],
+                       Placement=types.SimpleNamespace(multVec=lambda v: v))
+        vertical = Objeto(Name="Wire002", CorrenteBusway=630, prumada_busway_de="Wire001", LajesAtravessadas=3,
+                          Points=[Vetor(6000, 4000, 2500), Vetor(6000, 4000, 12500)],
+                          Placement=types.SimpleNamespace(multVec=lambda v: v))
+        texto1 = Objeto(Name="Text", prumada_busway_de="Wire001", CaixasMEC=["MEC IV"])
+        texto2 = Objeto(Name="Text001", prumada_busway_de="Wire001", CaixasMEC=["MEC IX", "MEC II"])
+        colunas = Objeto(Name="Colunas_medicao", coluna_medicao=24, CDPMs=["Coluna dupla"])
+        self.doc.Objects = [linha, vertical, texto1, texto2, colunas]
+        pavimento_de = {"Wire001": "Térreo", "Wire002": "Térreo", "Text": "1º", "Text001": "2º",
+                        "Colunas_medicao": "Térreo"}
+        with mock.patch.object(self.s.pavimentos, "pavimento_do_objeto",
+                               side_effect=lambda d, o: Objeto(Label=pavimento_de[o.Name])):
+            resultado = dict(self.s.materiais_por_pavimento(self.doc))
+        terreo = {(i["item"], i["especificacao"]): i["quantidade"] for i in resultado["Térreo"]}
+        self.assertAlmostEqual(terreo[("Busway (barramento blindado)", "630 A, cobre, IP 54")], 20.0)
+        self.assertEqual(terreo[("Cotovelo de busway", "630 A, cobre, IP 54")], 2)  # na curva e na subida
+        self.assertEqual(terreo[("Barreira corta-fogo", "630 A, cobre, IP 54")], 3)
+        self.assertEqual(terreo[("Caixa de medição tipo P", "policarbonato, 260 × 520 × 190 mm")], 24)
+        segundo = {(i["item"], i["especificacao"]): i["quantidade"] for i in resultado["2º"]}
+        self.assertEqual(segundo[("Caixa de medição centralizada", "MEC IX")], 1)
+        self.assertEqual(segundo[("Placa de comunicação", "")], 3)  # 2 na MEC IX e 1 na MEC II
+        self.assertEqual(segundo[("Plug-in com disjuntor (derivação)", "63 a 400 A")], 2)
+        self.assertTrue(all(i["grupo"] == "Busway e medição" for itens in resultado.values() for i in itens))
 
     def test_prumada_sobe_do_fim_da_linha_com_as_caixas_dos_andares(self):
         pavs = {"Térreo": Objeto(Label="Térreo", e=0.0), "1º": Objeto(Label="1º", e=3000.0),
@@ -158,6 +194,8 @@ class TestServico(unittest.TestCase):
         self.assertEqual(vertical.Points[-1].z, 9000.0)
         self.assertEqual(len(textos), 2)
         self.assertIn("MEC VI (6)", textos[1].Text[1])
+        self.assertEqual(textos[1].CaixasMEC, ["MEC VI"])
+        self.assertEqual(vertical.LajesAtravessadas, 2)  # pisos do 1º e do 2º
         # trecho horizontal, vertical, uma MEC e um plug-in em cada andar
         self.assertEqual(len(corpo.Shape), 1 + 1 + 2 * 2)
         arquivar.assert_called_once_with(self.doc, linha, pavs["Térreo"])

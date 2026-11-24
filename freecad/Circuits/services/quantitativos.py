@@ -7,7 +7,8 @@ from freecad.Circuits.core import quantitativos as regras
 from freecad.Circuits.core import verticais as regras_verticais
 from freecad.Circuits.core import quadro as regras_quadro
 from freecad.Circuits.core.simbolos import ATERRAMENTO, CATALOGO, COMANDO, PASSAGEM, QUADRO
-from freecad.Circuits.services import bandejas, eletrodutos_planta, pavimentos, planilhas, rede, verticais
+from freecad.Circuits.services import (bandejas, centro_medicao, eletrodutos_planta, pavimentos, planilhas, rede,
+                                       verticais)
 from freecad.Circuits.services.tomadas import listar_tomadas
 
 EXTENSOES = (".csv", ".xlsx", ".pdf")
@@ -177,6 +178,14 @@ def _saidas_verticais(doc):
             for pav, r in resultados.items() for s in r.get("saidas", []) if s.get("descida")]
 
 
+def _busway(doc):
+    """(pavimento, itens) do busway, das caixas MEC e das colunas de medição (``services.centro_medicao``)."""
+    try:
+        return centro_medicao.materiais_por_pavimento(doc)
+    except Exception:
+        return []
+
+
 def _pecas_eletrodutos(doc):
     """(pavimento, itens) das curvas, luvas, buchas, conduletes e abraçadeiras (``services.eletrodutos_planta``)."""
     try:
@@ -221,7 +230,8 @@ def levantar_por_pavimento(doc, fiacao=None):
     for pavimento, diametro, comprimento in _eletrodutos(doc):
         de(pavimento)["eletrodutos"].append((diametro, comprimento))
     prumadas_eletroduto, prumadas_eletrocalha = _prumadas(doc)
-    for pavimento, itens in _componentes_por_quadro(doc) + _bandejas(doc) + _pecas_eletrodutos(doc) + prumadas_eletrocalha:
+    for pavimento, itens in (_componentes_por_quadro(doc) + _bandejas(doc) + _pecas_eletrodutos(doc)
+                             + prumadas_eletrocalha + _busway(doc)):
         de(pavimento)["componentes"].extend(itens)
     condutores, conectores = _aterramento(doc)
     for pavimento, secao, comprimento in condutores:
@@ -257,8 +267,8 @@ def levantar(doc):
     if conectores:
         componentes = componentes + [_conector(conectores)]
     prumadas_eletroduto, prumadas_eletrocalha = _prumadas(doc)
-    componentes = componentes + [item for _, itens in _bandejas(doc) + _pecas_eletrodutos(doc) + prumadas_eletrocalha
-                                 for item in itens]
+    componentes = componentes + [item for _, itens in (_bandejas(doc) + _pecas_eletrodutos(doc) + prumadas_eletrocalha
+                                                       + _busway(doc)) for item in itens]
     linhas = regras.montar(
         coletar_pontos(doc), coletar_eletrodutos(doc), componentes,
         fios=fiacao["fios"],
