@@ -25,6 +25,7 @@ PASTAS = {
     "fiacao": "Fiação",
     "ambientes": "Ambientes",
     "equipamentos": "Equipamentos",
+    "busway": "Busway e medição",
 }
 
 _PASTA_DA_CATEGORIA = {
@@ -46,6 +47,7 @@ _PASTA_DO_TIPO = {
     "condutor_aterramento": "aterramento",
     "bandeja": "bandejas",
     "ambiente": "ambientes",
+    "busway": "busway",
 }
 
 

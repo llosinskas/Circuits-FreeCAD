@@ -113,6 +113,19 @@ Para símbolos já colocados, selecione-os e use **Alinhar**, **Distribuir** ou 
 - **Luminárias:** sempre pelo luminotécnico (método dos lúmens), com a iluminância mantida do tipo (sala e dormitório 150 lx, cozinha, área de serviço e banheiro 200 lx, escritório 500 lx no plano de 0,75 m; corredor e varanda 100 lx e garagem 75 lx no piso), numa malha dentro do ambiente (também em L) com espaçamento de no máximo 1,5 × a altura útil. Cada ponto entra no circuito com o maior entre a potência da lâmpada e a parte dele na carga mínima da NBR 5410 (100 VA até 6 m² e mais 60 VA a cada 4 m² inteiros). Todas saem ligadas ao interruptor pela mesma letra.
 - Os pontos saem **sem circuito**: use **Circuitos ▾ > Definir circuito**. Repetir o comando no mesmo ambiente substitui os pontos gerados antes por ele; os que você inseriu à mão ficam.
 
+### Centro de medição Enel SP: busway ou medição agrupada
+
+Pela especificação Enel 0018 (conexão coletiva, versão 2 de 2025), no grupo **Quadros ▾**:
+
+1. **Centro de medição**: no primeiro clique cria a planilha *Centro de medição* com os pavimentos do projeto. Preencha unidades, demanda por unidade (A) e fases de cada andar, e troque os preços de referência (colunas G a I) pelas suas cotações. No segundo clique, informe a tensão, o uso (queda de 2 % residencial ou 1 % comercial), a distância do QDC à prumada e a demanda do edifício. A janela compara:
+   - **Medição agrupada**: agrupamentos de caixas P com a CDPM (até 30 caixas e 300 A cada), o tamanho do centro de medição abrigado e o cabo de cada unidade do térreo até o andar.
+   - **Busway com medição centralizada**: corrente nominal do barramento blindado, queda trecho a trecho pela fórmula da Enel (outra linha se não atender), caixas MEC por andar, shaft mínimo, emendas, suportes e barreiras corta-fogo.
+   - O custo estimado de cada uma e a recomendada pelo menor custo. O resultado fica gravado na planilha.
+2. **Coluna de medição**: insere as colunas no padrão Enel (caixas P 260 × 520 mm, três sobrepostas, CDPM no meio, altura da base pela Tabela 29) em 3D e você posiciona com o mouse.
+3. **Busway**: desenhe com Linha ou Polilinha o caminho do QDC até o shaft, selecione e clique. O caminho vira busway e, do último ponto, sobe a prumada pelos andares com os plug-ins e as caixas MEC, em 3D, e um texto por andar na pasta *Busway e medição*.
+
+Os k e as medidas dos busways e das caixas MEC e os preços são valores típicos: confirme com o fabricante homologado e com a Enel.
+
 ### Pavimentos
 
 Cada pavimento é uma pasta com os símbolos separados por tipo:

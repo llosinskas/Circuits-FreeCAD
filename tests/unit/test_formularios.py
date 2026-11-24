@@ -12,6 +12,7 @@ FORMULARIOS = {
     "recalque": formularios.RECALQUE,
     "aterramento": formularios.ATERRAMENTO,
     "gerador": formularios.GERADOR,
+    "centro_medicao": formularios.CENTRO_MEDICAO,
 }
 BASICOS_MAXIMOS = 4
 

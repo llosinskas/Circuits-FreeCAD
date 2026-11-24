@@ -15,6 +15,7 @@ dicionário com:
 A ideia é o usuário responder poucas perguntas, com opções prontas, e só abrir
 as opções avançadas quando tiver os dados do catálogo ou do projeto.
 """
+from freecad.Circuits.core import centro_medicao
 from freecad.Circuits.core.functions.Predial import aterramento, gerador, luminotecnico, pressurizacao, recalque
 from freecad.Circuits.core.simbolos import CATALOGO, ILUMINACAO
 
@@ -288,6 +289,48 @@ GERADOR = [
         "dica": "Do catálogo do motor. Cerca de 0,27 L/kWh perto da carga nominal.",
     },
 ]
+
+
+CENTRO_MEDICAO = [
+    {
+        "chave": "tensao", "rotulo": "Tensão da rede", "valor": list(centro_medicao.TENSOES),
+        "dica": "Sistema de fornecimento da Enel SP (Tabela 7). A queda é calculada na tensão entre fases.",
+    },
+    {
+        "chave": "uso", "rotulo": "Uso da edificação", "valor": list(centro_medicao.USOS),
+        "dica": "Queda máxima no busway, do ponto de conexão à última medição (Tabela 41): 2 % residencial, "
+                "1 % comercial ou misto.",
+    },
+    {
+        "chave": "distancia_horizontal", "rotulo": "Do QDC à base da prumada", "valor": 15.0, "minimo": 0.0,
+        "maximo": 500.0, "sufixo": "m",
+        "dica": "Trecho horizontal: busway do QDC ao shaft, ou cabos do centro de medição à prumada.",
+    },
+    {
+        "chave": "demanda_total_a", "rotulo": "Demanda do edifício (0 = soma)", "valor": 0.0, "minimo": 0.0,
+        "maximo": 6000.0, "decimais": 0, "sufixo": "A",
+        "dica": "Corrente de demanda do cálculo de demanda do edifício (com a diversidade). 0 soma as unidades "
+                "da planilha; com valor, ele é repartido pelos andares.",
+    },
+    {
+        "chave": "comprimento_ramal", "rotulo": "Ponto de conexão ao QDC", "avancado": True, "valor": 0.0,
+        "minimo": 0.0, "maximo": 500.0, "sufixo": "m",
+        "dica": "Ramal de entrada (4 × 240 mm² por circuito de 300 A). Entra na queda do busway.",
+    },
+    {
+        "chave": "altura_ultimo_pavimento", "rotulo": "Piso a piso do último andar", "avancado": True,
+        "valor": 3.0, "minimo": 2.2, "maximo": 10.0, "sufixo": "m",
+        "dica": "Até onde a prumada do busway sobe acima do piso do último andar.",
+    },
+]
+
+
+def argumentos_centro_medicao(dados):
+    """Valores do formulário do centro de medição nos argumentos de ``centro_medicao.comparar``."""
+    dados = dict(dados)
+    dados["tensao"] = centro_medicao.TENSOES[dados["tensao"]]
+    dados["uso"] = centro_medicao.USOS[dados["uso"]]
+    return dados
 
 
 def argumentos_gerador(dados):
