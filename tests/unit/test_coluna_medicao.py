@@ -94,10 +94,20 @@ class TestColunaParametrica(unittest.TestCase):
         self.obj.Proxy.execute(self.obj)
         self.assertEqual((self.obj.CaixasMetalicas, self.obj.MedicoesMetalicas, self.obj.coluna_medicao),
                          (["N"], 12, 0))
-        self.obj.DemandaPorMedidor = 150.0
+        self.obj.Medidores, self.obj.DemandaPorMedidor = 2, 250.0
         self.obj.Proxy.execute(self.obj)
-        self.assertIn("indireta", self.obj.Avisos[0])
+        self.assertEqual(self.obj.Solucao, "Medição indireta (TCs)")
+        self.assertEqual(self.obj.Indiretas, ["IND300", "IND300"])
+        self.assertIn("TC 300/5 A", self.obj.Conjuntos[0])
+        self.assertGreater(len(self.obj.Shape.Solids), 0)
+        self.obj.Medidores, self.obj.DemandaPorMedidor = 1, 800.0
+        self.obj.Proxy.execute(self.obj)
         self.assertEqual(self.obj.Shape.Solids, [])
+
+    def test_trifasicas_poucas_em_caixas_e(self):
+        self.obj.Medidores, self.obj.Fases, self.obj.DemandaPorMedidor = 3, 3, 40.0
+        self.obj.Proxy.execute(self.obj)
+        self.assertEqual((self.obj.Solucao, self.obj.CaixasE, self.obj.CDPMsE), ("Caixas E com CDPM", 3, 1))
 
     def test_cores_por_face(self):
         forma = Composto([Forma(6), Forma(3)])

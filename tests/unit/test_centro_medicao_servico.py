@@ -154,7 +154,7 @@ class TestServico(unittest.TestCase):
         texto2 = Objeto(Name="Text001", prumada_busway_de="Wire001", CaixasMEC=["MEC IX", "MEC II"])
         colunas = Objeto(Name="Colunas_medicao", coluna_medicao=24, CDPMs=["Coluna dupla"])
         metalicas = Objeto(Name="Colunas_medicao001", coluna_medicao=0, CDPMs=[], CaixasMetalicas=["N", "O"],
-                           MedicoesMetalicas=28)
+                           MedicoesMetalicas=28, CaixasE=2, CDPMsE=1, Indiretas=["IND300"])
         self.doc.Objects = [linha, vertical, texto1, texto2, colunas, metalicas]
         pavimento_de = {"Wire001": "Térreo", "Wire002": "Térreo", "Text": "1º", "Text001": "2º",
                         "Colunas_medicao": "Térreo", "Colunas_medicao001": "Térreo"}
@@ -169,6 +169,8 @@ class TestServico(unittest.TestCase):
         self.assertEqual(terreo[("Caixa de medição coletiva", "tipo N, aço, 1200 × 1300 × 250 mm")], 1)
         self.assertEqual(terreo[("Caixa de barramentos e CDPI", "Desenhos 20 e 32")], 1)  # a O já tem
         self.assertEqual(terreo[("Disjuntor da unidade", "DIN até 100 A, na CDPI")], 28)
+        self.assertEqual(terreo[("Caixa de medição tipo E", "350 × 560 × 250 mm")], 2)
+        self.assertEqual(terreo[("Conjunto de medição indireta", regras.INDIRETAS["IND300"][1])], 1)
         segundo = {(i["item"], i["especificacao"]): i["quantidade"] for i in resultado["2º"]}
         self.assertEqual(segundo[("Caixa de medição centralizada", "MEC IX")], 1)
         self.assertEqual(segundo[("Placa de comunicação", "")], 3)  # 2 na MEC IX e 1 na MEC II

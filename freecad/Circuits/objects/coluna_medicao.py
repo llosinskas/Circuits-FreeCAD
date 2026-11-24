@@ -2,7 +2,8 @@
 
 Mudar ``Medidores``, ``MedidoresPorColuna``, ``DemandaPorMedidor``, ``Fases``,
 ``Modelo`` ou ``CDPM`` refaz o dimensionamento (``core.centro_medicao.dimensionar_colunas``:
-caixa P em agrupamento modular ou caixas metálicas K a O, disjuntor geral, barramento,
+caixa P em agrupamento modular, caixas E com CDPM, caixas metálicas K a O ou medição indireta
+(policarbonato até 300 A, caixa M até 600 A), disjuntor geral, barramento,
 ramal de distribuição) e o 3D detalhado de todos os conjuntos, lado a lado. Os
 resultados ficam nas propriedades só de leitura do grupo "Dimensionamento".
 
@@ -15,7 +16,9 @@ from freecad.Circuits.core import centro_medicao as regras
 
 AUTOMATICO = "Automático"
 RESULTADOS = ("Solucao", "Conjuntos", "DisjuntorUnidade", "CorrenteTotal", "Avisos", "coluna_medicao", "CDPMs",
-              "CaixasMetalicas", "MedicoesMetalicas")
+              "CaixasMetalicas", "MedicoesMetalicas", "CaixasE", "CDPMsE", "Indiretas")
+SOLUCOES = {"P": "Caixas P em agrupamento modular", "E": "Caixas E com CDPM",
+            "metalica": "Caixas coletivas metálicas", "indireta": "Medição indireta (TCs)"}
 
 
 def _solido(peca):
@@ -27,8 +30,14 @@ def _solido(peca):
 
 
 def _descricao(conjunto):
+    if conjunto.get("modelo") in regras.INDIRETAS:
+        return (f"{conjunto['cdpm']}: {conjunto['corrente']:.0f} A, chave seccionadora {conjunto['chave']} A, "
+                f"TC {conjunto['tc']}, proteção geral {conjunto['disjuntor_geral']} A, ramal "
+                f"{conjunto.get('paralelos', 1)} × {conjunto['ramal']} mm²").replace(".", ",")
     if conjunto.get("modelo", "P") == "P":
         caixa = f"{conjunto['caixas']} caixas P, {conjunto['cdpm']}"
+    elif conjunto["modelo"] == "E":
+        caixa = f"{conjunto['medicoes']} caixa(s) E" + (" com CDPM" if conjunto["medicoes"] > 1 else "")
     else:
         caixa = f"{conjunto['cdpm']}, {conjunto['medicoes']} medições"
     return (f"{caixa}: {conjunto['corrente']:.0f} A, disjuntor geral {conjunto['disjuntor_geral']} A, "
@@ -67,7 +76,8 @@ class ColunaMedicao:
                     (2, 1, 3, 1))
         if not hasattr(obj, "Modelo"):
             obj.addProperty("App::PropertyEnumeration", "Modelo", entrada,
-                            "Caixa de medição: automática (P para mono e bifásicas, metálica para trifásicas) ou forçada")
+                            "Caixa: automática (P mono e bifásicas; E até 4 trifásicas; metálicas K a O; indireta acima "
+                            "de 100 A) ou forçada")
             obj.Modelo = list(regras.MODELOS)
             obj.Modelo = AUTOMATICO
         if not hasattr(obj, "CDPM"):
@@ -88,6 +98,9 @@ class ColunaMedicao:
         propriedade("App::PropertyStringList", "CDPMs", saida, "CDPM de cada agrupamento de caixas P", None, True)
         propriedade("App::PropertyStringList", "CaixasMetalicas", saida, "Caixas coletivas metálicas", None, True)
         propriedade("App::PropertyInteger", "MedicoesMetalicas", saida, "Medições nas caixas metálicas", 0, True)
+        propriedade("App::PropertyInteger", "CaixasE", saida, "Caixas de medição tipo E", 0, True)
+        propriedade("App::PropertyInteger", "CDPMsE", saida, "CDPMs das caixas E", 0, True)
+        propriedade("App::PropertyStringList", "Indiretas", saida, "Conjuntos de medição indireta", None, True)
         propriedade("App::PropertyStringList", "TiposDasPecas", saida, "Tipo de cada sólido, para as cores")
         obj.setEditorMode("TiposDasPecas", 2)
 
@@ -106,9 +119,10 @@ class ColunaMedicao:
                             "avisos": [str(erro)]}, []
         conjuntos = dados["conjuntos"]
         p = [c for c in conjuntos if c.get("modelo", "P") == "P"]
-        metalicas = [c for c in conjuntos if c.get("modelo", "P") != "P"]
-        obj.Solucao = {"P": "Caixas P em agrupamento modular", "metalica": "Caixas coletivas metálicas"}.get(
-            dados["modelo"], "Medição indireta: fora deste objeto")
+        e = [c for c in conjuntos if c.get("modelo") == "E"]
+        indiretas = [c for c in conjuntos if c.get("modelo") in regras.INDIRETAS]
+        metalicas = [c for c in conjuntos if c.get("modelo") in regras.CAIXAS_METALICAS]
+        obj.Solucao = SOLUCOES.get(dados["modelo"], "Sem conjunto: veja os avisos")
         obj.Conjuntos = [_descricao(c) for c in conjuntos]
         obj.DisjuntorUnidade = int(dados["disjuntor_unidade"] or 0)
         obj.CorrenteTotal = round(float(dados["corrente"]), 1)
@@ -117,6 +131,9 @@ class ColunaMedicao:
         obj.CDPMs = [c["cdpm"] for c in p]
         obj.CaixasMetalicas = [c["modelo"] for c in metalicas]
         obj.MedicoesMetalicas = sum(c["medicoes"] for c in metalicas)
+        obj.CaixasE = sum(c["medicoes"] for c in e)
+        obj.CDPMsE = sum(1 for c in e if c["medicoes"] > 1)
+        obj.Indiretas = [c["modelo"] for c in indiretas]
         obj.TiposDasPecas = [peca["tipo"] for peca in pecas]
         posicao = obj.Placement
         obj.Shape = Part.makeCompound([_solido(peca) for peca in pecas]) if pecas else Part.Shape()

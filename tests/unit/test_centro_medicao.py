@@ -251,9 +251,81 @@ class TestDimensionarColunas(unittest.TestCase):
         self.assertEqual([g["modelo"] for g in c.caixas_metalicas(8, 10.0, "L")], ["L", "L"])
 
     def test_acima_de_100_a_e_indireta(self):
-        d = c.dimensionar_colunas(4, 120.0, 2)
-        self.assertEqual((d["modelo"], d["conjuntos"]), (None, []))
-        self.assertIn("indireta", d["avisos"][0])
+        d = c.dimensionar_colunas(2, 250.0, 3)
+        self.assertEqual(d["modelo"], "indireta")
+        self.assertEqual([g["modelo"] for g in d["conjuntos"]], ["IND300", "IND300"])  # uma por unidade
+        g = d["conjuntos"][0]
+        self.assertEqual((g["disjuntor_geral"], g["chave"], g["tc"]), (250, 250, "300/5 A"))
+        self.assertIsNone(d["disjuntor_unidade"])
+        self.assertTrue(any("chave seccionadora" in a for a in d["avisos"]))
+        self.assertTrue(any("101 a 200 A" in a for a in c.dimensionar_colunas(1, 150.0, 3)["avisos"]))
+
+    def test_indireta_de_300_a_600_a_em_caixa_m_com_dois_circuitos(self):
+        g, = c.dimensionar_colunas(1, 450.0, 3)["conjuntos"]
+        self.assertEqual((g["modelo"], g["paralelos"], g["disjuntor_geral"], g["tc"]), ("IND600", 2, 500, "600/5 A"))
+        self.assertLessEqual(g["ramal"], 185)  # nota 8: dois circuitos de até 185 mm²
+        d = c.dimensionar_colunas(1, 700.0, 3)
+        self.assertEqual(d["conjuntos"], [])
+        self.assertIn("cabine de barramentos", d["avisos"][0])
+
+    def test_trifasicas_ate_4_em_caixas_e_com_cdpm(self):
+        d = c.dimensionar_colunas(3, 40.0, 3)
+        g, = d["conjuntos"]
+        self.assertEqual((d["modelo"], g["modelo"], g["medicoes"], g["disjuntor_geral"]), ("E", "E", 3, 125))
+        self.assertAlmostEqual(g["largura_mm"], 3 * 350 + 300)
+        self.assertLessEqual(g["ramal"], c.SECAO_MAX_RAMAL_E)
+        self.assertEqual(c.dimensionar_colunas(6, 30.0, 3)["modelo"], "metalica")  # mais de 4: coletivas
+        self.assertEqual(c.dimensionar_colunas(4, 40.0, 3)["modelo"], "metalica")  # 160 A passa da CDPM
+        forcado = c.dimensionar_colunas(8, 40.0, 3, modelo="Caixa E")
+        self.assertTrue(all(g["corrente"] <= 125 or g["medicoes"] == 1 for g in forcado["conjuntos"]))
+        self.assertTrue(any("grupos de caixas E" in a for a in forcado["avisos"]))
+
+    def test_caixa_e_detalhada(self):
+        pecas = c.pecas_do_grupo_e(3)
+        caixas = [p for p in pecas if p["tipo"] == "corpo" and p["rotulo"] in ("E01", "E02", "E03")]
+        self.assertEqual(len(caixas), 3)
+        self.assertTrue(all(p["dims"] == (350.0, 250.0 - c.TAMPA_MM, 560.0) for p in caixas))
+        self.assertEqual(sum(1 for p in pecas if p["tipo"] == "medidor"), 3)
+        self.assertTrue(any(p["rotulo"] == "CDPM" for p in pecas))
+        self.assertFalse(any(p["rotulo"] == "CDPM" for p in c.pecas_do_grupo_e(1)))
+        medidor = next(p for p in pecas if p["rotulo"] == "E01 medidor")
+        self.assertGreater(medidor["origem"][2], 1200 + 560 - 390)  # no compartimento de cima
+
+    def test_indireta_detalhada(self):
+        rotulos = [p["rotulo"] for p in c.pecas_da_indireta("IND300")]
+        for nome in ("Chave seccionadora sob carga", "Caixa dos TCs", "Proteção geral", "Medidor",
+                     "Bloco de aferição", "Eletroduto de entrada"):
+            self.assertIn(nome, rotulos)
+        self.assertEqual(sum(1 for r in rotulos if r.startswith("Módulo") and "tampa" not in r), 4)
+        m = [p["rotulo"] for p in c.pecas_da_indireta("IND600")]
+        self.assertEqual(sum(1 for r in m if r.startswith("TC ")), 3)
+        self.assertEqual(sum(1 for r in m if r.startswith("Eletroduto de entrada")), 2)
+
+    def test_mec_indireta_no_busway(self):
+        self.assertEqual([x["tipo"] for x in c.caixas_mec(1, 150, 150)], ["MEC IV"])
+        caixas = c.caixas_mec(2, 500, 250)
+        self.assertEqual([x["tipo"] for x in caixas], ["MEC VI", "MEC VI"])
+        self.assertTrue(all(x["indireta"] for x in caixas))
+
+    def test_convencional_separa_as_unidades_indiretas(self):
+        andares = [c.andar("1º", 3, 4, 63, 2), c.andar("Loja", 0, 1, 250, 3)]
+        r = c.convencional(andares, demanda_total_a=400)
+        modelos = [g.get("modelo") for g in r["agrupamentos"]]
+        self.assertIn("IND300", modelos)
+        self.assertIn("P", modelos)
+        texto = c.relatorio(c.comparar(andares, demanda_total_a=400))
+        self.assertIn("TC 300/5 A", texto)
+        self.assertNotIn("barramento None", texto)
+        custo = [i["descricao"] for i in c.orcamento(r)["itens"]]
+        self.assertIn("Conjunto de medição indireta até 300 A (policarbonato)", custo)
+
+    def test_materiais_de_e_e_indireta(self):
+        itens = {(i["item"], i["especificacao"]): i["quantidade"] for i in c.materiais_das_colunas(
+            [{"caixas_e": 3, "cdpm_e": 1, "indiretas": ["IND300", "IND600"]}])}
+        self.assertEqual(itens[("Caixa de medição tipo E", "350 × 560 × 250 mm")], 3)
+        self.assertEqual(itens[("CDPM das caixas E", "300 × 500 × 250 mm, até 125 A")], 1)
+        self.assertEqual(itens[("Conjunto de medição indireta", c.INDIRETAS["IND300"][1])], 1)
+        self.assertEqual(itens[("Chave seccionadora sob carga sem fusíveis", "antes dos TCs")], 1)
 
     def test_caixa_p_forcada_em_trifasica_avisa(self):
         d = c.dimensionar_colunas(6, 40.0, 3, modelo="P (policarbonato)")

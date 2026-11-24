@@ -351,7 +351,9 @@ def materiais_por_pavimento(doc):
             itens = regras.materiais_das_colunas([{
                 "caixas": int(obj.coluna_medicao or 0), "cdpms": list(getattr(obj, "CDPMs", []) or []),
                 "metalicas": list(getattr(obj, "CaixasMetalicas", []) or []),
-                "medicoes_metalicas": int(getattr(obj, "MedicoesMetalicas", 0) or 0)}])
+                "medicoes_metalicas": int(getattr(obj, "MedicoesMetalicas", 0) or 0),
+                "caixas_e": int(getattr(obj, "CaixasE", 0) or 0), "cdpm_e": int(getattr(obj, "CDPMsE", 0) or 0),
+                "indiretas": list(getattr(obj, "Indiretas", []) or [])}])
             if itens:
                 por_pavimento.setdefault(nome(obj), []).extend(itens)
     for pavimento, tipos in caixas.items():
