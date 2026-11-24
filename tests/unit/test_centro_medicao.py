@@ -73,7 +73,7 @@ class TestConvencional(unittest.TestCase):
 
     def test_unidade_acima_de_100_a_avisa(self):
         r = c.convencional([c.andar("1º", 3, 2, 120.0)], demanda_total_a=200)
-        self.assertTrue(any("caixa P" in a for a in r["avisos"]))
+        self.assertTrue(any("indireta" in a for a in r["avisos"]))
 
 
 class TestBusway(unittest.TestCase):
@@ -214,6 +214,81 @@ class TestPlanilhaEGeometria(unittest.TestCase):
         self.assertEqual(emendas, [3000, 6000, 9000])
         self.assertTrue(all(abs(s - e) > 150 for s in suportes for e in emendas))
         self.assertTrue(all(b - a <= 1500 + 1e-9 for a, b in zip(suportes, suportes[1:])))
+
+
+
+class TestDimensionarColunas(unittest.TestCase):
+    def test_30_medidores_em_10_colunas_de_3_com_a_cdpm_no_meio(self):
+        d = c.dimensionar_colunas(30, 63.0, 2, demanda_total_a=250.0)
+        conjunto, = d["conjuntos"]
+        self.assertEqual((d["modelo"], conjunto["caixas"], conjunto["cdpm"]), ("P", 30, "Coluna dupla"))
+        self.assertEqual(c.distribuicao(30, 3), (15, 15, 3))
+        self.assertAlmostEqual(conjunto["largura_mm"], 10 * 260 + 520)  # 5 colunas de cada lado
+        self.assertEqual(conjunto["disjuntor_geral"], 250)
+        self.assertEqual(conjunto["barramento"], "25x5 mm")  # Tabela 23 e o mínimo da Tabela 28
+        self.assertLessEqual(conjunto["ramal"], 185)
+        self.assertEqual(d["disjuntor_unidade"], 63)
+
+    def test_medidores_por_coluna_mudam_a_capacidade(self):
+        self.assertEqual([c.capacidade_agrupamento(v) for v in (1, 2, 3)], [12, 24, 30])
+        d = c.dimensionar_colunas(30, 63.0, 2, por_coluna=2, demanda_total_a=250.0)
+        self.assertEqual([g["caixas"] for g in d["conjuntos"]], [15, 15])
+        self.assertTrue(any("abrigado" in a for a in d["avisos"]))
+        g = c.coluna_de_medicao(12, "Coluna simples", 2)
+        self.assertEqual(g["altura"], 2 * 520)
+        self.assertEqual(g["base"], c.ALTURA_BASE_MM[2])
+
+    def test_trifasicas_vao_para_as_caixas_metalicas(self):
+        d = c.dimensionar_colunas(20, 40.0, 3)
+        self.assertEqual(d["modelo"], "metalica")
+        self.assertEqual(sum(g["medicoes"] for g in d["conjuntos"]), 20)
+        self.assertTrue(all(g["corrente"] <= c.CORRENTE_MAX_COLETIVA for g in d["conjuntos"]))
+        self.assertTrue(all(g["medicoes"] <= c.CAIXAS_METALICAS[g["modelo"]][0] for g in d["conjuntos"]))
+        self.assertTrue(any("caixa de barramentos" in a for a in d["avisos"]))
+        self.assertEqual([g["modelo"] for g in c.caixas_metalicas(12, 10.0)], ["N"])
+        self.assertEqual([g["modelo"] for g in c.caixas_metalicas(16, 10.0)], ["O"])
+        self.assertEqual([g["modelo"] for g in c.caixas_metalicas(5, 10.0)], ["H"])
+        self.assertEqual([g["modelo"] for g in c.caixas_metalicas(8, 10.0, "L")], ["L", "L"])
+
+    def test_acima_de_100_a_e_indireta(self):
+        d = c.dimensionar_colunas(4, 120.0, 2)
+        self.assertEqual((d["modelo"], d["conjuntos"]), (None, []))
+        self.assertIn("indireta", d["avisos"][0])
+
+    def test_caixa_p_forcada_em_trifasica_avisa(self):
+        d = c.dimensionar_colunas(6, 40.0, 3, modelo="P (policarbonato)")
+        self.assertEqual(d["modelo"], "P")
+        self.assertTrue(any("mono e bifásicas" in a for a in d["avisos"]))
+
+    def test_barramento_e_ramal(self):
+        self.assertEqual(c.barramento(180), "15x3 mm")
+        self.assertEqual(c.barramento(180, (20, 5)), "20x5 mm")
+        self.assertIsNone(c.barramento(900))
+        self.assertGreater(c.ramal_de_distribuicao(300, 30, 220), c.ramal_de_distribuicao(100, 30, 220))
+
+    def test_caixa_metalica_detalhada_dentro_do_corpo(self):
+        pecas = c.pecas_da_caixa_metalica("N", 10)
+        self.assertEqual(sum(1 for p in pecas if p["tipo"] == "medidor"), 10)
+        corpo = next(p for p in pecas if p["rotulo"] == "Caixa N")
+        (x, y, z), (dx, dy, dz) = corpo["origem"], corpo["dims"]
+        for p in pecas:
+            if p["tipo"] == "medidor":
+                (px, py, pz), (qx, qy, qz) = p["origem"], p["dims"]
+                self.assertTrue(x <= px and px + qx <= x + dx and z <= pz and pz + qz <= z + dz)
+        barramentos = next(p for p in pecas if p["rotulo"] == "Barramentos N")
+        self.assertAlmostEqual(barramentos["origem"][2] + barramentos["dims"][2], z)  # logo abaixo da caixa
+        self.assertFalse(any(p["rotulo"].startswith("Barramentos") for p in c.pecas_da_caixa_metalica("O")))
+
+    def test_conjuntos_lado_a_lado_e_centrados(self):
+        d = c.dimensionar_colunas(30, 63.0, 2, por_coluna=2, demanda_total_a=250.0)
+        pecas = c.pecas_do_centro(d)
+        self.assertEqual({p["conjunto"] for p in pecas}, {1, 2})
+        caixas = [p for p in pecas if p["forma"] == "caixa"]
+        xs = [p["origem"][0] for p in caixas] + [p["origem"][0] + p["dims"][0] for p in caixas]
+        self.assertAlmostEqual(min(xs) + max(xs), 0.0, delta=1e-6)
+        fim_1 = max(p["origem"][0] + p["dims"][0] for p in caixas if p["conjunto"] == 1)
+        inicio_2 = min(p["origem"][0] for p in caixas if p["conjunto"] == 2)
+        self.assertAlmostEqual(inicio_2 - fim_1, c.FOLGA_ENTRE_AGRUPAMENTOS_MM)
 
 
 if __name__ == "__main__":

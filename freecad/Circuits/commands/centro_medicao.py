@@ -81,7 +81,7 @@ class PlanejarMedicao:
 
 
 class InserirColunaMedicao:
-    """Insere as colunas de medição (caixas P e CDPM, padrão Enel) e deixa posicionar na planta."""
+    """Insere as colunas de medição paramétricas (padrão Enel) e deixa posicionar na planta."""
 
     def Activated(self):
         doc = documento_ou_aviso()
@@ -89,32 +89,31 @@ class InserirColunaMedicao:
             return
         folha = servico.planilha(doc)
         andares = (_andares(folha) or []) if folha is not None else []
-        total = sum(a["unidades"] for a in andares) or 12
-        demanda = max([a["demanda_a"] for a in andares] or [regras.DEMANDA_PADRAO])
-        caixas, ok = QtWidgets.QInputDialog.getInt(
+        valores = servico.valores_da_planilha(andares, servico.ler_parametros(folha) if folha is not None else {})
+        medidores, ok = QtWidgets.QInputDialog.getInt(
             None, "Colunas de medição",
-            "Medições (caixas tipo P). Até 30 por agrupamento, 3 sobrepostas e 6 de cada lado da CDPM:",
-            total, 1, 600)
+            "Medições diretas. Depois, nas propriedades do objeto, dá para mudar medidores, medidores por coluna\n"
+            "(até 3), demanda, fases, modelo da caixa (P ou K a O) e CDPM; o dimensionamento e o 3D se refazem.",
+            int(valores.get("Medidores", 12)), 1, 2000)
         if not ok:
             return
-        try:
-            grupos = regras.agrupamentos(caixas, min(demanda, regras.CORRENTE_MAX_P))
-        except ValueError as erro:
-            QtWidgets.QMessageBox.warning(None, "Colunas de medição", str(erro))
-            return
+        if valores.get("Medidores") != medidores:
+            valores["DemandaTotal"] = 0.0  # a demanda do edifício valia para outro número de unidades
+        valores["Medidores"] = medidores
         pavimento = pavimentos.pavimento_para_insercao(doc, Gui.Selection.getSelection())
         doc.openTransaction("Colunas de medição")
         try:
-            parte = servico.inserir_colunas(doc, grupos, pavimento)
+            coluna = servico.criar_colunas(doc, pavimento, **valores)
             doc.commitTransaction()
         except Exception:
             doc.abortTransaction()
             raise
-        descricao = ", ".join(f"{g['caixas']} caixas ({g['cdpm']})" for g in grupos)
-        App.Console.PrintMessage(f"Colunas de medição: {descricao}. Clique na planta para posicionar (R gira); "
-                                 "o fundo das caixas vai para a parede.\n")
-        ComponentInsertionMode(parte, cota=pavimentos.elevacao(pavimento),
-                               referencias=alinhamento.posicoes_dos_simbolos(doc, exceto=parte)).start()
+        resumo = "; ".join(coluna.Conjuntos) or "nenhum conjunto"
+        avisos = "".join(f"\n  aviso: {a}" for a in coluna.Avisos)
+        App.Console.PrintMessage(f"Colunas de medição ({coluna.Solucao}): {resumo}.{avisos}\n"
+                                 "Clique na planta para posicionar (R gira); o fundo das caixas vai para a parede.\n")
+        ComponentInsertionMode(coluna, cota=pavimentos.elevacao(pavimento),
+                               referencias=alinhamento.posicoes_dos_simbolos(doc, exceto=coluna)).start()
 
     def IsActive(self):
         return True
@@ -123,8 +122,8 @@ class InserirColunaMedicao:
         return recursos(
             "coluna_medicao.svg",
             "Coluna de medição",
-            "Insere os agrupamentos de caixas de medição tipo P com a CDPM no padrão Enel (até 30 por agrupamento, "
-            "altura da base pela Tabela 29) e posiciona com o mouse",
+            "Insere as colunas de medição paramétricas no padrão Enel SP: escolhe a caixa P (até 3 por coluna e 30 "
+            "por agrupamento) ou as coletivas K a O, dimensiona disjuntor geral, barramento e ramal, e desenha em 3D",
         )
 
 

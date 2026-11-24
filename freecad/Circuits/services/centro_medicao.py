@@ -3,9 +3,9 @@
 - **Planilha "Centro de medição"** (propriedade ``centro_medicao``): um pavimento por
   linha (A a E), os preços de referência nas colunas G a I, o resultado nas K e L e
   os parâmetros do último cálculo nas N e O (usados pelo botão Busway).
-- **Coluna de medição**: um ``App::Part`` (propriedade ``coluna_medicao``) com os
-  agrupamentos de caixas P e a CDPM em 3D, lado a lado, na pasta *Busway e medição*
-  do pavimento; o comando posiciona com o mouse.
+- **Colunas de medição**: objeto paramétrico (``objects.coluna_medicao``) que escolhe e
+  dimensiona as caixas (P ou metálicas K a O) e desenha os conjuntos em 3D, na pasta
+  *Busway e medição* do pavimento; o comando posiciona com o mouse.
 - **Busway**: as linhas desenhadas do QDC ao shaft são marcadas como busway
   (``CorrenteBusway``, ``AlturaBusway``, ``KBusway``) e, do fim de cada uma, sobe a
   prumada: um Draft Wire vertical marcado do mesmo jeito, o 3D (invólucro, plug-ins,
@@ -19,6 +19,7 @@ import Part
 import Spreadsheet  # noqa: F401  (registra o tipo Spreadsheet::Sheet)
 
 from freecad.Circuits.core import centro_medicao as regras
+from freecad.Circuits.objects.coluna_medicao import create_coluna_medicao
 from freecad.Circuits.services import pavimentos, planilhas
 
 COLUNA_PARAMETRO, COLUNA_PARAMETRO_VALOR = "N", "O"
@@ -141,62 +142,33 @@ def _caixa(x, y, z, dx, dy, dz):
     return Part.makeBox(dx, dy, dz, App.Vector(x, y, z))
 
 
-def _solido(peca, deslocamento_x=0.0):
-    if peca["forma"] == "caixa":
-        (x, y, z), (dx, dy, dz) = peca["origem"], peca["dims"]
-        return Part.makeBox(dx, dy, dz, App.Vector(x + deslocamento_x, y, z))
-    x, y, z = peca["origem"]
-    return Part.makeCylinder(peca["raio"], peca["comprimento"], App.Vector(x + deslocamento_x, y, z),
-                             App.Vector(*peca["eixo"]))
+def criar_colunas(doc, pavimento=None, **valores):
+    """Colunas de medição paramétricas (``objects.coluna_medicao``) na pasta *Busway e medição* do pavimento.
 
-
-NOMES_DAS_PECAS = {"corpo": "Caixas", "tampa": "Tampas", "cdpm": "CDPM", "medidor": "Medidores",
-                   "disjuntor": "Disjuntores", "barra": "Barramentos", "dps": "DPS", "eletroduto": "Eletrodutos",
-                   "etiqueta": "Identificação"}
-
-
-def inserir_colunas(doc, grupos, pavimento=None):
-    """Os agrupamentos (``core.centro_medicao.agrupamentos``) lado a lado, num ``App::Part`` detalhado.
-
-    Cada agrupamento ganha um objeto por tipo de peça (``core.centro_medicao.pecas_da_coluna``:
-    caixas, tampas, CDPM, medidores, disjuntores, barramentos, DPS, eletrodutos, identificação),
-    com a cor do tipo. A origem do Part é o meio da frente do conjunto, no piso; o fundo fica
-    para +y (parede).
+    ``valores`` são as entradas do objeto (``Medidores``, ``DemandaPorMedidor``, ``Fases``,
+    ``DemandaTotal``, ``Tensao``...). O objeto fica no piso do pavimento.
     """
-    total = sum(g["caixas"] for g in grupos)
-    parte = doc.addObject("App::Part", "Colunas_medicao")
-    parte.Label = f"Colunas de medição ({total} caixas P)"
-    parte.addProperty("App::PropertyInteger", "coluna_medicao", "Medição", "Caixas de medição tipo P")
-    parte.coluna_medicao = total
-    parte.addProperty("App::PropertyStringList", "CDPMs", "Medição", "Tipo da CDPM de cada agrupamento (Tabela 28)")
-    parte.CDPMs = [g["cdpm"] for g in grupos]
-    larguras = [regras.coluna_de_medicao(g["caixas"], g["cdpm"])["largura"] for g in grupos]
-    x = -(sum(larguras) + regras.FOLGA_ENTRE_AGRUPAMENTOS_MM * (len(grupos) - 1)) / 2.0
-    for numero, (grupo, largura) in enumerate(zip(grupos, larguras), start=1):
-        dados = regras.coluna_de_medicao(grupo["caixas"], grupo["cdpm"])
-        deslocamento = x - min(p[1][0] for p in dados["caixas"])
-        por_tipo = {}
-        for peca in regras.pecas_da_coluna(grupo["caixas"], grupo["cdpm"]):
-            por_tipo.setdefault(peca["tipo"], []).append(_solido(peca, deslocamento))
-        for tipo, solidos in por_tipo.items():
-            corpo = doc.addObject("Part::Feature", f"A{numero}_{tipo}")
-            corpo.Label = f"A{numero} {NOMES_DAS_PECAS[tipo]}"
-            corpo.Shape = Part.makeCompound(solidos)
-            cor, transparencia = regras.CORES_DAS_PECAS[tipo]
-            try:
-                corpo.ViewObject.ShapeColor = cor
-                corpo.ViewObject.Transparency = transparencia
-            except Exception:
-                pass
-            parte.addObject(corpo)
-        x += largura + regras.FOLGA_ENTRE_AGRUPAMENTOS_MM
+    coluna = create_coluna_medicao(doc, **valores)
     if pavimento is not None:
-        pavimentos.pasta(doc, pavimento, "busway").addObject(parte)
-        posicao = parte.Placement
+        pavimentos.pasta(doc, pavimento, "busway").addObject(coluna)
+        posicao = coluna.Placement
         posicao.Base = App.Vector(0, 0, pavimentos.elevacao(pavimento))
-        parte.Placement = posicao
+        coluna.Placement = posicao
     doc.recompute()
-    return parte
+    return coluna
+
+
+def valores_da_planilha(andares, parametros=None):
+    """Entradas das colunas a partir dos andares da planilha: medidores, maior demanda e fases, demanda total."""
+    parametros = parametros or {}
+    com_unidades = [a for a in andares if a["unidades"] > 0]
+    if not com_unidades:
+        return {}
+    return {"Medidores": sum(a["unidades"] for a in com_unidades),
+            "DemandaPorMedidor": max(a["demanda_a"] for a in com_unidades),
+            "Fases": max(a["fases"] for a in com_unidades),
+            "DemandaTotal": float(parametros.get("demanda_total_a", 0.0) or 0.0),
+            "Tensao": float(parametros.get("tensao", 220.0) or 220.0)}
 
 
 # --- busway ---------------------------------------------------------------------------------------
@@ -375,9 +347,13 @@ def materiais_por_pavimento(doc):
     for obj in doc.Objects:
         if getattr(obj, "CaixasMEC", None) and getattr(obj, "prumada_busway_de", ""):
             caixas.setdefault(nome(obj), []).extend(list(obj.CaixasMEC))
-        if getattr(obj, "coluna_medicao", 0):
-            por_pavimento.setdefault(nome(obj), []).extend(regras.materiais_das_colunas(
-                [{"caixas": int(obj.coluna_medicao), "cdpms": list(getattr(obj, "CDPMs", []) or [])}]))
+        if hasattr(obj, "coluna_medicao"):
+            itens = regras.materiais_das_colunas([{
+                "caixas": int(obj.coluna_medicao or 0), "cdpms": list(getattr(obj, "CDPMs", []) or []),
+                "metalicas": list(getattr(obj, "CaixasMetalicas", []) or []),
+                "medicoes_metalicas": int(getattr(obj, "MedicoesMetalicas", 0) or 0)}])
+            if itens:
+                por_pavimento.setdefault(nome(obj), []).extend(itens)
     for pavimento, tipos in caixas.items():
         por_pavimento.setdefault(pavimento, []).extend(regras.materiais_das_caixas_mec(tipos))
     return list(por_pavimento.items())

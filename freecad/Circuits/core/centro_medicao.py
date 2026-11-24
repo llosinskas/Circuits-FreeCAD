@@ -40,6 +40,7 @@ potências em kVA, preços em R$.
 import math
 
 from freecad.Circuits.core import nbr5410
+from freecad.Circuits.core.functions.Predial import gerador as cabos_grandes
 
 # --- tensões e limites ---------------------------------------------------------------------
 
@@ -54,6 +55,7 @@ CAIXA_P_MM = (260.0, 190.0, 520.0)  # largura, profundidade, altura (Desenho 23)
 MAX_POR_AGRUPAMENTO = 30
 MAX_VERTICAL = 3
 MAX_POR_LADO = 18  # 6 colunas de 3 caixas de cada lado da CDPM
+MAX_COLUNAS_POR_LADO = 6
 CORRENTE_MAX_P = 100.0  # demanda individual na caixa P
 SECAO_MIN_UNIDADE, SECAO_MAX_UNIDADE = 10, 35  # mm², borne do medidor
 # Tabela 28: tipo -> (até medições, corrente máxima [A], largura [mm], barramento)
@@ -116,6 +118,13 @@ PRECOS = {
     "cdpm_Coluna simples": ("CDPM coluna simples", 2800.0),
     "cdpm_Coluna dupla": ("CDPM coluna dupla", 4500.0),
     "cdpm_Coluna MAX": ("CDPM coluna MAX", 6500.0),
+    "caixa_K": ("Caixa de medição coletiva K (2 medições)", 1900.0),
+    "caixa_L": ("Caixa de medição coletiva L (4 medições)", 2700.0),
+    "caixa_H": ("Caixa de medição coletiva H (6 medições)", 3500.0),
+    "caixa_M": ("Caixa de medição coletiva M (8 medições)", 4300.0),
+    "caixa_N": ("Caixa de medição coletiva N (12 medições)", 5800.0),
+    "caixa_O": ("Caixa de medição coletiva O (16 medições)", 8200.0),
+    "caixa_barramentos": ("Caixa de barramentos com CDPI", 1800.0),
     "cabo_mm2_m": ("Cabo de cobre 750 V, por mm² × m", 1.05),
     "eletroduto_m": ("Eletroduto de cada alimentador, por m", 18.0),
     "abrigo_m2": ("Centro de medição abrigado em alvenaria, por m²", 3500.0),
@@ -231,42 +240,195 @@ def tipo_cdpm(caixas, corrente):
     return None
 
 
-def distribuicao(caixas):
-    """(caixas à esquerda, à direita, caixas na vertical) de um agrupamento."""
-    if caixas > MAX_POR_AGRUPAMENTO:
-        raise ValueError(f"Um agrupamento tem no máximo {MAX_POR_AGRUPAMENTO} caixas.")
-    vertical = min(MAX_VERTICAL, max(1, math.ceil(caixas / 2)))
+def capacidade_agrupamento(por_coluna=MAX_VERTICAL):
+    """Caixas P que cabem num agrupamento com ``por_coluna`` caixas sobrepostas (até 6 colunas por lado, máx. 30)."""
+    por_coluna = max(1, min(MAX_VERTICAL, int(por_coluna)))
+    return min(MAX_POR_AGRUPAMENTO, 2 * MAX_COLUNAS_POR_LADO * por_coluna)
+
+
+def distribuicao(caixas, por_coluna=MAX_VERTICAL):
+    """(caixas à esquerda, à direita, caixas na vertical) de um agrupamento.
+
+    Com 3 por coluna, 30 caixas ficam em 10 colunas de 3, 5 de cada lado da CDPM.
+    """
+    por_coluna = max(1, min(MAX_VERTICAL, int(por_coluna)))
+    if caixas > capacidade_agrupamento(por_coluna):
+        raise ValueError(f"Um agrupamento com {por_coluna} caixa(s) por coluna tem no máximo "
+                         f"{capacidade_agrupamento(por_coluna)} caixas.")
+    vertical = min(por_coluna, max(1, math.ceil(caixas / 2)))
     esquerda = math.ceil(caixas / 2)
     return esquerda, caixas - esquerda, vertical
 
 
-def largura_agrupamento(caixas, cdpm):
-    esquerda, direita, vertical = distribuicao(caixas)
+def largura_agrupamento(caixas, cdpm, por_coluna=MAX_VERTICAL):
+    esquerda, direita, vertical = distribuicao(caixas, por_coluna)
     colunas = math.ceil(esquerda / vertical) + math.ceil(direita / vertical)
     return colunas * CAIXA_P_MM[0] + CDPM[cdpm][2]
 
 
-def agrupamentos(caixas, corrente_por_caixa):
-    """Agrupamentos de caixas P: [{'caixas', 'corrente', 'cdpm', 'largura_mm'}].
+def agrupamentos(caixas, corrente_por_caixa, por_coluna=MAX_VERTICAL, cdpm=None):
+    """Agrupamentos de caixas P: [{'modelo': 'P', 'caixas', 'corrente', 'cdpm', 'largura_mm'}].
 
     Reparte as caixas igualmente no menor número de agrupamentos em que todos cabem
-    (até 30 caixas e a corrente da CDPM).
+    (``capacidade_agrupamento`` e a corrente da CDPM). ``cdpm`` força o tipo, se couber.
     """
     if caixas <= 0:
         return []
-    for quantidade in range(1, caixas + 1):
+    capacidade = capacidade_agrupamento(por_coluna)
+    for quantidade in range(max(1, math.ceil(caixas / capacidade)), caixas + 1):
         divisao = [caixas // quantidade + (1 if i < caixas % quantidade else 0) for i in range(quantidade)]
         grupos = []
         for n in divisao:
             corrente = n * corrente_por_caixa
-            cdpm = tipo_cdpm(n, corrente)
-            if cdpm is None:
+            tipo = tipo_cdpm(n, corrente)
+            if cdpm in CDPM and tipo is not None and n <= CDPM[cdpm][0] and corrente <= CDPM[cdpm][1] + 1e-9:
+                tipo = cdpm
+            if tipo is None:
                 break
-            grupos.append({"caixas": n, "corrente": corrente, "cdpm": cdpm,
-                           "largura_mm": largura_agrupamento(n, cdpm)})
+            grupos.append({"modelo": "P", "caixas": n, "corrente": corrente, "cdpm": tipo,
+                           "largura_mm": largura_agrupamento(n, tipo, por_coluna)})
         else:
             return grupos
     raise ValueError(f"Caixa P com {corrente_por_caixa:.0f} A não cabe em nenhuma CDPM (máximo 300 A).")
+
+
+# --- caixas metálicas coletivas da Enel SP (Tabela 22, Desenhos 24 a 29) -------------------------------
+
+# modelo -> (medições, largura, altura, colunas de medidores, linhas, altura da base ao piso [mm])
+CAIXAS_METALICAS = {
+    "K": (2, 600.0, 500.0, 2, 1, 1200.0),
+    "L": (4, 600.0, 900.0, 2, 2, 750.0),
+    "H": (6, 600.0, 1300.0, 2, 3, 575.0),
+    "M": (8, 1200.0, 900.0, 4, 2, 750.0),
+    "N": (12, 1200.0, 1300.0, 4, 3, 550.0),
+    "O": (16, 1200.0, 2100.0, 4, 4, 175.0),
+}
+PROFUNDIDADE_METALICA_MM = 250.0
+CORRENTE_MAX_COLETIVA = 300.0  # por caixa coletiva: ramal único de até 240 mm² PVC / 185 mm² EPR (nota 5)
+ALTURA_CAIXA_BARRAMENTOS_MM = 300.0  # Desenho 32 (aproximada); a O já traz os barramentos embaixo
+ALTURA_CDPI_MM = 250.0  # caixa dos disjuntores das unidades em cima (Desenho 20); a O já traz a CDPI
+MODELOS = ["Automático", "P (policarbonato)"] + [f"Caixa {m}" for m in CAIXAS_METALICAS]
+DISJUNTORES_UNIDADE = [32, 40, 50, 63, 70, 80, 90, 100]
+DISJUNTORES_GERAL = [40, 50, 63, 70, 80, 100, 125, 150, 160, 175, 200, 225, 250, 300]
+# Tabela 23: barra de cobre pintada (largura x espessura [mm]) -> corrente [A]
+BARRAS = [((15, 3), 187), ((20, 3), 237), ((25, 3), 287), ((20, 5), 319), ((30, 3), 337), ((25, 5), 384),
+          ((40, 3), 435), ((30, 5), 447), ((20, 10), 497), ((40, 5), 573), ((30, 10), 676), ((40, 10), 850)]
+COMPRIMENTO_RAMAL_DISTRIBUICAO_M = 10.0  # do QDC ao agrupamento, padrão
+
+
+def caixas_metalicas(medicoes, corrente_por_medicao, modelo=None):
+    """Caixas coletivas metálicas: [{'modelo', 'medicoes', 'corrente', 'largura_mm'}].
+
+    Menor número de caixas em que todas cabem (medições e ``CORRENTE_MAX_COLETIVA``),
+    cada uma do menor modelo que comporta a parte dela; ``modelo`` força K a O.
+    """
+    if medicoes <= 0:
+        return []
+    modelos = [modelo] if modelo in CAIXAS_METALICAS else list(CAIXAS_METALICAS)
+    for quantidade in range(1, medicoes + 1):
+        divisao = [medicoes // quantidade + (1 if i < medicoes % quantidade else 0) for i in range(quantidade)]
+        caixas = []
+        for n in divisao:
+            corrente = n * corrente_por_medicao
+            escolhido = next((m for m in modelos if n <= CAIXAS_METALICAS[m][0]), None)
+            if escolhido is None or corrente > CORRENTE_MAX_COLETIVA + 1e-9:
+                break
+            caixas.append({"modelo": escolhido, "medicoes": n, "caixas": n, "corrente": corrente,
+                           "cdpm": f"Caixa {escolhido}", "largura_mm": CAIXAS_METALICAS[escolhido][1]})
+        else:
+            return caixas
+    raise ValueError(f"Medição de {corrente_por_medicao:.0f} A não cabe numa caixa coletiva (máximo "
+                     f"{CORRENTE_MAX_COLETIVA:.0f} A por caixa).")
+
+
+def barramento(corrente, minimo=None):
+    """Menor barra de cobre pintada da Tabela 23 que conduz a corrente, não menor que ``minimo`` (mm × mm)."""
+    area_minima = minimo[0] * minimo[1] if minimo else 0
+    for (largura, espessura), amperes in BARRAS:
+        if amperes >= corrente - 1e-9 and largura * espessura >= area_minima:
+            return f"{largura}x{espessura} mm"
+    return None
+
+
+QUEDA_RAMAL_DISTRIBUICAO = 1.0  # % do QDC ao conjunto de medição (escolha do projeto)
+
+
+def ramal_de_distribuicao(corrente, comprimento, tensao):
+    """Seção [mm²] do ramal de distribuição principal (3 fases e neutro, EPR, método B1) que conduz a
+    corrente e fica na queda ``QUEDA_RAMAL_DISTRIBUICAO``; None se nem 300 mm² atende."""
+    for secao in cabos_grandes.SECOES:
+        if cabos_grandes.capacidade(secao, "B1", "EPR") < corrente - 1e-9:
+            continue
+        if nbr5410.queda_tensao(corrente, comprimento, secao, tensao, 3,
+                                fator_potencia=FATOR_POTENCIA) <= QUEDA_RAMAL_DISTRIBUICAO + 1e-9:
+            return secao
+    return None
+
+
+def escolher_modelo(demanda_a, fases, modelo="Automático"):
+    """'P', um modelo de ``CAIXAS_METALICAS`` ou None (medição indireta), com os avisos da escolha."""
+    avisos = []
+    if demanda_a > CORRENTE_MAX_P:
+        avisos.append(f"{demanda_a:.0f} A por unidade passa dos {CORRENTE_MAX_P:.0f} A da medição direta: medição "
+                      "indireta (caixa de policarbonato até 300 A, Tabela 27, ou caixa M de 300 a 600 A, nota 7)")
+        return None, avisos
+    if modelo.startswith("Caixa "):
+        return modelo.split()[1], avisos
+    if modelo.startswith("P"):
+        if fases == 3:
+            avisos.append("a caixa P é só para unidades mono e bifásicas (Tabela 22, nota 2)")
+        return "P", avisos
+    return ("P" if fases <= 2 else "N"), avisos
+
+
+def dimensionar_colunas(medidores, demanda_a=63.0, fases=2, por_coluna=MAX_VERTICAL, modelo="Automático",
+                        cdpm=None, demanda_total_a=0.0, tensao=220.0,
+                        comprimento_ramal=COMPRIMENTO_RAMAL_DISTRIBUICAO_M):
+    """Dimensiona o centro de medição convencional de medição direta.
+
+    Escolhe a caixa (P em agrupamento modular para mono e bifásicas até 100 A; caixas
+    metálicas K a O para trifásicas; medição indireta acima de 100 A), reparte as
+    medições em conjuntos e dimensiona, em cada um, o disjuntor geral, o barramento
+    (Tabela 23, com o mínimo da Tabela 28 na CDPM) e o ramal de distribuição principal
+    (NBR 5410, 3 fases e neutro; até 185 mm² no agrupamento de caixas P, 240 mm² nas
+    metálicas), além do disjuntor de cada unidade.
+
+    Args:
+        medidores: medições diretas. demanda_a: demanda de cada unidade [A].
+        por_coluna: caixas P sobrepostas (1 a 3; Tabela 29).
+        modelo: de ``MODELOS``. cdpm: força o tipo de CDPM (Tabela 28).
+        demanda_total_a: demanda do conjunto todo [A] (0 = soma das unidades).
+    Returns:
+        {'modelo' ('P', 'metalica' ou None), 'conjuntos', 'corrente', 'disjuntor_unidade', 'por_coluna', 'avisos'}.
+    """
+    medidores, fases = int(medidores), int(fases)
+    escolhido, avisos = escolher_modelo(float(demanda_a), fases, modelo)
+    total = float(demanda_total_a) if demanda_total_a else medidores * float(demanda_a)
+    resultado = {"modelo": None, "conjuntos": [], "corrente": total, "por_coluna": int(por_coluna),
+                 "disjuntor_unidade": comercial(DISJUNTORES_UNIDADE, float(demanda_a)), "avisos": avisos}
+    if escolhido is None or medidores <= 0:
+        return resultado
+    por_medidor = total / medidores
+    if escolhido == "P":
+        conjuntos = agrupamentos(medidores, por_medidor, por_coluna, cdpm)
+        resultado["modelo"] = "P"
+    else:
+        conjuntos = caixas_metalicas(medidores, por_medidor, None if modelo == "Automático" else escolhido)
+        resultado["modelo"] = "metalica"
+    limite = 185 if escolhido == "P" else 240
+    for c in conjuntos:
+        c["disjuntor_geral"] = comercial(DISJUNTORES_GERAL, c["corrente"])
+        minimo = BARRA_CDPM.get(c["cdpm"]) if escolhido == "P" else None
+        c["barramento"] = barramento(c["disjuntor_geral"] or c["corrente"], minimo)
+        c["ramal"] = ramal_de_distribuicao(c["disjuntor_geral"] or c["corrente"], comprimento_ramal, tensao)
+        if c["ramal"] is None or c["ramal"] > limite:
+            avisos.append(f"{c['cdpm']}: ramal de distribuição acima de {limite} mm²; divida o conjunto")
+    if len(conjuntos) > 1 and escolhido == "P":
+        avisos.append(f"{len(conjuntos)} agrupamentos: centro de medição abrigado em alvenaria obrigatório")
+    if escolhido != "P" and (len(conjuntos) > 1 or medidores > 4):
+        avisos.append("caixa de barramentos obrigatória sob as caixas coletivas (7.19.4)")
+    resultado["conjuntos"] = conjuntos
+    return resultado
 
 
 def _cabo_da_unidade(demanda_a, fases, comprimento, tensao):
@@ -298,18 +460,19 @@ def convencional(andares, tensao=220.0, distancia_horizontal=15.0, demanda_total
     total = sum(correntes)
     caixas = sum(a["unidades"] for a in lista)
     maior = max(a["demanda_a"] for a in lista)
+    colunas = dimensionar_colunas(caixas, min(maior, CORRENTE_MAX_P), max(a["fases"] for a in lista),
+                                  demanda_total_a=total, tensao=tensao)
     if maior > CORRENTE_MAX_P:
-        avisos.append(f"unidade de {maior:.0f} A: a caixa P vai até {CORRENTE_MAX_P:.0f} A (use caixa N, M ou "
-                      "medição indireta para ela)")
-    if any(a["fases"] == 3 for a in lista):
-        avisos.append("unidades trifásicas: a caixa P é só para mono e bifásicas")
-    grupos = agrupamentos(caixas, min(total / caixas, CORRENTE_MAX_P))
-    if len(grupos) > 1:
-        avisos.append(f"{len(grupos)} agrupamentos: centro de medição abrigado em alvenaria obrigatório")
+        avisos.append(f"unidade de {maior:.0f} A: acima de {CORRENTE_MAX_P:.0f} A a medição é indireta "
+                      "(caixa de policarbonato até 300 A ou caixa M de 300 a 600 A)")
+    avisos += colunas["avisos"]
+    grupos = colunas["conjuntos"]
 
     comprimento_mm = (sum(g["largura_mm"] for g in grupos) + FOLGA_ENTRE_AGRUPAMENTOS_MM * (len(grupos) - 1)
                       + 2 * MARGEM_LATERAL_MM)
-    profundidade_mm = CAIXA_P_MM[1] + CAIXA_P_MM[0] + max(FOLGA_PORTA_ABERTA_MM, CIRCULACAO_MM)
+    porta = CAIXA_P_MM[0] if colunas["modelo"] == "P" else 600.0  # folha da porta aberta a 90°
+    fundo = CAIXA_P_MM[1] if colunas["modelo"] == "P" else PROFUNDIDADE_METALICA_MM
+    profundidade_mm = fundo + porta + max(FOLGA_PORTA_ABERTA_MM, CIRCULACAO_MM)
     abrigo = {"comprimento": comprimento_mm / 1000.0, "profundidade": profundidade_mm / 1000.0,
               "area": comprimento_mm * profundidade_mm / 1e6}
 
@@ -332,7 +495,8 @@ def convencional(andares, tensao=220.0, distancia_horizontal=15.0, demanda_total
                               "condutores": condutores, "comprimento": comprimento, "queda": calculo["queda"],
                               "disjuntor": calculo["disjuntor"]})
     qdc, circuitos, _ = entrada(total)
-    return {"solucao": "convencional", "agrupamentos": grupos, "caixas": caixas, "corrente": total,
+    return {"solucao": "convencional", "agrupamentos": grupos, "modelo": colunas["modelo"], "caixas": caixas,
+            "corrente": total, "disjuntor_unidade": colunas["disjuntor_unidade"],
             "abrigo": abrigo, "alimentadores": alimentadores, "cabo_mm2_m": cabo, "eletroduto_m": eletroduto,
             "qdc": qdc, "ramal": circuitos, "avisos": avisos}
 
@@ -503,9 +667,14 @@ def orcamento(resultado, precos=None):
     precos = dict(precos_padrao(), **(precos or {}))
     itens = []
     if resultado["solucao"] == "convencional":
-        _item(itens, precos, "caixa_p", resultado["caixas"])
         for g in resultado["agrupamentos"]:
-            _item(itens, precos, f"cdpm_{g['cdpm']}", 1)
+            if g.get("modelo", "P") == "P":
+                _item(itens, precos, "caixa_p", g["caixas"])
+                _item(itens, precos, f"cdpm_{g['cdpm']}", 1)
+            else:
+                _item(itens, precos, f"caixa_{g['modelo']}", 1)
+                if g["modelo"] != "O":
+                    _item(itens, precos, "caixa_barramentos", 1)
         _item(itens, precos, "cabo_mm2_m", round(resultado["cabo_mm2_m"]), "mm²·m")
         _item(itens, precos, "eletroduto_m", round(resultado["eletroduto_m"], 1), "m")
         _item(itens, precos, "abrigo_m2", round(resultado["abrigo"]["area"], 2), "m²")
@@ -562,7 +731,7 @@ def comparar(andares, tensao=220.0, uso=2.0, distancia_horizontal=15.0, comprime
             "economia": economia}
 
 
-NOMES = {"convencional": "Medição agrupada (caixas P no térreo)", "busway": "Busway com medição centralizada"}
+NOMES = {"convencional": "Medição agrupada no térreo (caixas P ou coletivas)", "busway": "Busway com medição centralizada"}
 
 
 def _br(valor, casas=0):
@@ -577,7 +746,10 @@ def relatorio(r):
               f"entrada {conv['qdc']} com {conv['ramal']} circuito(s) de 4 × 240 mm²", "",
               f"1) {NOMES['convencional']}"]
     for i, g in enumerate(conv["agrupamentos"], start=1):
-        linhas.append(f"   Agrupamento {i}: {g['caixas']} caixas P, {g['cdpm']}, {_br(g['corrente'])} A, "
+        caixa = f"{g['caixas']} caixas P, {g['cdpm']}" if g.get("modelo", "P") == "P" else \
+            f"{g['cdpm']} com {g['caixas']} medições"
+        linhas.append(f"   Conjunto {i}: {caixa}, {_br(g['corrente'])} A, disjuntor geral {g.get('disjuntor_geral')} A, "
+                      f"barramento {g.get('barramento')}, ramal {g.get('ramal')} mm², "
                       f"{_br(g['largura_mm'])} mm de largura")
     ab = conv["abrigo"]
     linhas.append(f"   Centro de medição: {_br(ab['comprimento'], 2)} × {_br(ab['profundidade'], 2)} m = "
@@ -664,7 +836,7 @@ def linhas_dos_pavimentos(pavimentos, cota_base=None):
 
 # --- geometria: coluna de medição (agrupamento) ----------------------------------------------------------
 
-def coluna_de_medicao(caixas, cdpm=None):
+def coluna_de_medicao(caixas, cdpm=None, por_coluna=MAX_VERTICAL):
     """Caixas de um agrupamento em elevação, a partir do meio da base da CDPM no piso.
 
     O fundo das caixas fica na parede (y de 0 a +profundidade); a frente, em y = 0.
@@ -672,7 +844,7 @@ def coluna_de_medicao(caixas, cdpm=None):
     Returns:
         {'caixas': [(rótulo, (x, y, z), (dx, dy, dz))] mm, 'largura', 'altura', 'base', 'cdpm'}.
     """
-    esquerda, direita, vertical = distribuicao(caixas)
+    esquerda, direita, vertical = distribuicao(caixas, por_coluna)
     cdpm = cdpm or tipo_cdpm(caixas, caixas * 63.0) or "Coluna MAX"
     largura_p, prof, altura_p = CAIXA_P_MM
     largura_cdpm = CDPM[cdpm][2]
@@ -722,7 +894,7 @@ def _tubo(pecas, rotulo, centro, raio, comprimento, eixo):
                   "comprimento": comprimento, "eixo": eixo})
 
 
-def pecas_da_coluna(caixas, cdpm=None):
+def pecas_da_coluna(caixas, cdpm=None, por_coluna=MAX_VERTICAL):
     """Coluna detalhada: cada caixa P com corpo, tampa transparente, divisória, medidor, disjuntor,
     etiqueta e eletroduto de saída pelo fundo; a CDPM com corpo, tampa, barramentos R, S, T, N e PE,
     disjuntor geral, DPS e o eletroduto de entrada até o piso.
@@ -733,7 +905,7 @@ def pecas_da_coluna(caixas, cdpm=None):
         [{'tipo' (chave de ``CORES_DAS_PECAS``), 'rotulo', 'forma': 'caixa' com 'origem' e 'dims',
           ou 'cilindro' com 'origem' (centro da base), 'raio', 'comprimento' e 'eixo'}] em mm.
     """
-    geral = coluna_de_medicao(caixas, cdpm)
+    geral = coluna_de_medicao(caixas, cdpm, por_coluna)
     pecas = []
     for rotulo, (x, y, z), (dx, dy, dz) in geral["caixas"]:
         _peca(pecas, "cdpm" if rotulo == "CDPM" else "corpo", rotulo, (x, y + TAMPA_MM, z), (dx, dy - TAMPA_MM, dz))
@@ -770,6 +942,94 @@ def pecas_da_coluna(caixas, cdpm=None):
         _tubo(pecas, f"{rotulo} eletroduto", (x + dx * 0.3, y + dy, z + (divisoria - z) / 2.0),
               DIAMETRO_SAIDA_MM / 2.0, 100.0, (0.0, 1.0, 0.0))
     return pecas
+
+
+def pecas_da_caixa_metalica(modelo, medicoes=None):
+    """Caixa coletiva metálica detalhada (Desenhos 24 a 29), com a frente em y = 0 e o meio em x = 0.
+
+    Corpo de aço, porta com visores de policarbonato, um medidor por posição ocupada
+    (colunas × linhas do modelo), a CDPI com os disjuntores das unidades em cima e a
+    caixa de barramentos (R, S, T, N) embaixo, com o eletroduto de entrada até o piso;
+    na caixa O, a CDPI e os barramentos são compartimentos da própria caixa.
+    """
+    quantidade, largura, altura, colunas, linhas, base = CAIXAS_METALICAS[modelo]
+    medicoes = quantidade if medicoes is None else min(int(medicoes), quantidade)
+    prof = PROFUNDIDADE_METALICA_MM
+    pecas = []
+    x0 = -largura / 2.0
+    interna = modelo == "O"
+    z_medicao, h_medicao = base, altura
+    if interna:  # O: barramentos embaixo (500 mm) e CDPI em cima (325 mm)
+        z_medicao, h_medicao = base + 500.0, altura - 500.0 - 325.0
+    _peca(pecas, "corpo", f"Caixa {modelo}", (x0, TAMPA_MM, base), (largura, prof - TAMPA_MM, altura))
+    _peca(pecas, "tampa", f"Caixa {modelo} porta", (x0, 0.0, base), (largura, TAMPA_MM, altura))
+    passo_x, passo_z = largura / colunas, h_medicao / linhas
+    mx, my, mz = MEDIDOR_MM
+    for i in range(medicoes):
+        coluna, linha = i % colunas, i // colunas
+        cx = x0 + passo_x * (coluna + 0.5)
+        cz = z_medicao + h_medicao - passo_z * (linha + 0.5)
+        _peca(pecas, "medidor", f"Caixa {modelo} medidor {i + 1}", (cx - mx / 2.0, prof - 30.0 - my, cz - mz / 2.0),
+              (mx, my, mz))
+        _peca(pecas, "etiqueta", f"Caixa {modelo} identificação {i + 1}", (cx - 40.0, -1.0, cz + mz / 2.0 + 10.0),
+              (80.0, 1.0, 25.0))
+    # CDPI (disjuntores das unidades)
+    z_cdpi = base + altura - 325.0 if interna else base + altura
+    if not interna:
+        _peca(pecas, "corpo", f"CDPI {modelo}", (x0, TAMPA_MM, z_cdpi), (largura, prof - TAMPA_MM, ALTURA_CDPI_MM))
+        _peca(pecas, "tampa", f"CDPI {modelo} porta", (x0, 0.0, z_cdpi), (largura, TAMPA_MM, ALTURA_CDPI_MM))
+    jx, jy, jz = DISJUNTOR_UNIDADE_MM
+    passo = min(largura / max(1, medicoes), jx + 20.0)
+    inicio = -passo * medicoes / 2.0
+    for i in range(medicoes):
+        _peca(pecas, "disjuntor", f"CDPI {modelo} disjuntor {i + 1}",
+              (inicio + i * passo + (passo - jx) / 2.0, prof - 15.0 - jy, z_cdpi + 80.0), (jx, jy, jz))
+        _tubo(pecas, f"CDPI {modelo} eletroduto {i + 1}", (inicio + (i + 0.5) * passo, prof / 2.0,
+                                                           z_cdpi + (325.0 if interna else ALTURA_CDPI_MM)),
+              DIAMETRO_SAIDA_MM / 2.0 * 0.8, 150.0, (0.0, 0.0, 1.0))
+    # barramentos
+    z_barra = base if interna else base - ALTURA_CAIXA_BARRAMENTOS_MM
+    h_barra = 500.0 if interna else ALTURA_CAIXA_BARRAMENTOS_MM
+    if not interna:
+        _peca(pecas, "cdpm", f"Barramentos {modelo}", (x0, TAMPA_MM, z_barra), (largura, prof - TAMPA_MM, h_barra))
+        _peca(pecas, "tampa", f"Barramentos {modelo} tampa", (x0, 0.0, z_barra), (largura, TAMPA_MM, h_barra))
+    for j, fase in enumerate(("R", "S", "T", "N")):  # de cima para baixo (7.19.4)
+        _peca(pecas, "barra", f"Barra {fase} {modelo}",
+              (x0 + 60.0, prof - 60.0, z_barra + h_barra - 60.0 - j * (h_barra - 80.0) / 4.0),
+              (largura - 120.0, 5.0, 25.0))
+    _tubo(pecas, f"Eletroduto de entrada {modelo}", (0.0, prof / 2.0, 0.0), DIAMETRO_ENTRADA_MM / 2.0, z_barra,
+          (0.0, 0.0, 1.0))
+    return pecas
+
+
+def pecas_do_centro(dimensionamento):
+    """Todas as peças dos conjuntos de ``dimensionar_colunas``, lado a lado e centrados em x = 0."""
+    conjuntos = dimensionamento["conjuntos"]
+    if not conjuntos:
+        return []
+    por_coluna = dimensionamento.get("por_coluna", MAX_VERTICAL)
+    blocos = []
+    for c in conjuntos:
+        if c.get("modelo", "P") == "P":
+            pecas = pecas_da_coluna(c["caixas"], c["cdpm"], por_coluna)
+        else:
+            pecas = pecas_da_caixa_metalica(c["modelo"], c["medicoes"])
+        xs = [p["origem"][0] for p in pecas if p["forma"] == "caixa"] + \
+             [p["origem"][0] + p["dims"][0] for p in pecas if p["forma"] == "caixa"]
+        blocos.append((pecas, min(xs), max(xs) - min(xs)))
+    largura_total = sum(b[2] for b in blocos) + FOLGA_ENTRE_AGRUPAMENTOS_MM * (len(blocos) - 1)
+    x = -largura_total / 2.0
+    resultado = []
+    for numero, (pecas, minimo, largura) in enumerate(blocos, start=1):
+        deslocamento = x - minimo
+        for p in pecas:
+            nova = dict(p, rotulo=f"A{numero} {p['rotulo']}")
+            ox, oy, oz = p["origem"]
+            nova["origem"] = (ox + deslocamento, oy, oz)
+            nova["conjunto"] = numero
+            resultado.append(nova)
+        x += largura + FOLGA_ENTRE_AGRUPAMENTOS_MM
+    return resultado
 
 
 # --- quantitativos --------------------------------------------------------------------------------
@@ -824,8 +1084,13 @@ def materiais_das_caixas_mec(tipos):
 
 
 def materiais_das_colunas(colunas):
-    """Materiais das colunas de medição: [{'caixas', 'cdpms': [tipos]}] de cada conjunto inserido."""
-    itens, cdpms = [], {}
+    """Materiais das colunas de medição: [{'caixas' (caixas P), 'cdpms': [tipos], 'metalicas': [modelos],
+    'medicoes_metalicas'}] de cada conjunto inserido."""
+    itens, cdpms, metalicas = [], {}, {}
+    for c in colunas:
+        for modelo in c.get("metalicas", []):
+            metalicas[modelo] = metalicas.get(modelo, 0) + 1
+    medicoes_metalicas = sum(int(c.get("medicoes_metalicas", 0)) for c in colunas)
     caixas = sum(int(c.get("caixas", 0)) for c in colunas)
     for c in colunas:
         for tipo in c.get("cdpms", []):
@@ -842,6 +1107,16 @@ def materiais_das_colunas(colunas):
     total = sum(cdpms.values())
     if total:
         itens.append(_linha("DPS", "classe II, 3 fases e neutro", total * DPS_POR_CDPM))
+    for modelo in CAIXAS_METALICAS:
+        if metalicas.get(modelo):
+            _, largura, altura, *_ = CAIXAS_METALICAS[modelo]
+            itens.append(_linha("Caixa de medição coletiva", f"tipo {modelo}, aço, {largura:g} × {altura:g} × "
+                                f"{PROFUNDIDADE_METALICA_MM:g} mm", metalicas[modelo]))
+    barramentos = sum(q for m, q in metalicas.items() if m != "O")
+    if barramentos:
+        itens.append(_linha("Caixa de barramentos e CDPI", "Desenhos 20 e 32", barramentos))
+    if medicoes_metalicas:
+        itens.append(_linha("Disjuntor da unidade", "DIN até 100 A, na CDPI", medicoes_metalicas))
     return itens
 
 

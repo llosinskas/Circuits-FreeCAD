@@ -122,29 +122,26 @@ class TestServico(unittest.TestCase):
         self.assertEqual(folha.celulas["K3"], "'Recomendada")
         self.assertEqual(self.s.ler_parametros(folha), parametros)
 
-    def test_colunas_de_medicao_lado_a_lado(self):
-        grupos = regras.agrupamentos(36, 10.0)
+    def test_colunas_parametricas_na_pasta_do_pavimento(self):
         pavimento = Objeto(Label="Térreo")
         pasta = Objeto(Group=[])
         pasta.addObject = pasta.Group.append
-        with mock.patch.object(self.s.pavimentos, "pasta", return_value=pasta) as pasta_de, \
-                mock.patch.object(self.s.pavimentos, "elevacao", return_value=0.0):
-            parte = self.s.inserir_colunas(self.doc, grupos, pavimento)
+        coluna = Objeto(Name="Colunas_medicao", Placement=types.SimpleNamespace(Base=None))
+        with mock.patch.object(self.s, "create_coluna_medicao", return_value=coluna) as criar, \
+                mock.patch.object(self.s.pavimentos, "pasta", return_value=pasta) as pasta_de, \
+                mock.patch.object(self.s.pavimentos, "elevacao", return_value=3000.0):
+            resultado = self.s.criar_colunas(self.doc, pavimento, Medidores=30, Fases=2)
+        criar.assert_called_once_with(self.doc, Medidores=30, Fases=2)
         pasta_de.assert_called_once_with(self.doc, pavimento, "busway")
-        self.assertEqual(parte.coluna_medicao, 36)
-        self.assertEqual(parte.CDPMs, [g["cdpm"] for g in grupos])
-        rotulos = [o.Label for o in parte.Group]
-        for tipo in ("Caixas", "Tampas", "CDPM", "Medidores", "Disjuntores", "Barramentos", "DPS", "Eletrodutos"):
-            self.assertIn(f"A1 {tipo}", rotulos)
-            self.assertIn(f"A2 {tipo}", rotulos)
-        medidores = [o for o in parte.Group if o.Label.endswith("Medidores")]
-        self.assertEqual(sum(len(o.Shape) for o in medidores), 36)
-        tampas = next(o for o in parte.Group if o.Label == "A1 Tampas")
-        self.assertGreater(tampas.ViewObject.Transparency, 0)
-        corpos = [f for o in parte.Group if o.Label.endswith(("Caixas", "CDPM")) for f in o.Shape
-                  if f.dims[2] > 100]
-        xs = [f.base.x for f in corpos] + [f.base.x + f.dims[0] for f in corpos]
-        self.assertAlmostEqual(min(xs) + max(xs), 0.0, delta=1.0)  # conjunto centrado na origem
+        self.assertIs(resultado, coluna)
+        self.assertEqual(coluna.Placement.Base.z, 3000.0)
+
+    def test_valores_da_planilha(self):
+        andares = [regras.andar("Térreo", 0, 0), regras.andar("1º", 3, 4, 50, 2), regras.andar("2º", 6, 6, 63, 3)]
+        valores = self.s.valores_da_planilha(andares, {"demanda_total_a": 180.0, "tensao": 220.0})
+        self.assertEqual(valores, {"Medidores": 10, "DemandaPorMedidor": 63, "Fases": 3, "DemandaTotal": 180.0,
+                                   "Tensao": 220.0})
+        self.assertEqual(self.s.valores_da_planilha([regras.andar("Térreo", 0, 0)]), {})
 
     def test_quantitativos_do_busway_das_caixas_mec_e_das_colunas(self):
         linha = Objeto(Name="Wire001", CorrenteBusway=630, Points=[Vetor(0, 0, 0), Vetor(6000, 0, 0),
@@ -156,9 +153,11 @@ class TestServico(unittest.TestCase):
         texto1 = Objeto(Name="Text", prumada_busway_de="Wire001", CaixasMEC=["MEC IV"])
         texto2 = Objeto(Name="Text001", prumada_busway_de="Wire001", CaixasMEC=["MEC IX", "MEC II"])
         colunas = Objeto(Name="Colunas_medicao", coluna_medicao=24, CDPMs=["Coluna dupla"])
-        self.doc.Objects = [linha, vertical, texto1, texto2, colunas]
+        metalicas = Objeto(Name="Colunas_medicao001", coluna_medicao=0, CDPMs=[], CaixasMetalicas=["N", "O"],
+                           MedicoesMetalicas=28)
+        self.doc.Objects = [linha, vertical, texto1, texto2, colunas, metalicas]
         pavimento_de = {"Wire001": "Térreo", "Wire002": "Térreo", "Text": "1º", "Text001": "2º",
-                        "Colunas_medicao": "Térreo"}
+                        "Colunas_medicao": "Térreo", "Colunas_medicao001": "Térreo"}
         with mock.patch.object(self.s.pavimentos, "pavimento_do_objeto",
                                side_effect=lambda d, o: Objeto(Label=pavimento_de[o.Name])):
             resultado = dict(self.s.materiais_por_pavimento(self.doc))
@@ -167,6 +166,9 @@ class TestServico(unittest.TestCase):
         self.assertEqual(terreo[("Cotovelo de busway", "630 A, cobre, IP 54")], 2)  # na curva e na subida
         self.assertEqual(terreo[("Barreira corta-fogo", "630 A, cobre, IP 54")], 3)
         self.assertEqual(terreo[("Caixa de medição tipo P", "policarbonato, 260 × 520 × 190 mm")], 24)
+        self.assertEqual(terreo[("Caixa de medição coletiva", "tipo N, aço, 1200 × 1300 × 250 mm")], 1)
+        self.assertEqual(terreo[("Caixa de barramentos e CDPI", "Desenhos 20 e 32")], 1)  # a O já tem
+        self.assertEqual(terreo[("Disjuntor da unidade", "DIN até 100 A, na CDPI")], 28)
         segundo = {(i["item"], i["especificacao"]): i["quantidade"] for i in resultado["2º"]}
         self.assertEqual(segundo[("Caixa de medição centralizada", "MEC IX")], 1)
         self.assertEqual(segundo[("Placa de comunicação", "")], 3)  # 2 na MEC IX e 1 na MEC II
