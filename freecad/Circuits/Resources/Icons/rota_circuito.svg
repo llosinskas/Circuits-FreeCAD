@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64">
+  <!-- Rota do circuito: quadro, caminho destacado pelos eletrodutos até o ponto -->
+  <path d="M4 6H18V24H4Z M11 24V40H34V14H52 M46 52A6 6 0 1 1 46 51.9 M34 40V52H40" fill="none" stroke-linecap="round" stroke-linejoin="round" stroke="#ffffff" stroke-width="8" stroke-opacity="0.85"/>
+  <path d="M34 40V52H40 M52 14H58" fill="none" stroke-linecap="round" stroke-linejoin="round" stroke="#9aa0a6" stroke-width="3"/>
+  <path d="M4 6H18V24H4Z" fill="#5f6368" stroke="#5f6368" stroke-width="2" stroke-linejoin="round"/>
+  <path d="M11 24V40H34V14H52" fill="none" stroke-linecap="round" stroke-linejoin="round" stroke="#e8710a" stroke-width="5"/>
+  <circle cx="52" cy="14" r="5" fill="#e8710a"/>
+  <path d="M46 52A6 6 0 1 1 46 51.9" fill="none" stroke="#5f6368" stroke-width="3"/>
+</svg>

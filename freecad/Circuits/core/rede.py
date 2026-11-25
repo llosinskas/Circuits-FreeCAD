@@ -100,21 +100,58 @@ class Rede:
         self.diametro = []
         self.vizinhos = []
         self.chegando = []  # (altura, diâmetro) de cada eletroduto com vértice no nó
+        self.dono = {}  # {frozenset(nó, nó): (nome, tipo)} de cada trecho, quando o caminho tem ``nome``
 
     @classmethod
     def construir(cls, caminhos, tolerancia=TOLERANCIA_CONEXAO_MM):
         """Monta a rede.
 
         Args:
-            caminhos: dicionários com ``pontos`` [(x, y)], ``altura`` [mm] e ``diametro``.
+            caminhos: dicionários com ``pontos`` [(x, y)], ``altura`` [mm] e ``diametro``;
+                opcionalmente ``nome`` (dono dos trechos, em ``dono``) e ``largura`` [mm],
+                que faz do caminho uma eletrocalha: a ponta de eletroduto a até meia
+                largura (mais a tolerância) da linha de centro dela se liga a ela por um
+                trecho do próprio eletroduto (a saída na borda).
         """
         rede = cls(tolerancia)
-        indices = [[rede._no(p, c["altura"], c["diametro"]) for p in c["pontos"]] for c in caminhos]
-        for sequencia in indices:
+        indices = [[rede._no(p, c["altura"], c.get("diametro", "")) for p in c["pontos"]] for c in caminhos]
+        saidas = rede._saidas_nas_bandejas(caminhos, indices)
+        for caminho, sequencia in zip(caminhos, indices):
+            dono = (caminho["nome"], "bandeja" if caminho.get("largura") else "eletroduto") \
+                if caminho.get("nome") else None
             for a, b in zip(sequencia, sequencia[1:]):
                 if a != b:
-                    rede._ligar_trecho(a, b)
+                    rede._ligar_trecho(a, b, dono)
+        for ponta, no, dono in saidas:
+            if ponta != no and no not in rede.vizinhos[ponta]:
+                comprimento = distancia(rede.nos[ponta], rede.nos[no])
+                rede.vizinhos[ponta][no] = rede.vizinhos[no][ponta] = comprimento
+                if dono:
+                    rede.dono[frozenset((ponta, no))] = dono
         return rede
+
+    def _saidas_nas_bandejas(self, caminhos, indices):
+        """Nós na linha de centro das eletrocalhas para as pontas de eletroduto que chegam na borda delas."""
+        bandejas = [c for c in caminhos if c.get("largura")]
+        if not bandejas:
+            return []
+        saidas = []
+        for caminho, sequencia in zip(caminhos, indices):
+            if caminho.get("largura") or not sequencia:
+                continue
+            dono = (caminho["nome"], "eletroduto") if caminho.get("nome") else None
+            for ponta in {sequencia[0], sequencia[-1]}:
+                melhor = None
+                for bandeja in bandejas:
+                    alcance = float(bandeja["largura"]) / 2.0 + self.tolerancia
+                    for a, b in zip(bandeja["pontos"], bandeja["pontos"][1:]):
+                        projecao, t, d = projetar(self.nos[ponta], a, b)
+                        if 0 <= t <= 1 and d <= alcance and (melhor is None or d < melhor[0]):
+                            melhor = (d, projecao, bandeja)
+                if melhor is not None and melhor[0] > self.tolerancia:
+                    no = self._no(melhor[1], melhor[2]["altura"], "")
+                    saidas.append((ponta, no, dono))
+        return saidas
 
     def _no(self, ponto, altura, diametro):
         for indice, existente in enumerate(self.nos):
@@ -145,7 +182,7 @@ class Rede:
                               "comprimento": round((max(alturas) - min(alturas)) / 1000.0, 2), "diametro": diametro})
         return resultado
 
-    def _ligar_trecho(self, a, b):
+    def _ligar_trecho(self, a, b, dono=None):
         """Liga A a B passando pelos nós que caem sobre o trecho (derivações em T)."""
         meio = []
         for k, ponto in enumerate(self.nos):
@@ -159,6 +196,8 @@ class Rede:
             comprimento = distancia(self.nos[u], self.nos[v])
             self.vizinhos[u][v] = comprimento
             self.vizinhos[v][u] = comprimento
+            if dono:
+                self.dono[frozenset((u, v))] = dono
 
     def no_mais_proximo(self, ponto):
         """Nó a até a tolerância do ponto, ou None."""
@@ -207,6 +246,24 @@ class Rede:
         comprimento = sum(self.vizinhos[a][b] for a, b in (tuple(aresta) for aresta in arestas))
         return comprimento, sem_caminho, arestas
 
+    def rota(self, origem, destino, anterior=None):
+        """Donos dos trechos, em ordem, da origem ao destino pelo caminho mais curto.
+
+        Returns:
+            Lista de (nome, tipo) sem repetições seguidas; None se não há caminho.
+        """
+        if anterior is None:
+            _, anterior = self.distancias(origem)
+        if destino != origem and destino not in anterior:
+            return None
+        donos, no = [], destino
+        while no != origem:
+            dono = self.dono.get(frozenset((no, anterior[no])))
+            if dono and (not donos or donos[-1] != dono):
+                donos.append(dono)
+            no = anterior[no]
+        return donos[::-1]
+
 
 def _rotulo_condutores(fases, neutro, terra):
     """Condutores do circuito, como 'F+N+T' ou 'F+F+F+T'."""
@@ -227,7 +284,11 @@ def analisar(caminhos, caixas, info_circuito, folga=FOLGA_PONTA_MM, tolerancia=T
             que devolve {'secao': mm², 'fases': 1 a 3, 'neutro': bool, 'terra': bool}.
     Returns:
         dict com ``fios`` {(seção, função): m}, ``circuitos`` (lista), ``verticais``
-        (lista) e ``avisos`` (textos).
+        (lista), ``avisos`` (textos), ``trechos`` (cada trecho com dono: ``dono``,
+        ``tipo`` 'eletroduto' ou 'bandeja', ``comprimento`` [m] e ``condutores``
+        [{'secao', 'funcao', 'circuito'}] que passam nele) e ``rotas`` (por circuito:
+        ``quadro``, ``circuito``, ``infraestrutura`` [(nome, tipo)] do quadro aos pontos,
+        em ordem, e ``por_ponto`` {nome do ponto: [(nome, tipo)]}).
     """
     rede = Rede.construir(caminhos, tolerancia)
     ligadas, verticais, avisos = {}, [], []
@@ -277,14 +338,26 @@ def analisar(caminhos, caixas, info_circuito, folga=FOLGA_PONTA_MM, tolerancia=T
         trechos = [dist[ligadas[m["id"]][0]] + ligadas[m["id"]][1] for m in membros if ligadas[m["id"]][0] in dist]
         return (max(trechos) + vertical_origem) / 1000.0 if trechos else 0.0
 
+    por_aresta = {}
+
+    def passar(arestas, secao, funcao, circuito, quantidade=1):
+        """Registra ``quantidade`` condutores nos trechos das arestas."""
+        for aresta in arestas:
+            por_aresta.setdefault(aresta, []).extend(
+                {"secao": float(secao), "funcao": funcao, "circuito": circuito} for _ in range(quantidade))
+
     def lance(origem, membros):
-        """Comprimento de um condutor [m] da origem até todos os membros, com verticais e folgas."""
+        """Comprimento de um condutor [m] da origem até todos os membros, com verticais e folgas.
+
+        Returns:
+            (total [m], horizontal [m], membros sem caminho, arestas usadas).
+        """
         no_origem, vertical_origem = ligadas[origem["id"]]
-        horizontal, sem_caminho = rede.arvore(no_origem, [ligadas[m["id"]][0] for m in membros])
+        horizontal, sem_caminho, arestas = rede.arvore_com_arestas(no_origem, [ligadas[m["id"]][0] for m in membros])
         alcancados = [m for m in membros if ligadas[m["id"]][0] not in sem_caminho]
         total = horizontal + vertical_origem + sum(ligadas[m["id"]][1] for m in alcancados)
         total += folga * (len(alcancados) + 1)
-        return total / 1000.0, horizontal / 1000.0, [m for m in membros if m not in alcancados]
+        return total / 1000.0, horizontal / 1000.0, [m for m in membros if m not in alcancados], arestas
 
     grupos, info_por_circuito = {}, {}
     for caixa in caixas:
@@ -304,19 +377,36 @@ def analisar(caminhos, caixas, info_circuito, folga=FOLGA_PONTA_MM, tolerancia=T
         for aresta in arestas:
             circuitos_por_aresta[aresta] = circuitos_por_aresta.get(aresta, 0) + 1
 
+    varios_quadros = len({quadro_id for quadro_id, _ in grupos}) > 1
+    rotas, rotulo_por_circuito = [], {}
     for (quadro_id, numero), membros in sorted(grupos.items(), key=lambda item: (item[0][0], item[0][1])):
         quadro = next(q for q in quadros if q["id"] == quadro_id)
+        rotulo = (f"{quadro['nome']} " if varios_quadros else "") + (f"C{numero}" if numero.isdigit() else numero)
+        rotulo_por_circuito[(quadro_id, numero)] = rotulo
         info = info_circuito(quadro, numero, membros)
         pontos = [m for m in membros if m["tipo"] != "interruptor"] or membros
-        fase, trajeto, sem_caminho = lance(quadro, membros)
-        neutro_terra, _, _ = lance(quadro, pontos)
+        fase, trajeto, sem_caminho, arestas_fase = lance(quadro, membros)
+        neutro_terra, _, _, arestas_pontos = lance(quadro, pontos)
         avisos += [f"{m['nome']}: a rede não chega até ele a partir de {quadro['nome']}." for m in sem_caminho]
         somar(info["secao"], "fase", fase * info["fases"])
+        passar(arestas_fase, info["secao"], "fase", rotulo, info["fases"])
         if info["neutro"]:
             somar(info["secao"], "neutro", neutro_terra)
+            passar(arestas_pontos, info["secao"], "neutro", rotulo)
         if info["terra"]:
             somar(info["secao"], "terra", neutro_terra)
+            passar(arestas_pontos, info["secao"], "terra", rotulo)
         info_por_circuito[(quadro_id, numero)] = info
+        _, anterior = rede.distancias(ligadas[quadro["id"]][0])
+        por_ponto, ordem = {}, []
+        for membro in membros:
+            trajeto_membro = rede.rota(ligadas[quadro["id"]][0], ligadas[membro["id"]][0], anterior)
+            if trajeto_membro is None:
+                continue
+            por_ponto[membro["nome"]] = trajeto_membro
+            ordem += [dono for dono in trajeto_membro if dono not in ordem]
+        rotas.append({"quadro": quadro["nome"], "circuito": numero, "rotulo": rotulo, "infraestrutura": ordem,
+                      "por_ponto": por_ponto})
         total = fase * info["fases"] + neutro_terra * (int(info["neutro"]) + int(info["terra"]))
         circuitos.append({
             "quadro": quadro["nome"],
@@ -341,21 +431,29 @@ def analisar(caminhos, caixas, info_circuito, folga=FOLGA_PONTA_MM, tolerancia=T
         luzes = [m for m in membros if m["tipo"] == "ponto"]
         if not interruptores or not luzes:
             continue
-        secao = 1.5
+        secao, rotulo = 1.5, ""
         for luz in luzes:
             quadro = quadro_de(luz) if str(luz.get("circuito", "")).strip() else None
             info = info_por_circuito.get((quadro["id"], str(luz["circuito"]).strip())) if quadro else None
             if info:
                 secao = info["secao"]
+                rotulo = rotulo_por_circuito.get((quadro["id"], str(luz["circuito"]).strip()), "")
                 break
-        retorno, _, _ = lance(interruptores[0], interruptores[1:] + luzes)
+        retorno, _, _, arestas = lance(interruptores[0], interruptores[1:] + luzes)
         somar(secao, "retorno", retorno)
+        passar(arestas, secao, "retorno", rotulo)
         if len(interruptores) > 1:  # paralelo e intermediário: dois condutores entre os interruptores
-            entre, _, _ = lance(interruptores[0], interruptores[1:])
+            entre, _, _, arestas = lance(interruptores[0], interruptores[1:])
             somar(secao, "retorno", 2 * entre)
+            passar(arestas, secao, "retorno", rotulo, 2)
 
+    trechos = [
+        {"dono": dono[0], "tipo": dono[1], "comprimento": round(rede.vizinhos[a][b] / 1000.0, 3),
+         "condutores": por_aresta.get(aresta, [])}
+        for aresta, dono in rede.dono.items() for a, b in [tuple(aresta)]
+    ]
     return {"fios": fios, "circuitos": circuitos, "verticais": verticais, "avisos": avisos,
-            "transicoes": rede.transicoes()}
+            "transicoes": rede.transicoes(), "trechos": trechos, "rotas": rotas}
 
 
 def juntar(resultados):
@@ -364,7 +462,8 @@ def juntar(resultados):
     ``fios_por_pavimento`` guarda os fios de cada um, pela chave ``pavimento``
     do resultado ('' quando não informada).
     """
-    total = {"fios": {}, "circuitos": [], "verticais": [], "avisos": [], "fios_por_pavimento": {}, "transicoes": []}
+    total = {"fios": {}, "circuitos": [], "verticais": [], "avisos": [], "fios_por_pavimento": {}, "transicoes": [],
+             "trechos": [], "rotas": []}
     for resultado in resultados:
         pavimento = resultado.get("pavimento", "")
         do_pav = total["fios_por_pavimento"].setdefault(pavimento, {})
@@ -375,4 +474,6 @@ def juntar(resultados):
         for campo in ("circuitos", "verticais", "avisos"):
             total[campo] += resultado[campo]
         total["transicoes"] += [dict(t, pavimento=pavimento) for t in resultado.get("transicoes", [])]
+        total["trechos"] += [dict(t, pavimento=pavimento) for t in resultado.get("trechos", [])]
+        total["rotas"] += [dict(r, pavimento=pavimento) for r in resultado.get("rotas", [])]
     return total

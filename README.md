@@ -51,7 +51,7 @@ O relatório e o quantitativo em PDF usam a biblioteca `reportlab`. Pelo **Addon
 5. **Circuitos > Definir circuito** e **Ligar interruptor**: agrupe os pontos em circuitos e ligue cada interruptor às suas luminárias.
 6. **Quadros**: coloque na planta o quadro de distribuição, o de comando e a medição. Com o quadro selecionado, **Dados do quadro > Planilha do quadro** cria os dados dele e a planilha de circuitos.
 7. **Montar circuitos**: soma os pontos de cada circuito, dimensiona cabo e disjuntor pela NBR 5410 e grava na planilha de circuitos do quadro. Desenhe e conecte os eletrodutos antes (passo 8) para a queda de tensão e o agrupamento entrarem no cálculo.
-8. **Infraestrutura > Eletroduto** e **Conectar às caixas**: desenhe a rede de eletrodutos e prenda-a nas caixas. Em áreas técnicas e prumadas, **Bandeja/leito** e **Suportes**.
+8. **Infraestrutura > Eletroduto** e **Conectar às caixas**: desenhe a rede de eletrodutos e prenda-a nas caixas. Em áreas técnicas e prumadas, **Bandeja/leito** e **Suportes**. Depois dos circuitos, **Ocupação eletrodutos** confere o diâmetro de cada eletroduto pelos cabos que passam nele, e **Rota do circuito** mostra o caminho de cada cabo até o quadro.
 9. **Componentes** e **Unifilar**: lista o que vai dentro de cada quadro e desenha o diagrama.
 10. **Cálculos > Demanda**: grava a demanda do quadro, que aparece no unifilar.
 11. **Documentos**: quantitativos, legenda, notas e relatório PDF.
@@ -270,6 +270,12 @@ Os fios são contados pelo caminho mais curto na rede, do quadro até os pontos 
 
 O botão **Fiação** desenha na planta os traços de fase, neutro e terra ao lado de cada ponto.
 
+### Rota dos cabos e diâmetro dos eletrodutos
+
+- **Infraestrutura > Rota do circuito** segue o cabo de cada circuito do quadro até os pontos, pelos eletrodutos e pelas eletrocalhas (a ponta do eletroduto que chega na borda de uma eletrocalha entra nela), seleciona tudo por onde ele passa e mostra o caminho de cada ponto (`QD1 → Eletroduto 3 → calha Bandeja → Eletroduto 7 → T4`). Selecione pontos (o circuito deles), um quadro (todos os circuitos dele) ou um eletroduto (os circuitos que passam nele); sem seleção, escolha o circuito numa lista.
+- **Infraestrutura > Ocupação eletrodutos** conta os condutores de cada trecho (fases, neutro, terra e retornos de todos os circuitos que passam ali) e confere o diâmetro pela taxa de ocupação da NBR 5410 (6.2.11.1.6): no máximo 53 % da seção interna com um cabo, 31 % com dois e 40 % com três ou mais. Vale o trecho mais cheio de cada eletroduto. Grava a planilha *Ocupação dos eletrodutos* (desenhado, cabos, condutores, circuitos, área, ocupação, sugerido) e oferece aumentar os eletrodutos pequenos para o diâmetro sugerido, refazendo os rótulos `Ø`; se você recusar, eles ficam selecionados. O flexível corrugado tem seção livre menor que o rígido.
+- Nas eletrocalhas a norma não dá uma taxa: a planilha mostra a área ocupada sobre a seção útil (largura × aba) e a largura de uma camada única de cabos, com 40 % só como referência.
+
 ### Subidas, descidas e detalhes das verticais
 
 - **Infraestrutura > Subidas e descidas** desenha na planta o símbolo de cada vertical, com o texto ao lado (`Ø3/4" desce 2,50 m`, `EL 200x50 sobe 0,50 m`):
@@ -444,6 +450,7 @@ As barras *Desenho*, *Modificador*, *Snap* e *Arquitetura* trazem as ferramentas
 ## Limitações
 
 - **Dimensionamento:** o método de instalação é sempre B1 (eletroduto), porque as bandejas ainda não entram na rede dos circuitos. A capacidade de interrupção dos disjuntores não é verificada, e o curto-circuito só quando o tempo de atuação é informado (disjuntores limitadores: confira o I²t no catálogo). Tabelas transcritas da NBR 5410:2004, a conferir com a norma.
+- **Ocupação dos eletrodutos:** diâmetros internos dos eletrodutos e externos dos cabos (450/750 V, unipolares) aproximados, de catálogos de mercado; a rota é o caminho mais curto do quadro, não necessariamente o que você quer: confira com **Rota do circuito**.
 - **Fios e verticais:** dependem de a rede de eletrodutos estar conectada às caixas. Os fios não são roteados pelas prumadas entre pavimentos (cada pavimento é calculado à parte).
 - **Demanda:** fatores de guias residenciais, não conferidos com a fonte; cada concessionária tem a sua tabela, e a demanda do edifício inteiro não é calculada.
 - **Aterramento:** resistividades de solo típicas e fórmulas para hastes em linha; meça o solo e confira o valor máximo com a NBR 5410 e a NBR 5419.

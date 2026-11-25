@@ -121,8 +121,8 @@ BOARD_SYMBOL_TOOLS = [
 ]
 CIRCUIT_TOOLS = ["DefinirCircuito", "LigarInterruptor", "IdentificarPontos"]
 INFRA_TOOLS = [
-    "InsertConduit", "Ponto_caixa_passagem", "ConectarEletrodutos", "Add_Node", "ListaVerticais",
-    "SimbolosVerticais", "EditarDescidas", "DetalharVerticais", "Cabo",
+    "InsertConduit", "Ponto_caixa_passagem", "ConectarEletrodutos", "RotaCircuito", "OcupacaoEletrodutos",
+    "Add_Node", "ListaVerticais", "SimbolosVerticais", "EditarDescidas", "DetalharVerticais", "Cabo",
     "InsertCableTray", "GerarSuportes",
 ]
 BOARD_DATA_TOOLS = ["GerarPlanilha", "CircuitosQuadro", "AddCircuito", "BalancearFases"]

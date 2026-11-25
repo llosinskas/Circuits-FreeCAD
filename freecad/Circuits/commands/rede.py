@@ -1,10 +1,10 @@
-"""Comandos da rede de eletrodutos: encaixe nas caixas e lista de verticais."""
+"""Comandos da rede de eletrodutos: encaixe nas caixas, verticais, rota dos circuitos e ocupação."""
 import FreeCAD as App
 import FreeCADGui as Gui
 
 from freecad.Circuits.commands._base import documento_ou_aviso, recursos
 from freecad.Circuits.qt import QtWidgets
-from freecad.Circuits.services import eletrodutos_planta, rede, verticais
+from freecad.Circuits.services import eletrodutos_planta, rede, roteamento, verticais
 from freecad.Circuits.UI.dialogs.descidas_dialog import CAIXA, DescidasDialog
 
 
@@ -192,8 +192,117 @@ class EditarDescidas:
         )
 
 
+
+class RotaCircuito:
+    """Seleciona os eletrodutos e eletrocalhas por onde passa o cabo do circuito, do quadro aos pontos."""
+
+    def Activated(self):
+        doc = documento_ou_aviso()
+        if not doc:
+            return
+        selecao = Gui.Selection.getSelection()
+        rotas = roteamento.rotas_dos_objetos(doc, selecao)
+        if not rotas:
+            QtWidgets.QMessageBox.information(
+                None, "Rota do circuito",
+                "Nenhum circuito chega ao quadro pela rede. Defina os circuitos dos pontos e conecte os "
+                "eletrodutos às caixas (botão Conectar às caixas).")
+            return
+        if not selecao and len(rotas) > 1:
+            nomes = [r["rotulo"] + (f" ({r['pavimento']})" if r.get("pavimento") else "") for r in rotas]
+            escolha, ok = QtWidgets.QInputDialog.getItem(None, "Rota do circuito", "Circuito:", nomes, 0, False)
+            if not ok:
+                return
+            rotas = [rotas[nomes.index(escolha)]]
+        Gui.Selection.clearSelection()
+        for rota in rotas:
+            for nome in rota["objetos"]:
+                obj = doc.getObject(nome)
+                if obj is not None:
+                    Gui.Selection.addSelection(obj)
+        texto = "\n\n".join(roteamento.descrever(doc, rota) for rota in rotas[:15])
+        if len(rotas) > 15:
+            texto += f"\n\n... e mais {len(rotas) - 15} circuito(s)"
+        App.Console.PrintMessage(texto + "\n")
+        QtWidgets.QMessageBox.information(None, "Rota do circuito", texto)
+
+    def IsActive(self):
+        return True
+
+    def GetResources(self):
+        return recursos(
+            "rota_circuito.svg",
+            "Rota do circuito",
+            "Mostra e seleciona os eletrodutos e eletrocalhas por onde passa o cabo do circuito até o quadro. "
+            "Selecione pontos, um quadro ou um eletroduto (os circuitos que passam nele), ou nada para escolher",
+        )
+
+
+class OcupacaoEletrodutos:
+    """Conta os cabos de cada trecho pela rota dos circuitos e confere o diâmetro pela taxa de ocupação."""
+
+    def Activated(self):
+        doc = documento_ou_aviso()
+        if not doc:
+            return
+        dados = roteamento.ocupacao(doc)
+        if not dados["eletrodutos"] and not dados["bandejas"]:
+            QtWidgets.QMessageBox.information(
+                None, "Ocupação dos eletrodutos",
+                "Nenhum eletroduto com circuito: desenhe e conecte os eletrodutos às caixas primeiro.")
+            return
+        planilha = roteamento.gravar_planilha(doc, dados)
+        pequenos = [e for e in dados["eletrodutos"] if e["pequeno"]]
+        linhas = [f"{len(dados['eletrodutos'])} eletroduto(s) e {len(dados['bandejas'])} eletrocalha(s) na "
+                  f"planilha '{planilha.Label}'."]
+        if not pequenos:
+            QtWidgets.QMessageBox.information(None, "Ocupação dos eletrodutos",
+                                              "\n".join(linhas + ["", "Todos os eletrodutos comportam os cabos."]))
+            return
+        linhas += ["", "Acima da taxa de ocupação (NBR 5410, 6.2.11.1.6):"] + [
+            f"  {e['nome']}: Ø{e['diametro']} → Ø{e['minimo'] or '?'} ({e['cabos']} cabos, {e['taxa']:.0%})"
+            for e in pequenos[:20]]
+        if len(pequenos) > 20:
+            linhas.append(f"  ... e mais {len(pequenos) - 20}")
+        linhas += ["", "Aumentar o diâmetro desses eletrodutos para o sugerido?"]
+        resposta = QtWidgets.QMessageBox.question(None, "Ocupação dos eletrodutos", "\n".join(linhas))
+        if resposta != QtWidgets.QMessageBox.Yes:
+            Gui.Selection.clearSelection()
+            for e in pequenos:
+                obj = doc.getObject(e["objeto"])
+                if obj is not None:
+                    Gui.Selection.addSelection(obj)
+            return
+        doc.openTransaction("Diâmetro dos eletrodutos pela ocupação")
+        try:
+            trocados = roteamento.aplicar_diametros(doc, dados)
+            doc.commitTransaction()
+        except Exception:
+            doc.abortTransaction()
+            raise
+        try:
+            eletrodutos_planta.anotar(doc)
+        except Exception as erro:
+            App.Console.PrintWarning(f"Rótulos dos eletrodutos não atualizados: {erro}\n")
+        roteamento.gravar_planilha(doc, roteamento.ocupacao(doc))
+        App.Console.PrintMessage("".join(f"{nome}: Ø{de} → Ø{para}\n" for nome, de, para in trocados))
+
+    def IsActive(self):
+        return True
+
+    def GetResources(self):
+        return recursos(
+            "ocupacao_eletrodutos.svg",
+            "Ocupação eletrodutos",
+            "Segue os cabos de cada circuito até o quadro, conta os condutores em cada eletroduto e "
+            "eletrocalha e sugere o diâmetro pela taxa de ocupação (53 %, 31 %, 40 %)",
+        )
+
+
 Gui.addCommand("ConectarEletrodutos", ConectarEletrodutos())
 Gui.addCommand("EditarDescidas", EditarDescidas())
 Gui.addCommand("ListaVerticais", ListaVerticais())
 Gui.addCommand("SimbolosVerticais", SimbolosVerticais())
 Gui.addCommand("DetalharVerticais", DetalharVerticais())
+Gui.addCommand("RotaCircuito", RotaCircuito())
+Gui.addCommand("OcupacaoEletrodutos", OcupacaoEletrodutos())

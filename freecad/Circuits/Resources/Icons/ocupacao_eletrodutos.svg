@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64">
+  <!-- Ocupação dos eletrodutos: corte do eletroduto com os cabos dentro -->
+  <circle cx="30" cy="34" r="24" fill="#ffffff" fill-opacity="0.85" stroke="#5f6368" stroke-width="4"/>
+  <circle cx="22" cy="28" r="6" fill="#1a73e8"/>
+  <circle cx="36" cy="26" r="6" fill="#5f6368"/>
+  <circle cx="26" cy="41" r="6" fill="#188038"/>
+  <circle cx="40" cy="39" r="6" fill="#1a73e8"/>
+  <path d="M44 6H60V18H44Z" fill="#ffffff" stroke="#e8710a" stroke-width="3" stroke-linejoin="round"/>
+  <path d="M48 12H56" stroke="#e8710a" stroke-width="3" stroke-linecap="round"/>
+</svg>

@@ -166,8 +166,8 @@ Usar o que a rede já calcula para fechar os 6 critérios de cada circuito:
 
 | Item | Regra | Saída |
 |---|---|---|
-| Diâmetro do eletroduto por trecho | Taxa de ocupação: 53 % com 1 cabo, 31 % com 2, 40 % com 3 ou mais | Propriedade `Diametro` sugerida em cada trecho, com aviso quando o desenhado é menor |
-| Largura da bandeja | Regra a definir (a NBR 5410 não dá uma taxa como a do eletroduto) | `Largura` sugerida e aviso |
+| ~~Diâmetro do eletroduto por trecho~~ **feito** | Taxa de ocupação: 53 % com 1 cabo, 31 % com 2, 40 % com 3 ou mais | `core/ocupacao.py`, `services/roteamento.py`: botão Ocupação eletrodutos (planilha, aviso e aumento do `Diametro`) e Rota do circuito (eletrodutos e eletrocalhas por onde o cabo passa) |
+| Largura da bandeja | Regra a definir (a NBR 5410 não dá uma taxa como a do eletroduto) | `Largura` sugerida e aviso; hoje a planilha de ocupação só informa a área e a camada única |
 | Fios por trecho | Já calculado pela rede | Identificação na planta (`#2,5 F+N+T` no trecho) |
 
 - **Código:** `core/rede.py`, `core/bandejas.py`, `core/tables/eletrodutos.py` (diâmetro externo dos cabos).
