@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64">
+  <!-- Corte na folha: linha de corte com as setas e a letra -->
+  <path d="M6 10H58V54H6Z" fill="#ffffff" stroke="#5f6368" stroke-width="3" stroke-linejoin="round"/>
+  <path d="M34 44H58 M34 44V54 M46 44V54" fill="none" stroke="#5f6368" stroke-width="2"/>
+  <path d="M10 28H50" fill="none" stroke="#e8710a" stroke-width="3" stroke-dasharray="8 3 2 3"/>
+  <path d="M12 28V38 M8 34L12 38L16 34 M48 28V38 M44 34L48 38L52 34" fill="none" stroke="#e8710a" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="M20 22L24 14L28 22 M21.5 19H26.5" fill="none" stroke="#5f6368" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+</svg>

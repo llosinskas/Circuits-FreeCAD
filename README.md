@@ -55,6 +55,7 @@ O relatório e o quantitativo em PDF usam a biblioteca `reportlab`. Pelo **Addon
 9. **Componentes** e **Unifilar**: lista o que vai dentro de cada quadro e desenha o diagrama.
 10. **Cálculos > Demanda**: grava a demanda do quadro, que aparece no unifilar.
 11. **Documentos**: quantitativos, legenda, notas e relatório PDF.
+12. **Folhas**: monte as pranchas finais com carimbo, planta, diagramas, cortes e detalhes (veja "Folhas de desenho").
 
 ## Planta elétrica
 
@@ -275,6 +276,7 @@ O botão **Fiação** desenha na planta os traços de fase, neutro e terra ao la
 - **Infraestrutura > Rota do circuito** segue o cabo de cada circuito do quadro até os pontos, pelos eletrodutos e pelas eletrocalhas (a ponta do eletroduto que chega na borda de uma eletrocalha entra nela), seleciona tudo por onde ele passa e mostra o caminho de cada ponto (`QD1 → Eletroduto 3 → calha Bandeja → Eletroduto 7 → T4`). Selecione pontos (o circuito deles), um quadro (todos os circuitos dele) ou um eletroduto (os circuitos que passam nele); sem seleção, escolha o circuito numa lista.
 - **Infraestrutura > Ocupação eletrodutos** conta os condutores de cada trecho (fases, neutro, terra e retornos de todos os circuitos que passam ali) e confere o diâmetro pela taxa de ocupação da NBR 5410 (6.2.11.1.6): no máximo 53 % da seção interna com um cabo, 31 % com dois e 40 % com três ou mais. Vale o trecho mais cheio de cada eletroduto. Grava a planilha *Ocupação dos eletrodutos* (desenhado, cabos, condutores, circuitos, área, ocupação, sugerido) e oferece aumentar os eletrodutos pequenos para o diâmetro sugerido, refazendo os rótulos `Ø`; se você recusar, eles ficam selecionados. O flexível corrugado tem seção livre menor que o rígido.
 - Nas eletrocalhas a norma não dá uma taxa: a planilha mostra a área ocupada sobre a seção útil (largura × aba) e a largura de uma camada única de cabos, com 40 % só como referência.
+- **Circuitos > Fios por trecho** escreve ao lado de cada eletroduto (do lado oposto ao `Ø`) os fios que passam nele, uma linha por circuito: `C1 #2,5 F+N+T`, `C3 #1,5 F+2R`; na eletrocalha, os circuitos e o total de cabos. Trechos do mesmo eletroduto com os mesmos fios levam um texto só. Os textos vão para a pasta *Fiação* do pavimento; repetir o comando apaga e escreve de novo.
 
 ### Subidas, descidas e detalhes das verticais
 
@@ -354,6 +356,19 @@ Termine o eletroduto na eletrocalha (ou a até 30 cm dela) e marque-o com o bot�
 - A saída entra nos quantitativos (grupo *Bandejas e leitos*, "Saída horizontal/vertical para eletroduto" com o diâmetro); no rígido, também bucha e arruela e, na vertical, a curva. A vertical soma nos metros de eletroduto.
 - No 3D, cada saída ganha a peça: uma flange quadrada encostada na eletrocalha (na aba, do lado de fora, na horizontal; embaixo do fundo, na vertical) e a luva com anel por onde entra o eletroduto. A saída vertical aparece também com a curva e o tubo até o fundo da eletrocalha, e em **Editar descidas**.
 - A ponta que chega à eletrocalha deixa de ser avisada como ponta solta.
+
+## Folhas de desenho
+
+Botão **Folhas ▾** (barra *Quadros e documentos*). As folhas são do TechDraw, com as margens da NBR 10068 e um carimbo editável (projeto, conteúdo, obra, cliente, desenho, responsável técnico, CREA/CFT, data, escala, folha e revisão). Para mudar um campo, dê dois cliques nele na folha.
+
+1. **Nova folha**: escolha o formato (A0 a A4) e o conteúdo. O carimbo já vem com o nome do projeto, a data e os dados da última folha (obra, cliente, responsável); a numeração 01/03, 02/03... é refeita em todas.
+2. **Inserir na folha**: selecione na árvore o que vai para a folha e clique. Um **pavimento** vira a planta baixa (sem o modelo 3D); o **diagrama unifilar**, o multifilar, a **legenda**, as **notas**, os **detalhes das verticais** ou qualquer grupo viram desenhos; uma **planilha** (circuitos, quadro de cargas, componentes) vira tabela. Selecione a folha junto para escolher em qual entra; senão vai para a última. A bancada escolhe a maior escala normalizada (1:20, 1:25, 1:50, 1:75, 1:100...) em que tudo cabe, arruma as vistas sem invadir o carimbo, põe o título com a escala embaixo de cada uma e escreve a escala no carimbo.
+3. **Corte na folha**: desenhe na planta uma linha onde o corte passa, selecione e clique. Sai o corte do modelo 3D (gere o **Modelo 3D** antes), com a letra (Corte A-A) e as setas na planta. Quem olha fica à esquerda da linha, do primeiro para o segundo ponto, e olha para a direita dela.
+4. **Detalhe na folha**: desenhe um círculo (ou retângulo) em volta do que quer ampliar, selecione e clique. Sai o detalhe D1, D2... da planta recortado pelo círculo, em pelo menos o dobro da escala da folha, e o nome dele aparece na planta.
+5. **Organizar folha**: arruma de novo as vistas da folha, na escala que você escolher ou na maior que couber.
+6. **Atualizar folhas**: depois de mudar o projeto, redesenha as plantas, diagramas e detalhes de todas as folhas no mesmo lugar e escala (os cortes e as tabelas o TechDraw atualiza sozinho).
+
+Para imprimir ou exportar em PDF, use os botões do próprio TechDraw com a folha aberta.
 
 ## Documentação
 
@@ -442,7 +457,7 @@ Os botões com seta (▾) abrem uma lista; o botão mostra o último item usado.
 | Barra | Botões |
 |---|---|
 | Planta elétrica | Projeto ▾, Tomadas ▾, Energia ▾, Iluminação ▾, Comandos ▾, Circuitos ▾, Infraestrutura ▾, Aterramento ▾ |
-| Quadros e documentos | Quadros ▾, Dados do quadro ▾, Montar circuitos, Componentes, Diagramas ▾ (Unifilar e Multifilar), Cálculos ▾, Documentos ▾ |
+| Quadros e documentos | Quadros ▾, Dados do quadro ▾, Montar circuitos, Componentes, Diagramas ▾ (Unifilar e Multifilar), Cálculos ▾, Documentos ▾, Folhas ▾ |
 | Modelo e biblioteca | Modelo 3D ▾, Biblioteca ▾ |
 
 As barras *Desenho*, *Modificador*, *Snap* e *Arquitetura* trazem as ferramentas do FreeCAD mais usadas em planta. O primeiro botão de *Desenho* é o **plano de trabalho** (`Draft_SelectPlane`): mostra o plano atual e troca para planta (topo), frente, lateral, a vista atual ou a face selecionada, para desenhar em elevação ou corte. Todos os comandos estão nos menus **Elétrica** e **Desenho 2D**. O texto embaixo dos ícones pode ser desligado pela preferência `LegendaBotoes` em `BaseApp/Preferences/Mod/Circuits`.
@@ -450,6 +465,7 @@ As barras *Desenho*, *Modificador*, *Snap* e *Arquitetura* trazem as ferramentas
 ## Limitações
 
 - **Dimensionamento:** o método de instalação é sempre B1 (eletroduto), porque as bandejas ainda não entram na rede dos circuitos. A capacidade de interrupção dos disjuntores não é verificada, e o curto-circuito só quando o tempo de atuação é informado (disjuntores limitadores: confira o I²t no catálogo). Tabelas transcritas da NBR 5410:2004, a conferir com a norma.
+- **Folhas de desenho:** ainda não testadas no FreeCAD real; confira a posição das vistas, o recorte do detalhe e o lado do corte na primeira folha. As plantas e os diagramas na folha não se atualizam sozinhos: use **Atualizar folhas**.
 - **Ocupação dos eletrodutos:** diâmetros internos dos eletrodutos e externos dos cabos (450/750 V, unipolares) aproximados, de catálogos de mercado; a rota é o caminho mais curto do quadro, não necessariamente o que você quer: confira com **Rota do circuito**.
 - **Fios e verticais:** dependem de a rede de eletrodutos estar conectada às caixas. Os fios não são roteados pelas prumadas entre pavimentos (cada pavimento é calculado à parte).
 - **Demanda:** fatores de guias residenciais, não conferidos com a fonte; cada concessionária tem a sua tabela, e a demanda do edifício inteiro não é calculada.

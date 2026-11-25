@@ -5,13 +5,16 @@ de cada pavimento (a ponta de eletroduto que para na borda de uma eletrocalha en
 nela). O resultado diz por onde cada cabo passa (``rotas``) e quantos condutores há
 em cada trecho, de onde sai o eletroduto mínimo pela taxa de ocupação.
 """
+import Draft
 import FreeCAD as App
 
 from freecad.Circuits.core import ocupacao as regras
 from freecad.Circuits.core import rede as regras_rede
-from freecad.Circuits.services import bandejas, rede
+from freecad.Circuits.services import bandejas, pavimentos, rede
 
 MARCA_PLANILHA = "ocupacao_eletrodutos"
+MARCA_FIOS = "fios_trecho"
+ALTURA_TEXTO_FIOS = 100.0  # mm
 
 
 def _caminho_eletroduto(obj):
@@ -161,3 +164,36 @@ def descrever(doc, rota):
     if not rota["por_ponto"]:
         linhas.append("  a rede não chega aos pontos")
     return "\n".join(linhas)
+
+
+def remover_fios(doc):
+    """Apaga os textos de fios por trecho (propriedade ``fios_trecho``). Devolve quantos."""
+    textos = [o for o in doc.Objects if hasattr(o, MARCA_FIOS)]
+    for obj in textos:
+        doc.removeObject(obj.Name)
+    return len(textos)
+
+
+def identificar_fios(doc, resultado=None, altura=ALTURA_TEXTO_FIOS):
+    """Recria na planta os fios de cada trecho (``C1 #2,5 F+N+T``), ao lado de cada eletroduto e
+    eletrocalha, na pasta Fiação do pavimento e na cota do piso dele.
+
+    Returns:
+        Quantidade de textos.
+    """
+    remover_fios(doc)
+    resultado = resultado or analisar(doc)
+    total = 0
+    for item in regras.identificacao_dos_trechos(resultado["trechos"], afastamento=1.4 * altura):
+        pav = pavimentos.por_nome(doc, item["pavimento"]) if item["pavimento"] else None
+        z = pavimentos.elevacao(pav) if pav is not None else 0.0
+        posicao = App.Placement(App.Vector(item["x"], item["y"], z), App.Rotation(App.Vector(0, 0, 1), item["angulo"]))
+        texto = Draft.make_text(item["linhas"], placement=posicao, height=altura)
+        texto.addProperty("App::PropertyString", MARCA_FIOS, "Rede", "Fios do trecho de eletroduto ou eletrocalha")
+        setattr(texto, MARCA_FIOS, item["dono"])
+        texto.Label = f"Fios {_rotulo(doc, item['dono'])}"
+        if pav is not None:
+            pavimentos.pasta(doc, pav, "fiacao").addObject(texto)
+        total += 1
+    doc.recompute()
+    return total

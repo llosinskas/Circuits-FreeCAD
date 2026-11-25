@@ -205,6 +205,74 @@ def agrupar_trechos(trechos):
     return grupos
 
 
+# --- identificação dos fios por trecho, na planta -----------------------------------------------
+
+LETRAS_FUNCAO = (("fase", "F"), ("neutro", "N"), ("retorno", "R"), ("terra", "T"))
+
+
+def condutores_do_circuito(condutores):
+    """'F+N+T', '2F+T', 'F+2R' pelos condutores de um circuito num trecho."""
+    partes = []
+    for funcao, letra in LETRAS_FUNCAO:
+        n = sum(1 for c in condutores if c["funcao"] == funcao)
+        if n:
+            partes.append(f"{n}{letra}" if n > 1 else letra)
+    return "+".join(partes)
+
+
+def texto_dos_fios(condutores, tipo="eletroduto"):
+    """Linhas do texto de um trecho: ``C1 #2,5 F+N+T`` por circuito (seções diferentes, linhas
+    separadas); na eletrocalha, uma linha só com os circuitos e o total de cabos."""
+    if not condutores:
+        return []
+    if tipo == "bandeja":
+        circuitos = _circuitos(condutores) or ["sem circuito"]
+        return [f"{', '.join(circuitos)} · {len(condutores)} cabos"]
+    grupos = {}
+    for c in condutores:
+        grupos.setdefault((c.get("circuito", ""), float(c["secao"])), []).append(c)
+    linhas = []
+    for (circuito, secao), lista in grupos.items():
+        rotulo = f"{circuito} " if circuito else ""
+        linhas.append(f"{rotulo}#{secao:g} {condutores_do_circuito(lista)}".replace(".", ","))
+    return linhas
+
+
+def identificacao_dos_trechos(trechos, afastamento=120.0):
+    """Onde escrever os fios de cada eletroduto e eletrocalha na planta.
+
+    Num mesmo dono, trechos com os mesmos condutores levam um texto só, no meio do mais
+    longo, do lado direito da linha (o diâmetro ``Ø`` fica do lado esquerdo).
+
+    Returns:
+        [{'dono', 'tipo', 'pavimento', 'x', 'y', 'angulo' (graus, sempre legível), 'linhas'}].
+    """
+    escolhidos = {}
+    for trecho in trechos:
+        linhas = texto_dos_fios(trecho["condutores"], trecho.get("tipo", "eletroduto"))
+        if not linhas or "de" not in trecho:
+            continue
+        chave = (trecho.get("pavimento", ""), trecho["dono"], tuple(linhas))
+        if chave not in escolhidos or trecho["comprimento"] > escolhidos[chave][0]["comprimento"]:
+            escolhidos[chave] = (trecho, linhas)
+    resultado = []
+    for (pavimento, dono, _), (trecho, linhas) in sorted(escolhidos.items()):
+        (ax, ay), (bx, by) = trecho["de"], trecho["ate"]
+        comprimento = math.hypot(bx - ax, by - ay)
+        if comprimento <= 0:
+            continue
+        ux, uy = (bx - ax) / comprimento, (by - ay) / comprimento
+        if ux < -1e-9 or (abs(ux) <= 1e-9 and uy < 0):  # texto da esquerda para a direita ou de baixo para cima
+            ux, uy = -ux, -uy
+        mx, my = (ax + bx) / 2.0, (ay + by) / 2.0
+        resultado.append({
+            "dono": dono, "tipo": trecho.get("tipo", "eletroduto"), "pavimento": pavimento,
+            "x": round(mx + uy * afastamento, 6), "y": round(my - ux * afastamento, 6),
+            "angulo": round(math.degrees(math.atan2(uy, ux)), 6), "linhas": linhas,
+        })
+    return resultado
+
+
 CABECALHO = ("Infraestrutura", "Tipo", "Desenhado", "Cabos no trecho mais cheio", "Condutores", "Circuitos",
              "Área dos cabos [mm²]", "Ocupação", "Máxima", "Sugerido", "Situação")
 

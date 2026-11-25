@@ -123,6 +123,24 @@ class TestRoteamento(unittest.TestCase):
         self.s.gravar_planilha(self.doc, self.s.ocupacao(self.doc))
         self.assertEqual(self.doc.removidos, [primeira.Name])
 
+    def test_fios_por_trecho_na_planta(self):
+        criados = []
+
+        def texto(linhas, placement=None, height=None):
+            obj = types.SimpleNamespace(Name=f"Text{len(criados)}", Label="", linhas=linhas, Placement=placement)
+            obj.addProperty = lambda tipo, nome, grupo, dica: setattr(obj, nome, "")
+            criados.append(obj)
+            self.doc.Objects.append(obj)
+            return obj
+
+        self.s.Draft.make_text.side_effect = texto
+        self.assertEqual(self.s.identificar_fios(self.doc), 1)
+        self.assertEqual(len(criados[0].linhas), 6)  # um circuito por linha
+        self.assertEqual(criados[0].linhas[0], "C1 #2,5 F+N+T")
+        self.assertEqual(criados[0].fios_trecho, "E1")
+        self.s.identificar_fios(self.doc)  # repetir apaga os anteriores
+        self.assertIn("Text0", self.doc.removidos)
+
     def test_rotas_pela_selecao(self):
         todas = self.s.rotas_dos_objetos(self.doc, [])
         self.assertEqual(len(todas), 6)

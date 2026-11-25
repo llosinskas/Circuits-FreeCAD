@@ -299,6 +299,39 @@ class OcupacaoEletrodutos:
         )
 
 
+class IdentificarFios:
+    """Escreve ao lado de cada eletroduto e eletrocalha os fios que passam nele, por circuito."""
+
+    def Activated(self):
+        doc = documento_ou_aviso()
+        if not doc:
+            return
+        doc.openTransaction("Identificar fios por trecho")
+        try:
+            total = roteamento.identificar_fios(doc)
+            doc.commitTransaction()
+        except Exception:
+            doc.abortTransaction()
+            raise
+        if not total:
+            QtWidgets.QMessageBox.information(
+                None, "Fios por trecho",
+                "Nenhum trecho com fios: defina os circuitos dos pontos e conecte os eletrodutos às caixas.")
+            return
+        App.Console.PrintMessage(f"{total} texto(s) de fios por trecho na pasta Fiação de cada pavimento.\n")
+
+    def IsActive(self):
+        return True
+
+    def GetResources(self):
+        return recursos(
+            "fios_trecho.svg",
+            "Fios por trecho",
+            "Escreve em cada eletroduto e eletrocalha os fios que passam nele (C1 #2,5 F+N+T), seguindo os "
+            "circuitos até o quadro. Repetir apaga e escreve de novo",
+        )
+
+
 Gui.addCommand("ConectarEletrodutos", ConectarEletrodutos())
 Gui.addCommand("EditarDescidas", EditarDescidas())
 Gui.addCommand("ListaVerticais", ListaVerticais())
@@ -306,3 +339,4 @@ Gui.addCommand("SimbolosVerticais", SimbolosVerticais())
 Gui.addCommand("DetalharVerticais", DetalharVerticais())
 Gui.addCommand("RotaCircuito", RotaCircuito())
 Gui.addCommand("OcupacaoEletrodutos", OcupacaoEletrodutos())
+Gui.addCommand("IdentificarFios", IdentificarFios())

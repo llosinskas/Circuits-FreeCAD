@@ -119,7 +119,7 @@ BOARD_SYMBOL_TOOLS = [
     "Ponto_gerador", "Ponto_qta", "PlanejarMedicao", "GerarCentroMedicao", "InserirColunaMedicao",
     "InserirBusway",
 ]
-CIRCUIT_TOOLS = ["DefinirCircuito", "LigarInterruptor", "IdentificarPontos"]
+CIRCUIT_TOOLS = ["DefinirCircuito", "LigarInterruptor", "IdentificarPontos", "IdentificarFios"]
 INFRA_TOOLS = [
     "InsertConduit", "Ponto_caixa_passagem", "ConectarEletrodutos", "RotaCircuito", "OcupacaoEletrodutos",
     "Add_Node", "ListaVerticais", "SimbolosVerticais", "EditarDescidas", "DetalharVerticais", "Cabo",
@@ -140,6 +140,7 @@ DOCUMENT_TOOLS = [
     "PintarSketches",
     "GenerateReport",
 ]
+SHEET_TOOLS = ["NovaFolha", "InserirNaFolha", "CorteNaFolha", "DetalheNaFolha", "OrganizarFolha", "AtualizarFolhas"]
 MODEL_3D_TOOLS = ["Gerar3DCompleto", "Generate3DSwitches", "Generate3DConduits", "Gerar3D"]
 LIBRARY_TOOLS = ["InsertEquipaments", "InsertComponent", "CreateModel", "ListElements"]
 
@@ -182,6 +183,10 @@ GROUPS = {
     "Grupo_Diagramas": ("Diagramas", "Diagramas unifilar e multifilar de cada quadro", DIAGRAM_TOOLS),
     "Grupo_Calculos": ("Cálculos", "Demanda do quadro, gerador diesel, pressurização de escada e bomba de recalque", CALC_TOOLS),
     "Grupo_Documentos": ("Documentos", "Quantitativos, legenda de símbolos, notas, Sketches em preto e relatório em PDF", DOCUMENT_TOOLS),
+    "Grupo_Folhas": (
+        "Folhas", "Folhas de desenho com carimbo: planta, diagramas, cortes e detalhes arrumados na escala",
+        SHEET_TOOLS,
+    ),
     "Grupo_3D": (
         "Modelo 3D", "Modelo 3D completo num clique, ou só caixas, eletrodutos ou tomadas TUG antigas", MODEL_3D_TOOLS,
     ),
@@ -213,6 +218,7 @@ ELECTRIC_TOOLBARS = [
             "Grupo_Diagramas",
             "Grupo_Calculos",
             "Grupo_Documentos",
+            "Grupo_Folhas",
         ],
     ),
     (_tr("Workbench", "Modelo e biblioteca"), ["Grupo_3D", "Grupo_Biblioteca"]),
@@ -239,6 +245,7 @@ MENUS = [
     ([MENU, "Quadros e diagramas"], BOARD_TOOLS),
     ([MENU, "Cálculos prediais"], CALC_TOOLS),
     ([MENU, "Documentos"], DOCUMENT_TOOLS),
+    ([MENU, "Folhas de desenho"], SHEET_TOOLS),
     ([MENU, "Modelo 3D"], MODEL_3D_TOOLS),
     ([MENU, "Biblioteca"], LIBRARY_TOOLS),
     ([MENU, "Outros"], EXTRA_TOOLS),
@@ -304,6 +311,7 @@ class CircuitsWorkbench(gui.Workbench):
             aterramento,
             bandejas,
             centro_medicao,
+            folhas,
             identificacao,
             pavimentos,
             rede,

@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64">
+  <!-- Fios por trecho: eletroduto com os traços dos condutores e o texto -->
+  <path d="M4 40H60" fill="none" stroke="#ffffff" stroke-width="9" stroke-opacity="0.85" stroke-linecap="round"/>
+  <path d="M4 40H60" fill="none" stroke="#5f6368" stroke-width="4" stroke-linecap="round"/>
+  <path d="M20 32L28 48 M28 32L36 48" fill="none" stroke="#1a73e8" stroke-width="3" stroke-linecap="round"/>
+  <path d="M38 32V48" fill="none" stroke="#1a73e8" stroke-width="3" stroke-linecap="round"/>
+  <path d="M44 32V48 M41 32H47" fill="none" stroke="#188038" stroke-width="3" stroke-linecap="round"/>
+  <path d="M8 10H40 M8 20H32" fill="none" stroke="#e8710a" stroke-width="4" stroke-linecap="round"/>
+</svg>

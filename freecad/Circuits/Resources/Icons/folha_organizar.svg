@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64">
+  <!-- Organizar folha: vistas arrumadas -->
+  <path d="M6 10H58V54H6Z" fill="#ffffff" stroke="#5f6368" stroke-width="3" stroke-linejoin="round"/>
+  <path d="M34 44H58 M34 44V54 M46 44V54" fill="none" stroke="#5f6368" stroke-width="2"/>
+  <path d="M11 15H29V27H11Z M33 15H53V27H33Z M11 31H29V41H11Z" fill="#d2e3fc" stroke="#1a73e8" stroke-width="2.5" stroke-linejoin="round"/>
+</svg>

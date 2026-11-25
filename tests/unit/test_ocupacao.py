@@ -169,5 +169,41 @@ class TestRoteamento(unittest.TestCase):
         self.assertEqual(total["rotas"][0]["pavimento"], "Térreo")
 
 
+class TestFiosPorTrecho(unittest.TestCase):
+    def condutores(self, circuito, secao, funcoes):
+        return [{"secao": secao, "funcao": f, "circuito": circuito} for f in funcoes]
+
+    def test_texto_por_circuito(self):
+        trecho = self.condutores("C1", 2.5, ["fase", "neutro", "terra"]) + \
+            self.condutores("C3", 1.5, ["fase", "retorno", "retorno"])
+        self.assertEqual(ocupacao.texto_dos_fios(trecho), ["C1 #2,5 F+N+T", "C3 #1,5 F+2R"])
+        self.assertEqual(ocupacao.texto_dos_fios(trecho, "bandeja"), ["C1, C3 · 6 cabos"])
+        self.assertEqual(ocupacao.texto_dos_fios([]), [])
+
+    def test_um_texto_por_conteudo_no_trecho_mais_longo_e_legivel(self):
+        cabos = self.condutores("C1", 2.5, ["fase", "neutro", "terra"])
+        trechos = [
+            {"dono": "E1", "tipo": "eletroduto", "comprimento": 1.0, "condutores": cabos, "de": (0, 0), "ate": (1000, 0)},
+            {"dono": "E1", "tipo": "eletroduto", "comprimento": 3.0, "condutores": cabos,
+             "de": (4000, 0), "ate": (1000, 0)},  # de trás para a frente: o texto fica da esquerda para a direita
+            {"dono": "E2", "tipo": "eletroduto", "comprimento": 2.0, "condutores": [], "de": (0, 0), "ate": (0, 2000)},
+        ]
+        itens = ocupacao.identificacao_dos_trechos(trechos, afastamento=100)
+        self.assertEqual(len(itens), 1)
+        item = itens[0]
+        self.assertEqual((item["x"], item["y"], item["angulo"]), (2500.0, -100.0, 0.0))  # do lado direito
+        self.assertEqual(item["linhas"], ["C1 #2,5 F+N+T"])
+
+    def test_trecho_vertical_le_de_baixo_para_cima(self):
+        trecho = {"dono": "E1", "comprimento": 1.0, "condutores": self.condutores("C1", 2.5, ["fase"]),
+                  "de": (0, 1000), "ate": (0, 0)}
+        self.assertEqual(ocupacao.identificacao_dos_trechos([trecho])[0]["angulo"], 90.0)
+
+    def test_trechos_da_rede_tem_as_pontas(self):
+        r = rede.analisar([caminho("E1", (0, 0), (3000, 0))],
+                          [caixa("QD", 0, 0, 1500, tipo="quadro"), caixa("T1", 3000, 0, circuito="1")], info())
+        self.assertEqual((r["trechos"][0]["de"], r["trechos"][0]["ate"]), ((0, 0), (3000, 0)))
+
+
 if __name__ == "__main__":
     unittest.main()

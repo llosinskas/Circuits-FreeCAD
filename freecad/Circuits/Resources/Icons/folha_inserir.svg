@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64">
+  <!-- Inserir na folha: planta entrando na folha -->
+  <path d="M6 10H58V54H6Z" fill="#ffffff" stroke="#5f6368" stroke-width="3" stroke-linejoin="round"/>
+  <path d="M34 44H58 M34 44V54 M46 44V54" fill="none" stroke="#5f6368" stroke-width="2"/>
+  <path d="M12 16H30V36H12Z M12 26H22V36" fill="none" stroke="#1a73e8" stroke-width="3" stroke-linejoin="round"/>
+  <path d="M38 18L48 28 M48 18V28H38" fill="none" stroke="#e8710a" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>
+</svg>

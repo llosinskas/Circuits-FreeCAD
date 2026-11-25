@@ -285,7 +285,7 @@ def analisar(caminhos, caixas, info_circuito, folga=FOLGA_PONTA_MM, tolerancia=T
     Returns:
         dict com ``fios`` {(seção, função): m}, ``circuitos`` (lista), ``verticais``
         (lista), ``avisos`` (textos), ``trechos`` (cada trecho com dono: ``dono``,
-        ``tipo`` 'eletroduto' ou 'bandeja', ``comprimento`` [m] e ``condutores``
+        ``tipo`` 'eletroduto' ou 'bandeja', ``de`` e ``ate`` (x, y), ``comprimento`` [m] e ``condutores``
         [{'secao', 'funcao', 'circuito'}] que passam nele) e ``rotas`` (por circuito:
         ``quadro``, ``circuito``, ``infraestrutura`` [(nome, tipo)] do quadro aos pontos,
         em ordem, e ``por_ponto`` {nome do ponto: [(nome, tipo)]}).
@@ -449,7 +449,7 @@ def analisar(caminhos, caixas, info_circuito, folga=FOLGA_PONTA_MM, tolerancia=T
 
     trechos = [
         {"dono": dono[0], "tipo": dono[1], "comprimento": round(rede.vizinhos[a][b] / 1000.0, 3),
-         "condutores": por_aresta.get(aresta, [])}
+         "condutores": por_aresta.get(aresta, []), "de": tuple(rede.nos[a]), "ate": tuple(rede.nos[b])}
         for aresta, dono in rede.dono.items() for a, b in [tuple(aresta)]
     ]
     return {"fios": fios, "circuitos": circuitos, "verticais": verticais, "avisos": avisos,
