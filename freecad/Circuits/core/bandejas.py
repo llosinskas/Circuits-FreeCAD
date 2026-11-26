@@ -778,3 +778,56 @@ def blocos_do_suporte(
         for y in (-perfil / 2.0 + 15.0, perfil / 2.0 - 25.0):
             blocos.append((-5.0, y, base - 38.0, 10.0, 10.0, laje - base + 38.0))
     return blocos
+
+
+# --- snap de ligação: onde o eletroduto encosta na eletrocalha ------------------------------------
+
+FOLGA_SNAP_MM = 100.0  # além da meia largura, o cursor ainda "está" na eletrocalha
+
+
+def ponto_na_borda(pontos, largura, cursor):
+    """Ponto da borda da eletrocalha mais perto do cursor, na perpendicular do trecho.
+
+    É onde a ponta do eletroduto vira uma saída horizontal (``core.pecas_eletroduto.saidas``).
+
+    Args:
+        pontos: linha de centro [(x, y)].
+        largura: largura da eletrocalha [mm].
+        cursor: (x, y).
+    Returns:
+        ((x, y) na borda do lado do cursor, distância do cursor à linha de centro), ou None.
+    """
+    melhor = None
+    for a, b in zip(pontos, pontos[1:]):
+        dx, dy = b[0] - a[0], b[1] - a[1]
+        comprimento = math.hypot(dx, dy)
+        if comprimento <= 0:
+            continue
+        ux, uy = dx / comprimento, dy / comprimento
+        t = max(0.0, min(comprimento, (cursor[0] - a[0]) * ux + (cursor[1] - a[1]) * uy))
+        px, py = a[0] + ux * t, a[1] + uy * t
+        distancia = math.hypot(cursor[0] - px, cursor[1] - py)
+        if melhor is None or distancia < melhor[0]:
+            lado = 1.0 if (cursor[0] - px) * -uy + (cursor[1] - py) * ux >= 0 else -1.0
+            meia = float(largura) / 2.0
+            melhor = (distancia, (px - uy * meia * lado, py + ux * meia * lado))
+    return None if melhor is None else (melhor[1], melhor[0])
+
+
+def bandeja_sob_o_cursor(caminhos, cursor, folga=FOLGA_SNAP_MM):
+    """Eletrocalha cuja faixa (meia largura + folga) contém o cursor, a de linha de centro mais perto.
+
+    Args:
+        caminhos: [{'pontos', 'largura', ...}].
+    Returns:
+        (caminho, (x, y) na borda), ou None.
+    """
+    candidatos = []
+    for caminho in caminhos:
+        achado = ponto_na_borda(caminho["pontos"], caminho["largura"], cursor)
+        if achado and achado[1] <= float(caminho["largura"]) / 2.0 + folga:
+            candidatos.append((achado[1], caminho, achado[0]))
+    if not candidatos:
+        return None
+    _, caminho, ponto = min(candidatos, key=lambda c: c[0])
+    return caminho, ponto

@@ -532,3 +532,22 @@ class TestServicoJuncoes(TestServico):
         self.assertEqual(len([o for o in doc.Objects if hasattr(o, "contorno_bandejas_de")]), 1)
         self.servico.desenhar_contorno(doc)
         self.assertEqual(len([o for o in doc.Objects if hasattr(o, "contorno_bandejas_de")]), 1)
+
+
+class TestSnapNaBorda(unittest.TestCase):
+    def test_ponto_na_borda_do_lado_do_cursor(self):
+        from freecad.Circuits.core import bandejas as b
+        pontos = [(0, 0), (4000, 0), (4000, 3000)]
+        self.assertEqual(b.ponto_na_borda(pontos, 200, (1000, 30)), ((1000.0, 100.0), 30.0))
+        self.assertEqual(b.ponto_na_borda(pontos, 200, (1000, -30)), ((1000.0, -100.0), 30.0))
+        (x, y), _ = b.ponto_na_borda(pontos, 200, (3950, 2000))  # no trecho vertical, lado de dentro
+        self.assertEqual((round(x), round(y)), (3900, 2000))
+
+    def test_eletrocalha_sob_o_cursor(self):
+        from freecad.Circuits.core import bandejas as b
+        larga = {"pontos": [(0, 0), (5000, 0)], "largura": 600, "nome": "larga"}
+        estreita = {"pontos": [(0, 1000), (5000, 1000)], "largura": 100, "nome": "estreita"}
+        caminho, ponto = b.bandeja_sob_o_cursor([larga, estreita], (2000, 950))
+        self.assertEqual((caminho["nome"], ponto), ("estreita", (2000.0, 950.0)))
+        self.assertIsNone(b.bandeja_sob_o_cursor([larga, estreita], (2000, 600)))  # entre as duas
+

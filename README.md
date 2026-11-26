@@ -262,7 +262,7 @@ Depois de gravar, gere o Unifilar de novo para atualizar as fases no diagrama.
    Todas entram nos quantitativos, no total e por pavimento. No 3D, o rígido faz a curva com raio de 3 diâmetros.
 3. **Lista de verticais** cria a planilha *Verticais*, com a descida ou subida de cada caixa: altura do eletroduto, altura da caixa, comprimento e diâmetro.
 
-**Snap de ligação:** ao desenhar um eletroduto (ou qualquer linha do Draft), passe o cursor sobre uma tomada, luminária, interruptor, quadro ou caixa de passagem: o ponto prende direto na caixa do símbolo, com o marcador do snap especial, como o conector de um dispositivo no Revit. Para desligar, use a preferência `SnapConexao` em `BaseApp/Preferences/Mod/Circuits`.
+**Snap de ligação:** ao desenhar um eletroduto (ou qualquer linha do Draft), passe o cursor sobre uma tomada, luminária, interruptor, quadro ou caixa de passagem: o ponto prende direto na caixa do símbolo, com o marcador do snap especial, como o conector de um dispositivo no Revit. Sobre uma **eletrocalha ou leito** (a linha de centro ou o contorno em linha dupla), o ponto prende na **borda** dela, do lado do cursor, na perpendicular: ali a ponta do eletroduto vira uma saída de eletrocalha (`SH`, ou `SV` se o eletroduto estiver em outra altura). Para desligar, use a preferência `SnapConexao` em `BaseApp/Preferences/Mod/Circuits`.
 
 Os fios são contados pelo caminho mais curto na rede, do quadro até os pontos de cada circuito:
 

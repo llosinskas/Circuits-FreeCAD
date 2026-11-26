@@ -8,12 +8,19 @@ from unittest import mock
 from tests import ROOT  # noqa: F401  (configura o caminho do pacote)
 
 
+RECARREGAR = ("freecad.Circuits.UI.snap_conexao", "freecad.Circuits.services.bandejas",
+              "freecad.Circuits.services.pavimentos")
+
+
 class Vetor:
     def __init__(self, x=0.0, y=0.0, z=0.0):
         self.x, self.y, self.z = x, y, z
 
     def __eq__(self, outro):
-        return (self.x, self.y, self.z) == (outro.x, outro.y, outro.z)
+        return isinstance(outro, Vetor) and (self.x, self.y, self.z) == (outro.x, outro.y, outro.z)
+
+    def __repr__(self):
+        return f"Vetor({self.x}, {self.y}, {self.z})"
 
 
 class Colocacao:
@@ -54,21 +61,30 @@ class TestSnapConexao(unittest.TestCase):
         self.app = mock.MagicMock(name="FreeCAD")
         self.app.Vector = Vetor
         self.app.ParamGet.return_value.GetBool.return_value = True
-        self.patch = mock.patch.dict(sys.modules, {"FreeCAD": self.app, "FreeCADGui": mock.MagicMock()})
+        self.patch = mock.patch.dict(sys.modules, {"FreeCAD": self.app, "FreeCADGui": mock.MagicMock(),
+                                                   "Draft": mock.MagicMock(), "Part": mock.MagicMock()})
         self.patch.start()
-        sys.modules.pop("freecad.Circuits.UI.snap_conexao", None)
+        for nome in RECARREGAR:
+            sys.modules.pop(nome, None)
         self.m = importlib.import_module("freecad.Circuits.UI.snap_conexao")
         self.tomada = types.SimpleNamespace(Name="T1", Proxy=types.SimpleNamespace(Type="Ponto"),
                                             SnapPoints=[Vetor()], Placement=Colocacao(1000, 2000))
         self.linha = types.SimpleNamespace(Name="Wire", Proxy=types.SimpleNamespace(Type="Wire"),
                                            Placement=Colocacao(0, 0))
         objetos = {"T1": self.tomada, "Wire": self.linha}
+        self.calha = types.SimpleNamespace(Name="Calha", Proxy=types.SimpleNamespace(Type="Wire"),
+                                           TipoBandeja="eletrocalha_perfurada", Points=[Vetor(0, 5000), Vetor(8000, 5000)],
+                                           Placement=Colocacao(0, 0), Largura=300.0, Aba=50.0, AlturaBandeja=2800.0)
+        self.contorno = types.SimpleNamespace(Name="Contorno", contorno_bandejas_de="Térreo",
+                                              Document=types.SimpleNamespace(Objects=[self.calha]))
+        objetos.update(Calha=self.calha, Contorno=self.contorno)
         self.app.ActiveDocument.getObject.side_effect = objetos.get
         self.snapper = Snapper(None)
         self.assertTrue(self.m.instalar(self.snapper))
 
     def tearDown(self):
-        sys.modules.pop("freecad.Circuits.UI.snap_conexao", None)
+        for nome in RECARREGAR:
+            sys.modules.pop(nome, None)
         self.patch.stop()
 
     def cursor_sobre(self, nome, x, y):
@@ -91,6 +107,19 @@ class TestSnapConexao(unittest.TestCase):
     def test_preferencia_desliga(self):
         self.app.ParamGet.return_value.GetBool.return_value = False
         self.cursor_sobre("T1", 1120, 2080)
+        self.assertEqual(self.snapper.snapToObject(None, True, False, None, None), "ponto do Draft")
+
+    def test_sobre_a_eletrocalha_prende_na_borda_do_lado_do_cursor(self):
+        self.cursor_sobre("Calha", 3000, 5040)
+        self.assertEqual(self.snapper.snapToObject(None, True, False, None, None), Vetor(3000, 5150, 0))
+        self.cursor_sobre("Calha", 3000, 4900)
+        self.assertEqual(self.snapper.snapToObject(None, True, False, None, None), Vetor(3000, 4850, 0))
+        self.assertEqual(self.snapper.cursor, "special")
+
+    def test_contorno_em_linha_dupla_acha_a_eletrocalha(self):
+        self.cursor_sobre("Contorno", 6000, 5148)
+        self.assertEqual(self.snapper.snapToObject(None, True, False, None, None), Vetor(6000, 5150, 0))
+        self.cursor_sobre("Contorno", 6000, 9000)  # longe de todas: segue o Draft
         self.assertEqual(self.snapper.snapToObject(None, True, False, None, None), "ponto do Draft")
 
     def test_tomada_antiga_em_sketch_e_instalar_uma_vez(self):
