@@ -175,21 +175,9 @@ def desenhar_barramentos(h, grupo, dados, circuitos):
         add_texto(f"Barra {nome}", App.Vector(23.4 * h, y_barra - 0.2 * h, 0), 0, 0.5 * h, grupo)
 
 
-def desenhar_circuito(doc, circuito, posicao, h, grupo):
-    """Ramificação de um circuito: disjuntor com arco, DR, condutores, seta e textos.
-
-    A geometria vem de ``core.unifilar.geometria`` e fica num Sketch; os textos,
-    de ``core.unifilar.textos``.
-
-    Args:
-        circuito: dicionário de ``planilhas.ler_circuitos_completos``.
-        posicao: ponto do barramento onde o circuito começa.
-    """
-    fases, neutro, terra = desenho.condutores_do_circuito(circuito)
-    textos = desenho.textos(circuito)
-    forma = desenho.geometria(h, dr=bool(textos.get("dr")), fases=fases, neutro=neutro, terra=terra)
-
-    sketch = doc.addObject("Sketcher::SketchObject", "Circuito")
+def _sketch_da_forma(doc, forma, posicao, grupo, nome="Circuito"):
+    """Sketch com as linhas, arcos e círculos de uma forma de ``core.unifilar``, em ``posicao``."""
+    sketch = doc.addObject("Sketcher::SketchObject", nome)
     pintar_sketch(sketch)
     sketch.Placement = App.Placement(posicao, App.Rotation(0, 0, 0))
     eixo = App.Vector(0, 0, 1)
@@ -201,6 +189,24 @@ def desenhar_circuito(doc, circuito, posicao, h, grupo):
     for cx, cy, raio in forma["circulos"]:
         sketch.addGeometry(Part.Circle(App.Vector(cx, cy, 0), eixo, raio), False)
     grupo.addObject(sketch)
+    return sketch
+
+
+def desenhar_circuito(doc, circuito, posicao, h, grupo):
+    """Ramificação de um circuito: disjuntor com arco, DR, condutores, seta e textos.
+
+    A geometria vem de ``core.unifilar.geometria`` e fica num Sketch; os textos,
+    de ``core.unifilar.textos``. Circuito de um grupo de DR (``Grupo_DR``) não tem
+    DR próprio: o do grupo é desenhado por ``desenhar_grupo_dr``.
+
+    Args:
+        circuito: dicionário de ``planilhas.ler_circuitos_completos``.
+        posicao: ponto do barramento onde o circuito começa.
+    """
+    fases, neutro, terra = desenho.condutores_do_circuito(circuito)
+    textos = desenho.textos(circuito)
+    forma = desenho.geometria(h, dr=bool(textos.get("dr")), fases=fases, neutro=neutro, terra=terra)
+    _sketch_da_forma(doc, forma, posicao, grupo)
 
     altura = desenho.ALTURA_TEXTO * h
     for chave, texto in textos.items():
@@ -209,23 +215,50 @@ def desenhar_circuito(doc, circuito, posicao, h, grupo):
         add_texto(texto, posicao + App.Vector(x, y, 0), 0, tamanho, grupo)
 
 
+def desenhar_grupo_dr(doc, nome, membros, posicao, h, grupo):
+    """DR de um grupo: ramo do barramento até o DR e o sub-barramento, e os circuitos do grupo.
+
+    Returns:
+        Quantidade de circuitos desenhados (os do grupo, um embaixo do outro).
+    """
+    passo = ESPACAMENTO_CIRCUITOS * h
+    forma = desenho.geometria_grupo_dr(h, passo, len(membros))
+    sketch = _sketch_da_forma(doc, forma, posicao, grupo, nome="DR_grupo")
+    sketch.addProperty("App::PropertyString", "grupo_dr", "Diagrama", "Grupo do DR (coluna Grupo_DR)")
+    sketch.grupo_dr = nome
+    altura = desenho.ALTURA_TEXTO * h
+    for chave, texto in desenho.textos_grupo_dr(nome, membros).items():
+        x, y = forma["textos"][chave]
+        add_texto(texto, posicao + App.Vector(x, y, 0), 0, altura * (1.25 if chave == "nome" else 1.0), grupo)
+    for indice, circuito in enumerate(membros):
+        inicio = posicao + App.Vector(forma["inicio_circuitos"], -indice * passo, 0)
+        desenhar_circuito(doc, circuito, inicio, h, grupo)
+    return len(membros)
+
+
 def _desenhar_circuitos(doc, h, grupo, quadro):
     """Lê os circuitos da planilha de circuitos do quadro e os desenha descendo pelo barramento.
 
-    O que estiver em branco na planilha (corrente, cabo, disjuntor) é calculado.
+    O que estiver em branco na planilha (corrente, cabo, disjuntor) é calculado. Os
+    circuitos com o mesmo ``Grupo_DR`` saem juntos de um DR só (``desenhar_grupo_dr``),
+    na posição do primeiro deles.
 
     Returns:
         Quantidade de circuitos desenhados.
     """
     desenhados = 0
     espacamento = ESPACAMENTO_CIRCUITOS * h
-    for circuito in planilhas.ler_circuitos_completos(quadro):
+    ligado = None  # último ponto do barramento com um circuito ou um grupo
+    for bloco in desenho.blocos(planilhas.ler_circuitos_completos(quadro)):
         posicao = App.Vector(18 * h, 5 / 2 * h - desenhados * espacamento, 0)
-        if desenhados > 0:
-            anterior = App.Vector(18 * h, 5 / 2 * h - (desenhados - 1) * espacamento, 0)
-            grupo.addObject(Draft.make_line(anterior, posicao))
-        desenhar_circuito(doc, circuito, posicao, h, grupo)
-        desenhados += 1
+        if ligado is not None:
+            grupo.addObject(Draft.make_line(ligado, posicao))
+        ligado = posicao
+        if bloco[0] == "grupo":
+            desenhados += desenhar_grupo_dr(doc, bloco[1], bloco[2], posicao, h, grupo)
+        else:
+            desenhar_circuito(doc, bloco[1], posicao, h, grupo)
+            desenhados += 1
     return desenhados
 
 

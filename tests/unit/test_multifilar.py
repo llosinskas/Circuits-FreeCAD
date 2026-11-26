@@ -57,6 +57,13 @@ class TestMultifilar(unittest.TestCase):
         self.assertIn("DR", textos(forma))
         self.assertIn("30mA", textos(forma))
 
+    def test_circuito_de_grupo_mostra_o_dr_do_grupo(self):
+        forma = m.geometria(QUADRO, [dict(circuito("1", "R"), Grupo_DR="DR1"), dict(circuito("2", "S"), Grupo_DR="DR1")],
+                            H)
+        self.assertEqual(textos(forma).count("DR1"), 2)  # o mesmo DR passa pelos dois
+        self.assertEqual(textos(forma).count("30mA"), 2)
+        self.assertNotIn("DR", textos(forma))
+
     def test_cada_circuito_termina_num_retangulo_com_numero_e_descricao(self):
         forma = m.geometria(QUADRO, [circuito("1", "R"), circuito("2", "RST", descricao="Motor da bomba de recalque")],
                             H)

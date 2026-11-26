@@ -127,6 +127,22 @@ class TestComponentes(unittest.TestCase):
         self.assertEqual(self.itens[0]["item"], "Quadro de distribuição")
         self.assertEqual(self.itens[0]["especificacao"], "28 módulos DIN (25 ocupados + 2 de reserva), PVC")
 
+    def test_dr_por_grupo(self):
+        grupo = [dict(circuito(1, 16, dr=True), Grupo_DR="DR1", Corrente="12"),
+                 dict(circuito(2, 20), Grupo_DR="DR1", Corrente="15"),
+                 dict(circuito(3, 10, dr=True), Corrente="5")]
+        mapa = por_item(quadro.componentes(QUADRO, grupo))
+        drs = {esp: n for (item, esp), n in mapa.items() if item == "Interruptor DR"}
+        # o grupo: 12 + 15 = 27 A na fase R -> 40 A; o circuito 3 tem o dele (25 A)
+        self.assertEqual(drs, {"2P 40 A, 30mA": 1, "2P 25 A, 30mA": 1})
+
+    def test_dr_do_grupo(self):
+        membros = [dict(circuito(1, 32, "RST"), Corrente="20"), dict(circuito(2, 16, "R"), Corrente="10")]
+        dr = quadro.dr_do_grupo(membros)
+        self.assertEqual((dr["polos"], dr["corrente"]), (4, 40))  # R: 30 A, mas o disjuntor de 32 A manda
+        self.assertEqual(quadro.dr_do_grupo([dict(circuito(1, 10), Corrente_DR="300")])["sensibilidade"], "300mA")
+        self.assertEqual(quadro.sensibilidade_texto(""), "30mA")
+
     def test_quadro_sem_dps_nem_neutro(self):
         dados = dict(QUADRO, DPS="False", neutro="False", numero_fases="1", corrente_nominal_disjuntor="40")
         mapa = por_item(quadro.componentes(dados, [circuito(1, 16, neutro=False)]))

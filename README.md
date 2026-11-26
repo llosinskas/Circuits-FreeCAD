@@ -44,6 +44,8 @@ O relatório e o quantitativo em PDF usam a biblioteca `reportlab`. Pelo **Addon
 
 ## Um projeto do começo ao fim
 
+O [Guia de uso](docs/Guia_de_uso.md) mostra este caminho passo a passo, com o que preencher em cada etapa.
+
 1. **Projeto > Novo projeto** cria a estrutura do documento, a planilha *Parâmetros do projeto* e o pavimento *Térreo* (ou ativa o primeiro nível do BIM, se o projeto já tiver níveis). Confira os parâmetros em **Projeto > Parâmetros**: tensões, esquema de aterramento, isolação, temperatura e limites de queda.
 2. **Projeto > Pavimento** ou **Nível do BIM** escolhe ou cria o pavimento em que você vai desenhar.
 3. **Tomadas, Energia, Iluminação e Interruptores**: insira os pontos na planta. Cada símbolo vai sozinho para a pasta do tipo dele no pavimento ativo.
@@ -187,6 +189,7 @@ Cada quadro tem uma planilha de dados (tensão, fases, disjuntor geral, DPS) e u
 | Fases (R, S, T) | `R`, `RS` ou `RST` |
 | Corrente, Cabo, Disjuntor, Curva | Podem ficar em branco |
 | DR, Sensibilidade, Neutro, Terra | `S` ou `N` |
+| Grupo do DR (coluna Q) | Mesmo nome = um DR só para esses circuitos (veja abaixo) |
 | Comprimento [m], Queda de tensão [%], Critério determinante | Preenchidos pelo Montar circuitos |
 
 **Montar circuitos** preenche essa planilha a partir da planta, mas ela também pode ser preenchida à mão. O Unifilar e os Componentes calculam o que ficar em branco e respeitam o que foi digitado.
@@ -239,10 +242,11 @@ Depois de gravar, gere o Unifilar de novo para atualizar as fases no diagrama.
 ### Unifilar e componentes
 
 - **Unifilar:** um diagrama por quadro, com medidor (quando a origem do quadro é uma medição), disjuntor geral, DPS, barramentos de fases, neutro e terra, e, em cada circuito, o disjuntor com os terminais e o arco, a proteção (`C16A`) e as fases, o DR com a sensibilidade, os traços de terra, neutro e fases, a seção (`#2,5 mm²`), a potência, o número e a descrição.
+- **DR por grupo:** os circuitos com o mesmo nome na coluna **Grupo do DR** (Q) da planilha de circuitos saem juntos, na posição do primeiro deles, de um ramo do barramento com o DR do grupo e um sub-barramento; cada um tem o seu disjuntor e nenhum DR próprio. Embaixo do DR ficam o nome do grupo e a especificação (`4P 25 A, 30mA`): bipolar se todos estão na mesma fase, tetrapolar se não; a corrente comercial acima da soma das correntes na fase mais carregada e do maior disjuntor do grupo. Com a coluna Q vazia, o circuito com DR continua com o DR dele. No multifilar, o DR de cada circuito do grupo leva o nome do grupo; nos Componentes, o grupo conta um DR só. O passo a passo está no [Guia de uso](docs/Guia_de_uso.md#7-dr-por-grupo-de-circuitos).
 - **Multifilar:** o botão **Multifilar**, no grupo **Diagramas ▾** junto com o Unifilar, desenha um diagrama por quadro, na vertical, com cada condutor separado: os barramentos R, S, T (conforme o número de fases do quadro), N e PE descem lado a lado, e cada circuito sai deles para a direita, um embaixo do outro, com um condutor por fase, o neutro e o terra. Cada fase tem um polo do disjuntor (os polos de um mesmo disjuntor ligados por tracejado), o DR abraça as fases e o neutro, e o terra segue direto. Cada circuito termina num retângulo com o número e a descrição; em cima dos condutores ficam a proteção, a sensibilidade do DR, a seção e a potência. A entrada vem por cima, pelo disjuntor geral. Os multifilares ficam à direita dos unifilares e, se você os mover, voltam no mesmo lugar ao gerar de novo.
 - **Gerador e transferência:** se o projeto tiver o gerador calculado (planilha *Cargas do gerador* com o resultado gravado), o Unifilar também desenha, à esquerda dos quadros, a entrada com gerador: rede e gerador, cada um com disjuntor, os contatores K1 e K2 intertravados do QTA, a saída para as cargas do gerador e os dados do gerador e dos cabos. O botão Gerador diesel redesenha esse diagrama ao gravar o resultado. Se você mover o diagrama, ele é recriado no mesmo lugar.
 - **Ligação ao quadro geral:** a saída do QTA vai até a entrada do diagrama do quadro geral, na mesma altura, com o texto "Alimenta QGBT". O quadro geral é o que tem a origem começando com **QTA** (ou igual à sigla do símbolo de QTA da planta) na planilha do quadro; sem isso, o único quadro que está entre as cargas do gerador. Gere o Unifilar para refazer a ligação depois de mudar os quadros.
-- **Componentes:** disjuntor geral, DPS, disjuntores e DR dos circuitos, barramentos com o número de terminais e o tamanho da caixa em módulos DIN, com a reserva de circuitos da NBR 5410. A lista fica numa planilha `Componentes <quadro>`.
+- **Componentes:** disjuntor geral, DPS, disjuntores e DR dos circuitos (um por grupo de DR), barramentos com o número de terminais e o tamanho da caixa em módulos DIN, com a reserva de circuitos da NBR 5410. A lista fica numa planilha `Componentes <quadro>`.
 
 ## Eletrodutos, fios e verticais
 

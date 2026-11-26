@@ -94,7 +94,7 @@ Corrigir isso agora é mais barato que descobrir no meio de um projeto.
 
 ## Etapa 1: unifilar como folha de projeto (em parte pronta)
 
-**Feito:** `core/quadro_cargas.py` (carga por fase, desequilíbrio, sugestão de fases sem gravar, reservas da NBR 5410, DR por grupo pela coluna `Grupo do DR` da planilha de circuitos) e o botão **Quadro de cargas** (planilha por quadro, que vai para a folha com Inserir na folha). **Falta:** desenhar no unifilar o DR por grupo (sub-barramento) e o IDR geral.
+**Feito:** `core/quadro_cargas.py` (carga por fase, desequilíbrio, sugestão de fases sem gravar, reservas da NBR 5410, DR por grupo pela coluna `Grupo do DR` da planilha de circuitos) e o botão **Quadro de cargas** (planilha por quadro, que vai para a folha com Inserir na folha). O unifilar desenha o DR por grupo: ramo do barramento, DR do grupo e sub-barramento com os circuitos (`core.unifilar.blocos`, `geometria_grupo_dr`), e os componentes contam um DR por grupo. **Falta:** o IDR geral na entrada.
 
 O desenho de cada circuito já tem disjuntor com terminais e arco, DR, traços dos
 condutores, seção, potência, fases e descrição (`core/unifilar.py`). Falta:

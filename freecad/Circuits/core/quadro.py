@@ -10,6 +10,10 @@ Regras usadas (confira com o fabricante e com o projeto):
   reserva; de 7 a 12, 3; de 13 a 30, 4; acima de 30, 15 %;
 - DR bipolar para circuitos com uma ou duas fases e tetrapolar para trifásicos,
   com corrente nominal igual ou acima da do disjuntor do circuito;
+- DR por grupo (coluna ``Grupo_DR``): os circuitos com o mesmo nome ficam sob um DR
+  só, bipolar se todos estão na mesma fase e tetrapolar se não, com corrente nominal
+  igual ou acima da soma das correntes dos circuitos na fase mais carregada e da do
+  maior disjuntor do grupo (``dr_do_grupo``);
 - DPS: um por fase, mais um para o neutro quando o quadro tem neutro;
 - barramento de fases com corrente nominal igual ou acima da do disjuntor geral.
 
@@ -77,6 +81,44 @@ def fases_do_circuito(circuito):
     """Número de fases marcadas no circuito (colunas Fase R, S e T). No mínimo 1."""
     marcadas = sum(verdadeiro(circuito.get(chave, "")) for chave in ("Fase_R", "Fase_S", "Fase_T"))
     return max(1, marcadas)
+
+
+def sensibilidade_texto(valor):
+    """'30' ou '30mA' -> '30mA'; vazio -> ``SENSIBILIDADE_DR``."""
+    texto = str(valor or "").strip().replace(" ", "")
+    if not texto:
+        return SENSIBILIDADE_DR
+    return texto if texto.lower().endswith("ma") else f"{texto}mA"
+
+
+def grupo_dr(circuito):
+    """Nome do grupo do DR do circuito (coluna ``Grupo_DR``); '' se não tem grupo."""
+    return str(circuito.get("Grupo_DR", "")).strip()
+
+
+def dr_do_grupo(membros):
+    """DR que protege os circuitos de um grupo.
+
+    Args:
+        membros: circuitos do grupo (chaves de ``core.planilha.COLUNAS_CIRCUITO``).
+    Returns:
+        {'polos': 2 ou 4, 'corrente': A comercial, 'sensibilidade': '30mA',
+        'especificacao': '2P 40 A, 30mA'}.
+    """
+    por_fase = {"R": 0.0, "S": 0.0, "T": 0.0}
+    maior_disjuntor = 0.0
+    for c in membros:
+        fases = [f for f in "RST" if verdadeiro(c.get(f"Fase_{f}", ""))] or ["R"]
+        for f in fases:
+            por_fase[f] += numero(c.get("Corrente"))
+        maior_disjuntor = max(maior_disjuntor, numero(c.get("Disjuntor")))
+    usadas = sum(1 for f in "RST" if any(verdadeiro(c.get(f"Fase_{f}", "")) for c in membros))
+    polos = 4 if usadas > 1 else 2
+    corrente = dr_comercial(max(max(por_fase.values()), maior_disjuntor, CORRENTES_DR[0]))
+    sensibilidade = sensibilidade_texto(next((c.get("Corrente_DR") for c in membros
+                                              if str(c.get("Corrente_DR", "")).strip()), ""))
+    return {"polos": polos, "corrente": corrente, "sensibilidade": sensibilidade,
+            "especificacao": f"{polos}P {corrente} A, {sensibilidade}"}
 
 
 def completar(circuito, parametros=None):
@@ -180,18 +222,24 @@ def componentes(quadro, circuitos):
         modulos += quantidade
 
     # DR e disjuntores dos circuitos
-    drs, disjuntores = [], []
+    drs, disjuntores, grupos = [], [], {}
     for circuito in circuitos:
+        if grupo_dr(circuito):
+            grupos.setdefault(grupo_dr(circuito), []).append(circuito)
         polos = fases_do_circuito(circuito)
         corrente = numero(circuito.get("Disjuntor"))
         if corrente > 0:
             disjuntores.append(f"{polos}P {_formatar(corrente)} A curva {str(circuito.get('Curva', '')).strip()}")
             modulos += polos
-        if verdadeiro(circuito.get("DR", "")):
+        if verdadeiro(circuito.get("DR", "")) and not grupo_dr(circuito):
             polos_dr = 4 if polos == 3 else 2
-            sensibilidade = str(circuito.get("Corrente_DR", "")).strip() or SENSIBILIDADE_DR
+            sensibilidade = sensibilidade_texto(circuito.get("Corrente_DR", ""))
             drs.append(f"{polos_dr}P {dr_comercial(max(corrente, CORRENTES_DR[0]))} A, {sensibilidade}")
             modulos += polos_dr
+    for membros in grupos.values():
+        dr = dr_do_grupo(membros)
+        drs.append(dr["especificacao"])
+        modulos += dr["polos"]
     itens += _agrupar("Interruptor DR", drs)
     itens += _agrupar("Disjuntor de circuito", disjuntores)
 

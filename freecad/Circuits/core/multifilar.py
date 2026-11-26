@@ -21,6 +21,7 @@ Usa as mesmas regras de leitura do unifilar (``core.unifilar``): fases pelas
 colunas ``Fase_R``, ``Fase_S``, ``Fase_T``; neutro e terra pelas colunas ``Neutro``
 e ``Terra``. Todas as medidas são múltiplos de ``h`` (a altura do texto).
 """
+from freecad.Circuits.core import quadro as regras_quadro
 from freecad.Circuits.core import unifilar
 
 FASES = "RST"
@@ -139,6 +140,9 @@ def geometria(dados, circuitos, h):
         posicoes = {nome: y - i * PASSO_CONDUTOR * h for i, nome in enumerate(lista)}
         fases = [c for c in lista if c in FASES]
         rotulos = unifilar.textos(circuito)
+        grupo_dr = regras_quadro.grupo_dr(circuito)
+        if grupo_dr:  # o DR do grupo passa por todos os circuitos dele: aparece em cada um, com o nome do grupo
+            rotulos.update(dr=grupo_dr, sensibilidade=regras_quadro.sensibilidade_texto(circuito.get("Corrente_DR")))
         tem_dr = bool(rotulos.get("dr"))
         com_dr = fases + (["N"] if "N" in lista else [])
         for nome, yc in posicoes.items():
@@ -161,7 +165,7 @@ def geometria(dados, circuitos, h):
             ys = [posicoes[c] for c in com_dr]
             linhas += _retangulo(x_dr - LARGURA_DR * h / 2, max(ys) + 0.3 * h, x_dr + LARGURA_DR * h / 2,
                                  min(ys) - 0.3 * h)
-            textos.append((x_dr - 0.3 * h, (max(ys) + min(ys)) / 2 - 0.15 * h, "DR", texto * 0.7, 0.0))
+            textos.append((x_dr - 0.3 * h, (max(ys) + min(ys)) / 2 - 0.15 * h, rotulos["dr"], texto * 0.7, 0.0))
 
         # Textos em cima dos condutores
         y_texto = y + 0.55 * h

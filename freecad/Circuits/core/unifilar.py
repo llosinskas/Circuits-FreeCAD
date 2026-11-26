@@ -14,8 +14,17 @@ Cada circuito sai do barramento (x = 0) para a direita, numa linha horizontal:
   (``#2,5``); embaixo, a potência.
 - **Seta** na ponta e, depois dela, o número e a descrição do circuito.
 
+**DR por grupo** (coluna ``Grupo_DR``): os circuitos do grupo são desenhados juntos,
+na posição do primeiro deles; um ramo sai do barramento, passa pelo DR do grupo e
+chega a um sub-barramento vertical, de onde sai cada circuito, sem DR próprio:
+
+    ──[DR]──┬──●⌒●──┼┤││──►  C1
+     DR1    └──●⌒●──┼┤││──►  C2
+
 Todas as medidas são múltiplos de ``h`` (a altura do texto do diagrama).
 """
+from freecad.Circuits.core import quadro as regras_quadro
+
 # Posições ao longo da linha, em alturas de texto.
 X_DISJUNTOR = 1.0  # primeiro terminal
 LARGURA_DISJUNTOR = 1.0
@@ -136,19 +145,79 @@ def textos(circuito):
     curva = str(circuito.get("Curva", "")).strip()
     corrente = str(circuito.get("Corrente", "")).strip()
     protecao = f"{curva}{disjuntor}A" if disjuntor else (f"{corrente}A" if corrente else "")
-    dr = _sim(circuito.get("DR", ""))
-    sensibilidade = str(circuito.get("Corrente_DR", "")).strip() or "30"
+    dr = _sim(circuito.get("DR", "")) and not regras_quadro.grupo_dr(circuito)
+    sensibilidade = regras_quadro.sensibilidade_texto(circuito.get("Corrente_DR", ""))
     resultado = {
         "protecao": protecao,
         "fases": fases_do_circuito(circuito),
         "dr": "DR" if dr else "",
-        "sensibilidade": f"{sensibilidade}mA" if dr else "",
+        "sensibilidade": sensibilidade if dr else "",
         "secao": secao_texto(circuito.get("Cabo", "")),
         "potencia": potencia_texto(circuito.get("Potencia", "")),
         "numero": f"C{str(circuito.get('N_circuito', '')).strip()}",
         "descricao": str(circuito.get("Destino", "")).strip(),
     }
     return {chave: texto for chave, texto in resultado.items() if texto and texto != "C"}
+
+
+X_DR_GRUPO = 1.0  # início do DR do grupo
+X_SUB_BARRAMENTO = 3.8  # sub-barramento do grupo, de onde saem os circuitos
+
+
+def blocos(circuitos):
+    """Ordem do desenho: circuitos soltos e grupos de DR.
+
+    O grupo fica na posição do primeiro circuito dele, com todos os circuitos do
+    grupo em seguida, na ordem da planilha.
+
+    Returns:
+        [('circuito', circuito) ou ('grupo', nome, [circuitos])].
+    """
+    grupos, resultado = {}, []
+    for c in circuitos:
+        nome = regras_quadro.grupo_dr(c)
+        if not nome:
+            resultado.append(("circuito", c))
+        elif nome in grupos:
+            grupos[nome].append(c)
+        else:
+            grupos[nome] = [c]
+            resultado.append(("grupo", nome, grupos[nome]))
+    return resultado
+
+
+def geometria_grupo_dr(h, passo, quantidade):
+    """Ramo do DR do grupo, na origem do barramento (y = 0 é o primeiro circuito).
+
+    Args:
+        h: altura do texto [mm].
+        passo: distância vertical entre os circuitos [mm].
+        quantidade: circuitos do grupo.
+    Returns:
+        Como ``geometria``, mais ``inicio_circuitos``: x [mm] onde começam os
+        circuitos do grupo (no sub-barramento), cada um em y = −i·passo.
+    """
+    e, d = X_DR_GRUPO * h, (X_DR_GRUPO + LARGURA_DR) * h
+    meia = ALTURA_DR * h / 2
+    sub = X_SUB_BARRAMENTO * h
+    linhas = [(0.0, 0.0, e, 0.0),
+              (e, -meia, d, -meia), (e, meia, d, meia), (e, -meia, e, meia), (d, -meia, d, meia),
+              (d, 0.0, sub, 0.0)]
+    if quantidade > 1:
+        linhas.append((sub, 0.0, sub, -(quantidade - 1) * passo))
+    textos = {
+        "dr": ((X_DR_GRUPO + 0.3) * h, -0.2 * h),
+        "nome": (e, -meia - 0.75 * h),
+        "especificacao": (e - 0.7 * h, -meia - 1.4 * h),  # embaixo do nome: em cima fica o texto do DPS
+    }
+    circulos = [(sub, -i * passo, RAIO_TERMINAL * h) for i in range(quantidade)] if quantidade > 1 else []
+    return {"linhas": linhas, "arcos": [], "circulos": circulos, "textos": textos, "inicio_circuitos": sub}
+
+
+def textos_grupo_dr(nome, membros):
+    """Textos do DR do grupo: 'DR', a especificação ('2P 40 A, 30mA') e o nome do grupo."""
+    dr = regras_quadro.dr_do_grupo(membros)
+    return {"dr": "DR", "especificacao": dr["especificacao"], "nome": nome}
 
 
 def condutores_do_circuito(circuito):

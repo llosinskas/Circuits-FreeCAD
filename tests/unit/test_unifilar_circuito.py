@@ -65,6 +65,49 @@ class TestTextos(unittest.TestCase):
         self.assertEqual(u.condutores_do_circuito(dict(TOMADA, Neutro="")), (1, True, True))
 
 
+def _grupo(numero, fase, corrente, disjuntor, grupo="DR1", **extra):
+    c = dict(TOMADA, N_circuito=str(numero), Fase_R=str(fase == "R"), Fase_S=str(fase == "S"),
+             Fase_T=str(fase == "T"), Corrente=str(corrente), Disjuntor=str(disjuntor), Grupo_DR=grupo)
+    c.update(extra)
+    return c
+
+
+class TestGrupoDR(unittest.TestCase):
+    def test_grupo_fica_na_posicao_do_primeiro(self):
+        c1, c2, c3, c4 = (_grupo(1, "R", 10, 16), _grupo(2, "R", 5, 10, grupo=""), _grupo(3, "S", 8, 16),
+                          _grupo(4, "T", 4, 10, grupo="DR2"))
+        blocos = u.blocos([c1, c2, c3, c4])
+        self.assertEqual([b[0] for b in blocos], ["grupo", "circuito", "grupo"])
+        self.assertEqual((blocos[0][1], [c["N_circuito"] for c in blocos[0][2]]), ("DR1", ["1", "3"]))
+        self.assertEqual(blocos[1][1]["N_circuito"], "2")
+        self.assertEqual(blocos[2][1], "DR2")
+
+    def test_circuito_do_grupo_nao_tem_dr_proprio(self):
+        textos = u.textos(_grupo(1, "R", 10, 16))
+        self.assertNotIn("dr", textos)
+        self.assertNotIn("sensibilidade", textos)
+        self.assertEqual(u.textos(TOMADA)["sensibilidade"], "30mA")
+        self.assertEqual(u.textos(dict(TOMADA, Corrente_DR="30mA"))["sensibilidade"], "30mA")  # sem "mAmA"
+
+    def test_geometria_do_ramo_e_do_sub_barramento(self):
+        g = u.geometria_grupo_dr(100, 500, 3)
+        sub = u.X_SUB_BARRAMENTO * 100
+        self.assertEqual(g["inicio_circuitos"], sub)
+        self.assertIn((sub, 0.0, sub, -1000), g["linhas"])  # do primeiro ao terceiro circuito
+        self.assertEqual(len(g["circulos"]), 3)  # um ponto de ligação por circuito
+        self.assertEqual(g["linhas"][0], (0.0, 0.0, u.X_DR_GRUPO * 100, 0.0))
+        um = u.geometria_grupo_dr(100, 500, 1)
+        self.assertFalse(any(l[0] == l[2] == sub for l in um["linhas"]))  # sem sub-barramento com um só
+        self.assertEqual(um["circulos"], [])
+
+    def test_textos_do_dr_do_grupo(self):
+        membros = [_grupo(1, "R", 18, 20), _grupo(3, "R", 12, 16)]
+        self.assertEqual(u.textos_grupo_dr("DR1", membros), {"dr": "DR", "especificacao": "2P 40 A, 30mA",
+                                                            "nome": "DR1"})
+        tres_fases = membros + [_grupo(5, "S", 5, 10), _grupo(7, "T", 5, 10)]
+        self.assertTrue(u.textos_grupo_dr("DR1", tres_fases)["especificacao"].startswith("4P 40 A"))
+
+
 class TestServico(unittest.TestCase):
     MODULOS = ("FreeCAD", "FreeCADGui", "Part", "Draft", "Spreadsheet", "Sketcher")
     RECARREGAR = ("freecad.Circuits.services.unifilar", "freecad.Circuits.services.cabos",
@@ -97,6 +140,32 @@ class TestServico(unittest.TestCase):
         self.assertEqual(part.ArcOfCircle.call_count, 1)
         grupo.addObject.assert_called_once_with(sketch)
         self.assertEqual(sorted(c.args[0] for c in texto.call_args_list), sorted(u.textos(TOMADA).values()))
+
+    def test_grupo_de_dr_no_diagrama(self):
+        doc, criados = self._doc()
+        app = sys.modules["FreeCAD"]
+
+        class V(tuple):
+            def __new__(cls, x=0, y=0, z=0):
+                return tuple.__new__(cls, (x, y, z))
+
+            def __add__(self, o):
+                return V(*(a + b for a, b in zip(self, o)))
+        app.Vector.side_effect = V
+        grupo = mock.MagicMock()
+        circuitos = [_grupo(1, "R", 10, 16), _grupo(2, "R", 5, 10, grupo=""), _grupo(3, "S", 8, 16)]
+        with mock.patch.object(self.servico.planilhas, "ler_circuitos_completos", return_value=circuitos), \
+                mock.patch.object(self.servico, "desenhar_circuito") as circuito, \
+                mock.patch.object(self.servico, "add_texto") as texto:
+            self.assertEqual(self.servico._desenhar_circuitos(doc, 10, grupo, mock.MagicMock()), 3)
+        inicios = [(c.args[1]["N_circuito"], c.args[2]) for c in circuito.call_args_list]
+        sub = 180 + u.X_SUB_BARRAMENTO * 10
+        self.assertEqual(inicios, [("1", V(sub, 25, 0)), ("3", V(sub, -25, 0)), ("2", V(180, -75, 0))])
+        self.assertEqual(criados[0].grupo_dr, "DR1")
+        self.assertIn("4P 25 A, 30mA", [c.args[0] for c in texto.call_args_list])  # R e S: tetrapolar
+        # o barramento liga o grupo (y = 25) direto ao circuito 2 (y = −75)
+        linha = sys.modules["Draft"].make_line
+        self.assertEqual([c.args for c in linha.call_args_list], [(V(180, 25, 0), V(180, -75, 0))])
 
     def _doc(self, *objetos):
         doc = mock.MagicMock()

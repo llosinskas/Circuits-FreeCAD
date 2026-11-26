@@ -1,0 +1,240 @@
+# Guia de uso da bancada Circuits
+
+Este guia mostra, passo a passo, como fazer o projeto elétrico de uma casa na bancada **Engenharia** do FreeCAD: da planta com os pontos até as folhas finais com o diagrama unifilar, o quadro de cargas e a lista de materiais. Cada etapa diz qual botão usar, o que preencher e o que conferir.
+
+O [README](../README.md) descreve cada ferramenta em detalhe. Aqui o foco é a ordem de trabalho.
+
+## Sumário
+
+1. [Antes de começar](#1-antes-de-começar)
+2. [Criar o projeto e os pavimentos](#2-criar-o-projeto-e-os-pavimentos)
+3. [Colocar os pontos na planta](#3-colocar-os-pontos-na-planta)
+4. [Circuitos e comandos](#4-circuitos-e-comandos)
+5. [Eletrodutos e eletrocalhas](#5-eletrodutos-e-eletrocalhas)
+6. [Quadro: planilhas e dimensionamento](#6-quadro-planilhas-e-dimensionamento)
+7. [DR por grupo de circuitos](#7-dr-por-grupo-de-circuitos)
+8. [Fases, quadro de cargas e componentes](#8-fases-quadro-de-cargas-e-componentes)
+9. [Diagramas: unifilar e multifilar](#9-diagramas-unifilar-e-multifilar)
+10. [Cálculos](#10-cálculos)
+11. [Documentos e folhas finais](#11-documentos-e-folhas-finais)
+12. [Problemas comuns](#12-problemas-comuns)
+
+---
+
+## 1. Antes de começar
+
+- Use o **FreeCAD 1.1** ou mais novo e escolha a bancada **Engenharia** na lista de bancadas.
+- As barras próprias da bancada são três: **Planta elétrica**, **Quadros e documentos** e **Modelo e biblioteca**. Os botões com seta (▾) abrem uma lista; o botão mostra o último comando usado.
+- Todo comando também está no menu **Elétrica**.
+- Na primeira ativação, a bancada pode pedir para instalar a biblioteca `reportlab` (para os PDFs). Aceite, ou instale depois pelo botão do relatório.
+- Se você atualizou a bancada com o FreeCAD aberto, use **Elétrica > Outros > Reiniciar Bancada**.
+
+> **Dica:** salve o projeto (`.FCStd`) logo no começo. Algumas funções, como o link para os componentes da biblioteca, precisam do arquivo salvo.
+
+## 2. Criar o projeto e os pavimentos
+
+1. **Projeto ▾ > Novo projeto.** Cria a estrutura do documento, a planilha *Parâmetros do projeto* e o pavimento *Térreo*. Se o arquivo já tiver níveis da bancada BIM, eles viram os pavimentos e o mais baixo fica ativo.
+2. **Projeto ▾ > Parâmetros.** Abre a planilha de parâmetros. Edite só a coluna *Valor*; em branco vale o padrão. Confira principalmente:
+   - tensões fase-neutro e fase-fase (127/220 V ou 220/380 V);
+   - esquema de aterramento (TN-S, TN-C-S ou TT);
+   - isolação dos cabos e temperatura ambiente;
+   - queda de tensão máxima;
+   - sensibilidade do DR (30 mA).
+3. **Projeto ▾ > Pavimento.** Escolhe o pavimento ativo ou cria um novo, com a cota do piso e a altura de piso a piso. Para usar os níveis do BIM, **Projeto ▾ > Nível do BIM**.
+
+Tudo o que você inserir vai para a pasta do pavimento ativo, separado por tipo (*Tomadas*, *Iluminação*, *Interruptores*, *Quadros e medição*, *Eletrodutos*...).
+
+**Planta de arquitetura:** desenhe ou importe a arquitetura antes (paredes, portas e espaços da bancada BIM, ou um DWG/DXF importado). Os pontos são desenhados por cima dela.
+
+## 3. Colocar os pontos na planta
+
+### Manualmente
+
+Escolha o símbolo nos grupos **Tomadas ▾**, **Energia ▾**, **Iluminação ▾**, **Comandos ▾** ou **Quadros ▾**. O símbolo acompanha o cursor:
+
+| Tecla | O que faz |
+|---|---|
+| Clique | Fixa o símbolo e já traz o próximo |
+| R / Shift+R | Gira 90° / 45° |
+| Espaço (ou A) | Alinha com o símbolo mais próximo |
+| L | Liga ou desliga o alinhamento automático |
+| ESC | Termina |
+
+Cada ponto já vem com potência, tensão, ligação (F+N, F+F, 3F) e altura de montagem. Para mudar, selecione e edite no painel de propriedades.
+
+### Automaticamente, por ambiente
+
+1. **Projeto ▾ > Ambientes** transforma cada espaço do BIM (ou cada retângulo/polilinha fechada selecionada) em um ambiente com nome, tipo, área e perímetro.
+2. **Projeto ▾ > Pontos automáticos** mostra uma prévia por ambiente com as tomadas pela NBR 5410 (9.5.2), as luminárias pelo luminotécnico, o interruptor junto da porta e, se você pedir, chuveiro e ar-condicionado. Responda as perguntas do lado (porta, pia, chuveiro, ar-condicionado, lâmpada) e confirme.
+
+Os pontos automáticos saem **sem circuito**: o passo seguinte é definir os circuitos.
+
+### O quadro
+
+Coloque o quadro de distribuição com **Quadros ▾ > Quadro de distribuição**. A sigla (QD1, QD2...) fica na propriedade `Descricao`.
+
+## 4. Circuitos e comandos
+
+1. Selecione os pontos de um circuito e clique em **Circuitos ▾ > Definir circuito**. A bancada sugere o próximo número livre; informe também o quadro, se o projeto tiver mais de um.
+2. Selecione um interruptor e as luminárias que ele acende e clique em **Circuitos ▾ > Ligar interruptor**. Eles recebem a mesma letra (a, b, c...). Para interruptores paralelos, selecione os dois junto com as luminárias.
+3. **Circuitos ▾ > Identificar pontos** escreve ao lado de cada símbolo o circuito, a letra e a potência (`C1 · a · 100 VA`) e os condutores que chegam à caixa (`#2,5 F+N+T`).
+
+> **Regra prática:** separe iluminação e tomadas em circuitos diferentes, e dê um circuito próprio a cada equipamento acima de 10 A (chuveiro, forno, ar-condicionado), como pede a NBR 5410.
+
+## 5. Eletrodutos e eletrocalhas
+
+### Eletrodutos
+
+1. Com nada selecionado, **Infraestrutura ▾ > Eletroduto** abre a ferramenta de linha. Desenhe do quadro até as caixas. O **snap de ligação** prende a ponta direto na caixa do símbolo quando o cursor passa sobre ele.
+2. Selecione as linhas desenhadas e clique de novo em **Eletroduto**. Escolha diâmetro, tipo (flexível ou rígido), material, instalação e altura. A bancada:
+   - junta as pontas próximas e prende os vértices nas caixas;
+   - cria caixas de passagem nas derivações embutidas;
+   - escreve o diâmetro (`Ø3/4"`) e as siglas das curvas e conduletes.
+3. Para um trecho em outra altura (por exemplo, descer do teto para o piso), use **Infraestrutura ▾ > Mudar altura** no trecho ou no vértice. A descida, as curvas, o símbolo na planta e o 3D se atualizam sozinhos.
+
+### Eletrocalhas e leitos
+
+Desenhe o trajeto com linhas, selecione e clique em **Infraestrutura ▾ > Bandeja/leito**. A bancada faz as curvas, tês, cruzetas e reduções, desenha em linha dupla e gera o 3D. **Infraestrutura ▾ > Suportes** coloca os suportes. Um eletroduto que termina na borda da eletrocalha vira uma saída (`SH` ou `SV`).
+
+### Conferências
+
+- **Infraestrutura ▾ > Rota do circuito:** mostra e seleciona por onde passa o cabo de cada circuito.
+- **Infraestrutura ▾ > Ocupação eletrodutos:** confere a taxa de ocupação (53/31/40 %) e oferece aumentar os eletrodutos pequenos.
+- **Circuitos ▾ > Fios por trecho:** escreve os fios de cada eletroduto na planta (`C1 #2,5 F+N+T`).
+
+Desenhe a rede **antes** de montar os circuitos: assim o comprimento (queda de tensão) e o agrupamento entram no dimensionamento dos cabos.
+
+## 6. Quadro: planilhas e dimensionamento
+
+1. Selecione o símbolo do quadro na planta e clique em **Dados do quadro ▾ > Planilha do quadro**. Preencha os dados: tensão, número de fases, disjuntor geral, DPS, neutro e terra. A bancada cria também a planilha de circuitos do quadro.
+2. Clique em **Montar circuitos**. Para cada circuito, ele soma os pontos, escolhe o disjuntor e o menor cabo que atende à NBR 5410 (seção mínima, capacidade de condução, queda de tensão e, se configurado, curto-circuito) e grava uma linha na planilha *Circuitos_<quadro>*. A coluna *Critério* diz o que decidiu o cabo.
+3. Abra a planilha com **Dados do quadro ▾ > Circuitos do quadro** e confira. Você pode editar qualquer linha à mão: o que for digitado é respeitado, e o que ficar em branco (corrente, cabo, disjuntor) é calculado no unifilar e nos componentes.
+
+Colunas da planilha de circuitos:
+
+| Coluna | Conteúdo |
+|---|---|
+| A, B | Circuito e descrição |
+| C, D | Potência [W] e tensão [V] |
+| E | Fases: `R`, `RS`, `RST` (`R*` prende na fase) |
+| F a I | Corrente, cabo, disjuntor e curva (podem ficar em branco) |
+| J, K | DR (S/N) e sensibilidade |
+| L, M | Neutro e terra (S/N) |
+| N a P | Comprimento, queda e critério (preenchidos pelo Montar circuitos) |
+| **Q** | **Grupo do DR** (veja a seção 7) |
+
+## 7. DR por grupo de circuitos
+
+Em vez de um DR por circuito, é comum proteger vários circuitos com **um DR só**: por exemplo, um DR para as tomadas da área molhada e outro para as tomadas dos quartos. A bancada faz isso pela coluna **Q – Grupo do DR** da planilha de circuitos.
+
+### Como usar
+
+1. Abra a planilha de circuitos do quadro (**Dados do quadro ▾ > Circuitos do quadro**).
+2. Na coluna **Q**, escreva o **mesmo nome** em todos os circuitos que ficam sob o mesmo DR. Exemplo:
+
+   | Circuito | Descrição | Fases | DR | Grupo do DR |
+   |---|---|---|---|---|
+   | 1 | Iluminação | R | N | |
+   | 2 | Tomadas sala | S | S | **DR1** |
+   | 3 | Tomadas cozinha | T | S | **DR1** |
+   | 4 | Chuveiro | RS | S | |
+   | 5 | Tomadas banheiro | S | S | **DR1** |
+   | 6 | Tomadas quartos | R | N | **DR2** |
+   | 7 | Lavanderia | T | N | **DR2** |
+
+3. Gere o diagrama: **Diagramas ▾ > Unifilar**.
+
+### O que a bancada faz com isso
+
+| Situação na planilha | Resultado |
+|---|---|
+| Nome na coluna Q | O circuito fica sob o DR do grupo, mesmo com a coluna DR em `N`. Ele não tem DR próprio. |
+| Coluna Q vazia e DR = `S` | DR só do circuito, como antes (no exemplo, o chuveiro). |
+| Coluna Q vazia e DR = `N` | Sem DR (no exemplo, a iluminação). |
+
+**No unifilar,** os circuitos do grupo são desenhados juntos, na posição do primeiro deles: um ramo sai do barramento, passa pelo DR do grupo e chega a um **sub-barramento** vertical, de onde sai cada circuito com o seu disjuntor e sem DR próprio. Embaixo do DR ficam o nome do grupo (`DR1`) e a especificação (`4P 25 A, 30mA`). Os circuitos 2, 3 e 5 do exemplo aparecem um embaixo do outro, mesmo que na planilha estejam separados.
+
+```
+ barramento
+     │
+     ├──[DR]──┬──●⌒●──┼┤││──►  C2 Tomadas sala
+     │  DR1   ├──●⌒●──┼┤││──►  C3 Tomadas cozinha
+     │        └──●⌒●──┼┤││──►  C5 Tomadas banheiro
+     │
+     ├──●⌒●──[DR]──┼┤││──►  C4 Chuveiro   (DR próprio)
+```
+
+**Especificação do DR do grupo:**
+
+- **Polos:** bipolar (2P) se todos os circuitos do grupo estão na mesma fase; tetrapolar (4P) se estão em fases diferentes.
+- **Corrente nominal:** a corrente comercial (25, 40, 63, 80, 100 ou 125 A) igual ou acima do maior destes valores: a soma das correntes dos circuitos do grupo na fase mais carregada e o maior disjuntor do grupo.
+- **Sensibilidade:** a da coluna K do primeiro circuito que a tiver; senão, 30 mA.
+
+**No multifilar,** cada circuito do grupo mostra o DR com o nome do grupo (`DR1`), porque os condutores de todos eles passam pelo mesmo DR.
+
+**Nos componentes do quadro** (botão **Componentes**), o grupo conta um DR só, com essa especificação, e os circuitos dele não contam DR próprio. O tamanho da caixa em módulos DIN já considera isso.
+
+**No quadro de cargas** (seção 8), a tabela lista os DRs do quadro e os circuitos de cada um.
+
+### Dicas
+
+- Use nomes curtos: `DR1`, `DR2`, `IDR-A`. Maiúsculas e minúsculas contam como nomes diferentes.
+- O **Montar circuitos** não apaga a coluna Q: você pode montar de novo à vontade.
+- Para tirar um circuito do grupo, apague o nome na coluna Q e, se ele precisar de DR próprio, ponha `S` na coluna J.
+- Agrupe circuitos de um mesmo tipo de área (molhada, quartos, externa). Um DR com muitos circuitos soma as correntes de fuga e pode desarmar sem defeito.
+- O DR geral do quadro (IDR na entrada) ainda não é desenhado.
+
+## 8. Fases, quadro de cargas e componentes
+
+1. **Dados do quadro ▾ > Balancear fases:** redistribui os circuitos entre R, S e T para a carga ficar o mais igual possível. Mostra antes e depois e pergunta antes de gravar. Para prender um circuito numa fase, escreva `*` depois dela (`R*`).
+2. **Dados do quadro ▾ > Quadro de cargas:** monta a planilha *Quadro de cargas* com a carga de cada circuito por fase, o total, o desequilíbrio, os DRs (inclusive os grupos) e os circuitos sem fase. Se faltarem as reservas da NBR 5410, oferece acrescentá-las.
+3. **Componentes:** lista o que vai dentro do quadro (disjuntor geral, DPS, disjuntores, DRs, barramentos e a caixa em módulos DIN) na planilha *Componentes_<quadro>*.
+
+## 9. Diagramas: unifilar e multifilar
+
+- **Diagramas ▾ > Unifilar** desenha um diagrama por quadro: entrada, medição (se houver), disjuntor geral, DPS, barramentos, os circuitos com disjuntor, DR, condutores, seção, potência e descrição, os grupos de DR (seção 7) e as barras de neutro e de terra.
+- **Diagramas ▾ > Multifilar** desenha cada condutor separado, com os barramentos R, S, T, N e PE na vertical.
+- Depois de mudar a planilha de circuitos, gere o diagrama de novo: ele é recriado no mesmo lugar.
+- Os diagramas ficam na pasta do quadro (*Térreo > Quadros e medição*).
+
+## 10. Cálculos
+
+Todos ficam em **Cálculos ▾**. Os formulários mostram poucas perguntas, com listas prontas; o resto fica em **Opções avançadas**. O resultado é recalculado a cada mudança.
+
+| Botão | Para quê |
+|---|---|
+| Demanda | Grava a potência instalada e a demanda no quadro (aparecem no unifilar) |
+| Gerador diesel | Potência do gerador, disjuntor, cabos e tanque; desenha a transferência rede/gerador |
+| Curto-circuito | Estudo pela IEC 60909: I″k3, pico, fase-terra e capacidade de interrupção por quadro |
+| Fator de potência | Banco de capacitores em estágios e risco de ressonância |
+| Partida de motor | Contatores, relé térmico e disjuntor-motor; insere o motor na planta |
+| Pressurização, Bomba de recalque | Pré-dimensionamento do ventilador e da bomba |
+
+O luminotécnico fica em **Iluminação ▾ > Luminotécnico** (com o retângulo do ambiente selecionado), e a resistência de terra em **Aterramento ▾**.
+
+## 11. Documentos e folhas finais
+
+1. **Documentos ▾ > Legenda** e **Notas:** desenham a legenda dos símbolos usados e as notas numeradas.
+2. **Documentos ▾ > Quantitativos:** grava a lista de materiais em CSV, XLSX e PDF, no total e por pavimento.
+3. **Modelo 3D ▾ > Modelo 3D completo:** gera as caixas, os eletrodutos e as eletrocalhas em 3D (necessário para os cortes).
+4. **Folhas ▾ > Nova folha:** cria uma prancha (A0 a A4) com carimbo.
+5. Selecione o que vai na prancha (o pavimento, o diagrama unifilar, a legenda, a planilha do quadro de cargas) e clique em **Folhas ▾ > Inserir na folha**. A escala é escolhida sozinha.
+6. **Folhas ▾ > Corte na folha** e **Detalhe na folha:** a partir de uma linha ou de um círculo desenhados na planta.
+7. **Folhas ▾ > Atualizar folhas** depois de qualquer mudança no projeto.
+8. **Documentos ▾ > Relatório PDF:** memorial com os quadros, as demandas, os materiais e os diagramas.
+
+Para imprimir, use os botões de exportação do TechDraw com a folha aberta.
+
+## 12. Problemas comuns
+
+| Sintoma | O que fazer |
+|---|---|
+| O comprimento ou a queda não aparecem na planilha de circuitos | A rede de eletrodutos não chega ao símbolo do quadro. Use **Conectar às caixas** e confira com **Rota do circuito**. |
+| O grupo de DR não aparece no unifilar | Confira se o nome na coluna Q é exatamente igual (sem espaço a mais) e gere o unifilar de novo. |
+| Um circuito do grupo continua com DR próprio | Gere o diagrama de novo: a coluna Q manda mais que a coluna J. |
+| O símbolo entrou no pavimento errado | Ative o pavimento certo (**Projeto ▾ > Pavimento** ou duplo clique no nível do BIM) ou use **Mover para pavimento**. |
+| O 3D dos eletrodutos não acompanha a mudança | Confira a preferência `AtualizarVerticais` ou use **Modelo 3D completo**. |
+| A folha mostra a planta antiga | **Folhas ▾ > Atualizar folhas**. |
+| O PDF não é gerado | Falta a biblioteca `reportlab`: aceite a instalação que o botão oferece. |
+
+> **Atenção:** os dimensionamentos são simplificados e usam tabelas e valores de catálogo genéricos. Confira os resultados com as normas (NBR 5410, NBR 5419) e com os catálogos dos fabricantes antes de usar em um projeto real. Veja a seção *Limitações* do [README](../README.md).
