@@ -21,7 +21,8 @@ CARIMBO_LARGURA = 180.0
 CARIMBO_ALTURA = 56.0
 FOLGA = 5.0  # da margem até a primeira vista e entre o carimbo e as vistas
 ESPACO_ENTRE_VISTAS = 10.0
-ALTURA_TITULO = 9.0  # título da vista ("PLANTA - TÉRREO" e a escala), embaixo dela
+ALTURA_TITULO = 18.0  # título da vista (nome e escala, duas linhas de 3,5 mm do TechDraw), embaixo dela
+LARGURA_LETRA_TITULO = 2.6  # mm por letra do título, para a vista não ficar mais estreita que ele
 
 ESCALAS = (1, 2, 5, 10, 20, 25, 50, 75, 100, 125, 200, 250, 500, 1000)
 AMPLIACAO_DETALHE = 2.0  # o detalhe sai em pelo menos o dobro da escala da folha
@@ -163,6 +164,12 @@ def _fator(vista, n):
     return 1.0 / n
 
 
+def _caixa(vista, fator):
+    """(largura, altura) na folha da vista com o título embaixo."""
+    titulo = len(vista.get("titulo", vista["nome"])) * LARGURA_LETRA_TITULO
+    return max(vista["largura"] * fator, titulo), vista["altura"] * fator + ALTURA_TITULO
+
+
 def _empacotar(caixas, formato):
     """Prateleiras de cima para baixo, da esquerda para a direita, fugindo do carimbo.
 
@@ -201,7 +208,8 @@ def organizar(vistas, formato, escala=None):
 
     Args:
         vistas: [{'nome', 'largura', 'altura' (tamanho no modelo, mm), 'tipo' ('desenho',
-            'detalhe', 'corte' ou 'tabela'), 'escala' (opcional, fixa a escala da vista)}].
+            'detalhe', 'corte' ou 'tabela'), 'escala' (opcional, fixa a escala da vista),
+            'titulo' (opcional, texto do título, para a largura)}].
         formato: 'A0' a 'A4'.
         escala: denominador fixo da folha, ou None para a maior escala de ``ESCALAS`` que cabe.
     Returns:
@@ -214,7 +222,7 @@ def organizar(vistas, formato, escala=None):
     escolhida = None
     for n in candidatas:
         fatores = [_fator(v, n) for v in vistas]
-        caixas = [(v["largura"] * f, v["altura"] * f + ALTURA_TITULO) for v, f in zip(vistas, fatores)]
+        caixas = [_caixa(v, f) for v, f in zip(vistas, fatores)]
         posicoes = _empacotar(caixas, formato)
         if posicoes is not None:
             escolhida = (n, fatores, caixas, posicoes, True)
@@ -222,7 +230,7 @@ def organizar(vistas, formato, escala=None):
     if escolhida is None:
         n = candidatas[-1]
         fatores = [_fator(v, n) for v in vistas]
-        caixas = [(v["largura"] * f, v["altura"] * f + ALTURA_TITULO) for v, f in zip(vistas, fatores)]
+        caixas = [_caixa(v, f) for v, f in zip(vistas, fatores)]
         x0, _, _, y1 = area_util(formato)
         posicoes, x = [], x0
         for largura, _ in caixas:  # uma ao lado da outra, mesmo saindo da folha
@@ -233,8 +241,9 @@ def organizar(vistas, formato, escala=None):
     resultado = []
     for vista, fator, (largura, altura), (x, topo) in zip(vistas, fatores, caixas, posicoes):
         altura_desenho = altura - ALTURA_TITULO
+        largura_desenho = vista["largura"] * fator
         resultado.append({
-            "nome": vista["nome"], "fator": fator, "escala": round(1.0 / fator, 6), "largura": largura,
+            "nome": vista["nome"], "fator": fator, "escala": round(1.0 / fator, 6), "largura": largura_desenho,
             "altura": altura_desenho, "x": x + largura / 2.0, "y": topo - altura_desenho / 2.0,
             "titulo_x": x + largura / 2.0, "titulo_y": topo - altura_desenho - ALTURA_TITULO / 2.0,
         })
@@ -295,8 +304,12 @@ def _pontos_do_caminho(d):
 
 
 def limites_do_svg(svg):
-    """(xmin, ymin, xmax, ymax) do desenho em unidades do SVG, pelos caminhos, linhas,
-    círculos e posições dos textos; None se não há nada."""
+    """(xmin, ymin, xmax, ymax) do desenho, pelos caminhos, linhas, círculos e posições dos
+    textos; None se não há nada.
+
+    O ``Draft.get_svg`` escreve cada objeto em coordenadas do modelo (Y para cima, mm)
+    dentro de um ``<g transform="scale(1,-1)">``: os números lidos aqui são os do modelo.
+    """
     pontos = []
     for d in re.findall(r'\sd="([^"]*)"', svg):
         pontos += _pontos_do_caminho(d)
@@ -327,72 +340,48 @@ def limites_do_svg(svg):
     return min(xs), min(ys), max(xs), max(ys)
 
 
-ORIGEM_SIMBOLO = 50.0  # o TechDraw centra o símbolo sem viewBox na caixa padrão de 100 × 100
-
-
-def posicao_do_simbolo(centro_folha, limites, fator):
-    """X, Y da vista de símbolo (TechDraw::DrawViewSymbol, cabeçalho sem viewBox, como o
-    DrawViewDraft) para o desenho de ``limites`` (unidades do SVG, Y para baixo) ficar
-    centrado em ``centro_folha``."""
-    xmin, ymin, xmax, ymax = limites
-    sx, sy = (xmin + xmax) / 2.0, (ymin + ymax) / 2.0
-    return (centro_folha[0] - (sx - ORIGEM_SIMBOLO) * fator,
-            centro_folha[1] + (sy - ORIGEM_SIMBOLO) * fator)
+PX_POR_MM = 96.0 / 25.4  # o TechDraw lê o SVG do símbolo em px de 96 dpi
 
 
 CABECALHO_SVG = ('<svg\n\txmlns="http://www.w3.org/2000/svg" version="1.1"\n'
                  '\txmlns:freecad="http://www.freecadweb.org/wiki/index.php?title=Svg_Namespace">\n')
 
 
-def montar_simbolo(corpos, recorte=None):
-    """SVG da vista: o cabeçalho do DrawViewDraft e os corpos do ``Draft.get_svg``.
+def montar_simbolo(corpos):
+    """SVG da vista de símbolo: o cabeçalho do DrawViewDraft e os corpos do ``Draft.get_svg``.
+
+    Os corpos estão em mm do modelo; o ``scale`` de ``PX_POR_MM`` faz a ``Scale`` da vista
+    ser a escala real (0,02 = 1:50). O TechDraw centra o desenho no X, Y da vista
+    (conferido no FreeCAD 1.0.2). O Qt lê só SVG Tiny: nada de ``clipPath`` aqui.
+    """
+    return CABECALHO_SVG + f'<g transform="scale({PX_POR_MM:.6f})">' + "".join(corpos) + "</g></svg>"
+
+
+def centro(limites):
+    xmin, ymin, xmax, ymax = limites
+    return (xmin + xmax) / 2.0, (ymin + ymax) / 2.0
+
+
+def deslocamento_do_detalhe(limites_desenho, regiao, fator):
+    """X, Y da vista dentro do recorte (``DrawViewClip``) para o centro da região ficar no
+    centro do recorte: o TechDraw centra o desenho no X, Y, medidos do centro do recorte.
 
     Args:
-        recorte: None, ('circulo', cx, cy, r) ou ('retangulo', xmin, ymin, xmax, ymax) em
-            unidades do SVG: o desenho fica só dentro dele, com o contorno.
+        limites_desenho, regiao: (xmin, ymin, xmax, ymax) no modelo.
     """
-    corpo = "".join(corpos)
-    if recorte is None:
-        return CABECALHO_SVG + corpo + "</svg>"
-    if recorte[0] == "circulo":
-        _, cx, cy, r = recorte
-        forma = f'<circle cx="{cx:g}" cy="{cy:g}" r="{r:g}"'
-    else:
-        _, xmin, ymin, xmax, ymax = recorte
-        forma = f'<rect x="{xmin:g}" y="{ymin:g}" width="{xmax - xmin:g}" height="{ymax - ymin:g}"'
-    return (CABECALHO_SVG + f'<defs><clipPath id="recorte">{forma}/></clipPath></defs>'
-            f'<g clip-path="url(#recorte)">{corpo}</g>'
-            f'{forma} style="fill:none;stroke:#000000;stroke-width:{recorte_traco(recorte)}"/></svg>')
-
-
-def recorte_traco(recorte):
-    """Espessura do contorno do recorte em unidades do SVG (fração do tamanho)."""
-    tamanho_ = 2 * recorte[3] if recorte[0] == "circulo" else max(recorte[3] - recorte[1], recorte[4] - recorte[2])
-    return round(max(tamanho_ / 300.0, 1e-3), 6)
-
-
-def recorte_do_svg(svg_da_regiao):
-    """Recorte de ``montar_simbolo`` pelo SVG do objeto que marca a região (círculo ou outra forma)."""
-    circulo = re.search(r"<circle\b[^>]*>", svg_da_regiao)
-    if circulo:
-        cx = float(re.search(r'\bcx="(' + _NUMERO + ')"', circulo.group(0)).group(1))
-        cy = float(re.search(r'\bcy="(' + _NUMERO + ')"', circulo.group(0)).group(1))
-        r = float(re.search(r'\br="(' + _NUMERO + ')"', circulo.group(0)).group(1))
-        return ("circulo", cx, cy, r)
-    limites = limites_do_svg(svg_da_regiao)
-    if limites is None:
-        return None
-    return ("retangulo",) + tuple(limites)
+    (cx, cy), (rx, ry) = centro(limites_desenho), centro(regiao)
+    return (cx - rx) * fator, (cy - ry) * fator
 
 
 # --- cortes ---------------------------------------------------------------------------------------
 
-def corte(p1, p2):
+def corte(p1, p2, referencia=None):
     """Plano de corte pela linha P1→P2 desenhada na planta.
 
     Quem olha fica à esquerda da linha e olha para a direita dela (as setas na planta
     apontam para lá). No TechDraw, ``SectionNormal`` e ``Direction`` apontam para quem
-    olha (o lado retirado).
+    olha (o lado retirado). A origem é o ponto da linha mais perto da ``referencia``
+    (o centro do modelo): o TechDraw recusa uma origem fora do modelo.
 
     Returns:
         {'origem' (x, y), 'olhar' (x, y), 'normal' (x, y, z), 'xdirecao' (x, y, z), 'comprimento'}.
@@ -403,7 +392,11 @@ def corte(p1, p2):
         raise ValueError("a linha de corte não tem comprimento")
     ux, uy = dx / comprimento, dy / comprimento
     olhar = (uy, -ux)
-    return {"origem": (float(p1[0]), float(p1[1])), "olhar": olhar, "normal": (-olhar[0], -olhar[1], 0.0),
+    origem = (float(p1[0]), float(p1[1]))
+    if referencia is not None:
+        t = (referencia[0] - p1[0]) * ux + (referencia[1] - p1[1]) * uy
+        origem = (p1[0] + t * ux, p1[1] + t * uy)
+    return {"origem": origem, "olhar": olhar, "normal": (-olhar[0], -olhar[1], 0.0),
             "xdirecao": (-ux, -uy, 0.0), "comprimento": comprimento}
 
 

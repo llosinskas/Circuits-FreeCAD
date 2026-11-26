@@ -93,23 +93,25 @@ class TestSvg(unittest.TestCase):
     def test_caminho_relativo_e_horizontal_vertical(self):
         self.assertEqual(folhas.limites_do_svg('<path d="m 10,10 l 5,5 h 20 v -40 z"/>'), (10.0, -25.0, 35.0, 15.0))
 
-    def test_posicao_do_simbolo_centra_o_desenho(self):
-        # desenho de (1000, -2000) a (3000, 0) no SVG, na escala 1:50: centro (2000, -1000)
-        x, y = folhas.posicao_do_simbolo((400, 300), (1000, -2000, 3000, 0), 0.02)
-        self.assertAlmostEqual(x, 400 - (2000 - 50) * 0.02)
-        self.assertAlmostEqual(y, 300 + (-1000 - 50) * 0.02)
+    def test_simbolo_na_escala_real(self):
+        svg = folhas.montar_simbolo(["<path d='M 0 0'/>"])
+        self.assertTrue(svg.startswith(folhas.CABECALHO_SVG))
+        self.assertIn('<g transform="scale(3.779528)">', svg)  # o TechDraw lê px de 96 dpi
+        self.assertNotIn("clipPath", svg)  # o Qt só lê SVG Tiny
+        ET.fromstring(svg.replace("'", '"'))
 
-    def test_simbolo_com_e_sem_recorte(self):
-        self.assertTrue(folhas.montar_simbolo(["<path d='M 0 0'/>"]).startswith(folhas.CABECALHO_SVG))
-        recorte = folhas.recorte_do_svg('<circle cx="10" cy="20" r="5" style=""/>')
-        self.assertEqual(recorte, ("circulo", 10.0, 20.0, 5.0))
-        svg = folhas.montar_simbolo(["<path d='M 0 0'/>"], recorte)
-        self.assertIn('clip-path="url(#recorte)"', svg)
-        ET.fromstring(svg.replace("'", '"'))  # SVG bem formado
-        self.assertEqual(folhas.recorte_do_svg('<path d="M 0,0 L 10,0 L 10,8 Z"/>'), ("retangulo", 0.0, 0.0, 10.0, 8.0))
+    def test_deslocamento_do_detalhe(self):
+        # planta de 0 a 8000 × 0 a 5000; região em volta de (500, 2500), a 1:25
+        x, y = folhas.deslocamento_do_detalhe((0, 0, 8000, 5000), (-300, 1700, 1300, 3300), 0.04)
+        self.assertAlmostEqual(x, (4000 - 500) * 0.04)
+        self.assertAlmostEqual(y, (2500 - 2500) * 0.04)
 
 
 class TestCorte(unittest.TestCase):
+    def test_origem_no_modelo(self):
+        plano = folhas.corte((-500, 2000), (8500, 2000), referencia=(4000, 2500))
+        self.assertEqual(plano["origem"], (4000.0, 2000.0))
+
     def test_plano_pela_linha(self):
         plano = folhas.corte((0, 0), (1000, 0))  # linha para +x: olha para -y (a direita dela)
         self.assertEqual(plano["olhar"], (0.0, -1.0))

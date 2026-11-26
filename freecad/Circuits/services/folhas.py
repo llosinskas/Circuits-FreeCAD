@@ -33,11 +33,17 @@ MARCA_CORTE = "linha_de_corte"
 MARCA_DETALHE = "regiao_de_detalhe"
 MARCA_MARCA = "marca_de_folha"  # setas e letras dos cortes e detalhes na planta
 ALTURA_TEXTO_TITULO = 3.5  # mm na folha
+ESCALA_BASE_CORTES = 1e-5  # a vista de cima, base dos cortes, vira um ponto no canto da folha
 CAMPOS_COPIADOS = ("Obra", "Cliente", "Desenho", "Responsavel", "Registro", "Revisao")
 MARCAS_3D = ("pasta_3d", "descida_3d", "saida_3d", "prumada_3d", "conexoes_3d_de")
 
 
 # --- folhas e carimbo ---------------------------------------------------------------------------
+
+def _mm(valor):
+    """Número em mm de uma propriedade de comprimento (X e Y das vistas são grandezas)."""
+    return float(getattr(valor, "Value", valor))
+
 
 def listar_folhas(doc):
     return [obj for obj in doc.Objects if hasattr(obj, MARCA_FOLHA)]
@@ -97,7 +103,7 @@ def preencher(folha, valores):
 def valores_iniciais(doc, titulo):
     """Carimbo da folha nova: projeto e data do documento; obra, cliente e responsável da última folha."""
     valores = {"Projeto": doc.Label, "Titulo": titulo, "Data": datetime.date.today().strftime("%d/%m/%Y"),
-               "Revisao": "00", "Desenho": getattr(doc, "CreatedBy", "") or " "}
+               "Revisao": "00", "Desenho": getattr(doc, "CreatedBy", "") or ""}
     anteriores = listar_folhas(doc)
     if anteriores:
         textos = textos_do_carimbo(anteriores[-1])
@@ -187,20 +193,10 @@ def svg_do_objeto(obj, fator):
 
 
 def conteudo(doc, info, fator):
-    """(SVG completo, limites em unidades do SVG) da vista 2D descrita em ``info``."""
-    objetos = [o for o in objetos_2d([doc.getObject(n) for n in info["fontes"]]) if o.Name != info.get("regiao")]
+    """(SVG completo, limites do desenho no modelo) da vista 2D descrita em ``info``."""
+    objetos = objetos_2d([doc.getObject(n) for n in info["fontes"]])
     corpos = [svg_do_objeto(obj, fator) for obj in objetos]
-    recorte = None
-    if info.get("regiao"):
-        regiao = doc.getObject(info["regiao"])
-        recorte = regras.recorte_do_svg(svg_do_objeto(regiao, fator)) if regiao is not None else None
-    svg = regras.montar_simbolo(corpos, recorte)
-    if recorte is not None:
-        limites = ((recorte[1] - recorte[3], recorte[2] - recorte[3], recorte[1] + recorte[3], recorte[2] + recorte[3])
-                   if recorte[0] == "circulo" else recorte[1:])
-    else:
-        limites = regras.limites_do_svg("".join(corpos))
-    return svg, limites
+    return regras.montar_simbolo(corpos), regras.limites_do_svg("".join(corpos))
 
 
 def _info(vista):
@@ -325,7 +321,14 @@ def inserir_detalhe(doc, folha, regiao):
     setattr(regiao, MARCA_DETALHE, nome)
     fontes = [o.Name for o in _pavimento_ou_documento(doc, regiao)]
     info = {"tipo": "detalhe", "fontes": fontes, "regiao": regiao.Name, "detalhe": nome}
-    vista = _nova_vista(doc, folha, "TechDraw::DrawViewSymbol", "Detalhe", f"Detalhe {nome}", info)
+    # recorte do TechDraw (retangular, pela caixa da região) com a planta inteira dentro
+    vista = _nova_vista(doc, folha, "TechDraw::DrawViewClip", "Detalhe", f"Detalhe {nome}", info)
+    vista.ShowFrame = True
+    desenho = doc.addObject("TechDraw::DrawViewSymbol", "Detalhe_desenho")
+    desenho.Label = f"Desenho do detalhe {nome}"
+    desenho.ScaleType = "Custom"
+    folha.addView(desenho)
+    vista.addView(desenho)
     try:
         xmin, ymin, xmax, ymax = _limites_xy(regiao)
         altura = max(xmax - xmin, ymax - ymin) / 8.0
@@ -369,10 +372,17 @@ def _base_dos_cortes(doc, folha, solidos):
         folha.addView(base)
     base.Source = solidos
     base.Direction = App.Vector(0, 0, 1)
-    try:
-        base.ViewObject.Visibility = False
-    except Exception:
-        pass
+    # O TechDraw exporta a vista mesmo escondida (no PDF, as faces brancas cobriam a folha):
+    # fica minúscula, no canto da margem, sem a linha de corte (conferido no FreeCAD 1.0.2).
+    base.ScaleType = "Custom"
+    base.Scale = ESCALA_BASE_CORTES
+    x0, y0, _, _ = regras.area_util(getattr(folha, MARCA_FOLHA, regras.FORMATO_PADRAO))
+    base.X, base.Y = x0, y0
+    for propriedade, valor in (("ShowSectionLine", False), ("Visibility", False)):
+        try:
+            setattr(base.ViewObject, propriedade, valor)
+        except Exception:
+            pass
     return base
 
 
@@ -391,13 +401,13 @@ def inserir_corte(doc, folha, linha):
     if not solidos:
         return None
     p1, p2, z = _pontos_da_linha(linha)
-    plano = regras.corte(p1, p2)
+    limites = _limites_3d(solidos)
+    plano = regras.corte(p1, p2, ((limites[0] + limites[3]) / 2.0, (limites[1] + limites[4]) / 2.0))
     usadas = [getattr(o, MARCA_CORTE) for o in doc.Objects if hasattr(o, MARCA_CORTE)]
     letra = getattr(linha, MARCA_CORTE, "") or regras.proxima_letra(usadas)
     if not hasattr(linha, MARCA_CORTE):
         linha.addProperty("App::PropertyString", MARCA_CORTE, "Circuits", "Letra do corte desenhado na folha")
     setattr(linha, MARCA_CORTE, letra)
-    limites = _limites_3d(solidos)
     largura, altura = regras.tamanho_do_corte(limites, plano)
     base = _base_dos_cortes(doc, folha, solidos)
     info = {"tipo": "corte", "fontes": [linha.Name], "letra": letra, "largura": largura, "altura": altura}
@@ -408,7 +418,10 @@ def inserir_corte(doc, folha, linha):
     vista.Direction = App.Vector(*plano["normal"])
     vista.SectionOrigin = App.Vector(plano["origem"][0], plano["origem"][1], (limites[2] + limites[5]) / 2.0)
     vista.SectionSymbol = letra
-    for propriedade, valor in (("XDirection", App.Vector(*plano["xdirecao"])), ("SectionDirection", "Aligned")):
+    # A hachura SVG do TechDraw sai no PDF como um bloco branco por cima da folha (FreeCAD 1.0.2):
+    # superfície cortada em cor sólida.
+    for propriedade, valor in (("XDirection", App.Vector(*plano["xdirecao"])), ("SectionDirection", "Aligned"),
+                               ("CutSurfaceDisplay", "Color")):
         try:
             setattr(vista, propriedade, valor)
         except Exception:
@@ -432,25 +445,42 @@ def _desenhar_marcas_do_corte(doc, linha, p1, p2, z, letra):
 
 # --- arrumação e atualização ------------------------------------------------------------------
 
+def _regiao(doc, info):
+    regiao = doc.getObject(info.get("regiao", ""))
+    return _limites_xy(regiao) if regiao is not None else None
+
+
+def _desenho_do_detalhe(clip):
+    return next((v for v in getattr(clip, "Views", []) if v.TypeId == "TechDraw::DrawViewSymbol"), None)
+
+
 def _tamanho(doc, vista, info):
-    """(largura, altura) no modelo para ``core.folhas.organizar``, guardando os limites do SVG."""
-    if info["tipo"] in ("desenho", "detalhe"):
+    """(largura, altura) no modelo para ``core.folhas.organizar``."""
+    if info["tipo"] == "desenho":
         _, limites = conteudo(doc, info, 1.0)
-        if limites is None:
-            return None
-        info["limites"] = list(limites)
-        return limites[2] - limites[0], limites[3] - limites[1]
+        return None if limites is None else (limites[2] - limites[0], limites[3] - limites[1])
+    if info["tipo"] == "detalhe":
+        regiao = _regiao(doc, info)
+        return None if regiao is None else (regiao[2] - regiao[0], regiao[3] - regiao[1])
     return info.get("largura", 100.0), info.get("altura", 100.0)
 
 
 def _aplicar_desenho(doc, vista, info, fator, centro):
+    """Refaz o SVG da vista (ou do desenho dentro do recorte do detalhe) e põe o centro em ``centro``."""
     svg, limites = conteudo(doc, info, fator)
     if limites is None:
         return
-    vista.Symbol = svg
-    vista.Scale = fator
-    vista.X, vista.Y = regras.posicao_do_simbolo(centro, limites, fator)
-    info.update(limites=list(limites), fator=fator, centro=list(centro))
+    if info["tipo"] == "detalhe":
+        desenho, regiao = _desenho_do_detalhe(vista), _regiao(doc, info)
+        if desenho is None or regiao is None:
+            return
+        desenho.Symbol, desenho.Scale = svg, fator
+        desenho.X, desenho.Y = regras.deslocamento_do_detalhe(limites, regiao, fator)
+        vista.Width, vista.Height = (regiao[2] - regiao[0]) * fator, (regiao[3] - regiao[1]) * fator
+    else:
+        vista.Symbol, vista.Scale = svg, fator
+    vista.X, vista.Y = centro  # o TechDraw centra o desenho do símbolo no X, Y
+    info.update(limites=list(limites), fator=fator)
     _gravar_info(vista, info)
 
 
@@ -468,7 +498,7 @@ def organizar(doc, folha, escala=None):
         if tamanho_ is None:
             continue
         entradas.append({"nome": vista.Name, "largura": tamanho_[0], "altura": tamanho_[1],
-                         "tipo": info["tipo"]})
+                         "tipo": info["tipo"], "titulo": vista.Label})
         vistas.append((vista, info))
     resultado = regras.organizar(entradas, formato, escala)
     for (vista, info), arranjo in zip(vistas, resultado["vistas"]):
@@ -478,7 +508,7 @@ def organizar(doc, folha, escala=None):
         else:
             vista.Scale = arranjo["fator"]
             vista.X, vista.Y = centro
-            info.update(fator=arranjo["fator"], centro=list(centro))
+            info.update(fator=arranjo["fator"])
             _gravar_info(vista, info)
         titulo = _titulo(doc, folha, vista)
         titulo.Text = regras.titulo_da_vista(vista.Label, arranjo["escala"], info["tipo"])
@@ -503,15 +533,8 @@ def atualizar(doc, folhas=None):
             info = _info(vista)
             if info.get("tipo") not in ("desenho", "detalhe") or "fator" not in info:
                 continue
-            fator = info["fator"]
-            limites = info.get("limites")
-            if limites:  # centro atual do desenho, mesmo que o usuário tenha arrastado a vista
-                sx, sy = (limites[0] + limites[2]) / 2.0, (limites[1] + limites[3]) / 2.0
-                centro = (vista.X + (sx - regras.ORIGEM_SIMBOLO) * fator,
-                          vista.Y - (sy - regras.ORIGEM_SIMBOLO) * fator)
-            else:
-                centro = tuple(info.get("centro", (vista.X, vista.Y)))
-            _aplicar_desenho(doc, vista, info, fator, centro)
+            # no lugar atual, mesmo que o usuário tenha arrastado a vista
+            _aplicar_desenho(doc, vista, info, info["fator"], (_mm(vista.X), _mm(vista.Y)))
             total += 1
     doc.recompute()
     return total

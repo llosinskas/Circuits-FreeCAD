@@ -31,6 +31,27 @@ OUT = os.environ.get("CIRCUITS_SMOKE_OUT") or os.path.join(tempfile.gettempdir()
 WORKBENCH = "CircuitsWorkbench"
 result = {"errors": [], "steps": {}}
 
+# Sem janela ninguém responde a perguntas: a de instalar bibliotecas (reportlab) fica desligada
+# (só vale para o --user-cfg temporário) e qualquer diálogo modal que sobrar é fechado e anotado.
+App.ParamGet("User parameter:BaseApp/Preferences/Mod/Circuits").SetBool("NaoPerguntarDependencias", True)
+result["dialogos_fechados"] = []
+
+
+def _fechar_dialogos():
+    janela = QtWidgets.QApplication.activeModalWidget()
+    if janela is not None:
+        result["dialogos_fechados"].append(janela.windowTitle())
+        janela.close()
+
+
+try:
+    from PySide6 import QtCore
+except ImportError:
+    from PySide2 import QtCore
+_vigia = QtCore.QTimer()
+_vigia.timeout.connect(_fechar_dialogos)
+_vigia.start(2000)
+
 QET_SAMPLE = """<project><diagram>
 <conductor num="W1" element1_name="Bobina" element2_name="Rele" element1_label="K1" element2_label="K2"
   terminalname1="A1" terminalname2="A2" conductor_color="azul" conductor_section="1.5"/>
@@ -495,7 +516,7 @@ def scenario_extras(doc):
     insert = module("commands.insert_component")
     messages = []
     QtWidgets.QMessageBox.information = staticmethod(lambda *a, **k: messages.append(a[2]))
-    attempt("avisos_em_breve", lambda: (insert.Wire().Activated(), insert.CableTray().Activated()) and None)
+    attempt("avisos_em_breve", lambda: insert.Wire().Activated())  # a bandeja já existe (commands.bandejas)
     result["extras"]["mensagens"] = messages
 
     attempt("reiniciar_bancada", lambda: module("commands.tools").ReiniciarBancada().Activated())

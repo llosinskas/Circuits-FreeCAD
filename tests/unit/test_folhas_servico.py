@@ -47,6 +47,9 @@ class Documento:
                 vista.InList = [folha]
 
             obj.addView = add_view
+        if tipo == "TechDraw::DrawViewClip":
+            obj.Views = []
+            obj.addView = obj.Views.append
         if tipo == "TechDraw::DrawSVGTemplate":
             obj.EditableTexts = {chave: "" for chave in regras.campos_do_carimbo()}
         self.Objects.append(obj)
@@ -128,12 +131,12 @@ class TestFolhasServico(unittest.TestCase):
         vista, = self.s.inserir(self.doc, folha, [self.pav])
         self.s.organizar(self.doc, folha)
         vista.X += 30  # o usuário arrastou a vista
-        centro = json.loads(vista.vista_circuits)["centro"]
+        x, y = vista.X, vista.Y
         self.eletroduto.svg = '<path d="M 0,0 L 12000,-6000"/>'  # o projeto cresceu
         self.assertEqual(self.s.atualizar(self.doc), 1)
-        novo = json.loads(vista.vista_circuits)
-        self.assertAlmostEqual(novo["centro"][0], centro[0] + 30)
-        self.assertEqual(novo["limites"], [0.0, -6000.0, 12000.0, 0.0])
+        self.assertEqual((vista.X, vista.Y), (x, y))  # o TechDraw centra o desenho no X, Y
+        self.assertIn("12000", vista.Symbol)
+        self.assertEqual(json.loads(vista.vista_circuits)["limites"], [0.0, -6000.0, 12000.0, 0.0])
 
     def test_planilha_vira_tabela(self):
         planilha = Objeto(Name="Circuitos_QD1", Label="Circuitos QD1", TypeId="Spreadsheet::Sheet", InList=[])
@@ -146,7 +149,7 @@ class TestFolhasServico(unittest.TestCase):
 
     def test_detalhe_recorta_a_planta(self):
         regiao = desenho("Circulo", '<circle cx="1000" cy="-1000" r="500"/>')
-        regiao.Shape = types.SimpleNamespace(BoundBox=types.SimpleNamespace(XMin=500, YMin=500, XMax=1500, YMax=1500,
+        regiao.Shape = types.SimpleNamespace(BoundBox=types.SimpleNamespace(XMin=500, YMin=-1500, XMax=1500, YMax=-500,
                                                                             ZMin=0.0))
         self.pav.Group[0].Group.append(regiao)
         regiao.InList = [self.pav.Group[0]]
@@ -154,12 +157,15 @@ class TestFolhasServico(unittest.TestCase):
         folha = self.s.nova_folha(self.doc, "A3")
         with mock.patch.object(self.s.pavimentos, "pavimento_do_objeto", return_value=self.pav), \
                 mock.patch.object(self.s.pavimentos, "guardar_junto"):
-            vista = self.s.inserir_detalhe(self.doc, folha, regiao)
-        self.assertEqual(regiao.regiao_de_detalhe, "D1")
-        self.s.organizar(self.doc, folha)
-        self.assertIn("clipPath", vista.Symbol)
-        self.assertNotIn('r="500"/><', vista.Symbol.split("</defs>")[1].split("</g>")[0])  # a região não é conteúdo
-        self.assertEqual(json.loads(vista.vista_circuits)["limites"], [500.0, -1500.0, 1500.0, -500.0])
+            clip = self.s.inserir_detalhe(self.doc, folha, regiao)
+        self.assertEqual((regiao.regiao_de_detalhe, clip.TypeId), ("D1", "TechDraw::DrawViewClip"))
+        resultado = self.s.organizar(self.doc, folha)
+        fator = next(v["fator"] for v in resultado["vistas"] if v["nome"] == clip.Name)
+        self.assertEqual((clip.Width, clip.Height), (1000 * fator, 1000 * fator))  # a caixa da região, ampliada
+        dentro = clip.Views[0]
+        self.assertEqual(dentro.Scale, fator)
+        # planta de (0, -6000) a (10000, 0): centro (5000, -3000); região centrada em (1000, -1000)
+        self.assertEqual((dentro.X, dentro.Y), (4000 * fator, -2000 * fator))
 
     def test_corte_pela_linha_da_planta(self):
         forma = types.SimpleNamespace(isNull=lambda: False, Solids=[1],
