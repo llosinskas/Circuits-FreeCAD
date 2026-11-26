@@ -52,7 +52,9 @@ Hoje cada quadro só tem a `origem` em texto.
 - **Onde aparece:** linha "Alimentador" na planilha e no unifilar de cada quadro, e um
   **unifilar geral** (só quadros e alimentadores, um bloco por quadro).
 
-## Etapa I2: estudo de curto-circuito (IEC 60909)
+## Etapa I2: estudo de curto-circuito (IEC 60909) (pronta)
+
+**Feito:** `core/curto.py` e o botão **Curto-circuito** (planilha "Estudo de curto": barras, rede, transformador, cabos; I″k3, ip, I″k1 mínima e capacidade de interrupção; grava o curto em cada quadro e avisa do disjuntor geral fraco). Sem contribuição de motores e com o PE igual à fase.
 
 **Método:** das impedâncias, em mΩ, referidas à baixa tensão.
 
@@ -124,7 +126,9 @@ cabo a 80 °C (ou 160 °C no fim do curto), que vai para o seccionamento automá
   transformador (I3) e banco de capacitores (I6). Substitui o `CalcDemanda` residencial
   nos quadros marcados como industriais (parâmetro `tipo_instalacao`).
 
-## Etapa I6: correção do fator de potência
+## Etapa I6: correção do fator de potência (pronta)
+
+**Feito:** `core/fator_potencia.py` e o formulário **Fator de potência** (kvar, estágios, corrente de projeto e risco de ressonância).
 
 - Q = P·(tg φ1 − tg φ2), com o FP de referência de 0,92 (ANEEL).
 - Banco automático em estágios comerciais (com o menor estágio para a carga mínima), ou fixo

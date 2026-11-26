@@ -92,7 +92,9 @@ Corrigir isso agora é mais barato que descobrir no meio de um projeto.
 
 ---
 
-## Etapa 1: unifilar como folha de projeto
+## Etapa 1: unifilar como folha de projeto (em parte pronta)
+
+**Feito:** `core/quadro_cargas.py` (carga por fase, desequilíbrio, sugestão de fases sem gravar, reservas da NBR 5410, DR por grupo pela coluna `Grupo do DR` da planilha de circuitos) e o botão **Quadro de cargas** (planilha por quadro, que vai para a folha com Inserir na folha). **Falta:** desenhar no unifilar o DR por grupo (sub-barramento) e o IDR geral.
 
 O desenho de cada circuito já tem disjuntor com terminais e arco, DR, traços dos
 condutores, seção, potência, fases e descrição (`core/unifilar.py`). Falta:
@@ -186,7 +188,9 @@ Usar o que a rede já calcula para fechar os 6 critérios de cada circuito:
 
 ---
 
-## Etapa 6: quadro de comando e proteção
+## Etapa 6: quadro de comando e proteção (em parte pronta)
+
+**Feito:** `core/comando.py` (partida direta, estrela-triângulo, soft-starter e inversor: contatores em AC-3, relé térmico, disjuntor-motor) e o formulário **Partida de motor**, que insere o motor na planta. **Falta:** a planilha de cargas do quadro de comando, o diagrama de comando e a lista de materiais do CCM.
 
 Começar pelas bombas, porque o recalque e a pressurização já calculam o motor.
 

@@ -1,4 +1,4 @@
-"""Etapa I6: correção do fator de potência (core/fator_potencia.py).
+"""Correção do fator de potência (core/fator_potencia.py).
 
 Q = P·(tg φ1 − tg φ2), FP de referência 0,92; banco em estágios comerciais; cabo e
 proteção do banco pela corrente nominal × 1,35. Potências em kW e kvar, tensão em V.
@@ -6,12 +6,13 @@ proteção do banco pela corrente nominal × 1,35. Potências em kW e kvar, tens
 import math
 import unittest
 
-from tests.plano._apoio import carregar
+from tests import ROOT  # noqa: F401  (configura o caminho do pacote)
+from freecad.Circuits.core import fator_potencia
 
 
 class Base(unittest.TestCase):
     def setUp(self):
-        self.f = carregar(self, "fator_potencia", "I6")
+        self.f = fator_potencia
 
 
 class TestPotenciaReativa(Base):
@@ -46,6 +47,20 @@ class TestBanco(Base):
         self.assertAlmostEqual(self.f.frequencia_ressonancia(20000.0, 800.0), 300.0)
         self.assertTrue(self.f.risco_ressonancia(20000.0, 800.0))
         self.assertFalse(self.f.risco_ressonancia(20000.0, 100.0))  # 849 Hz, longe da 5ª e da 7ª
+
+
+class TestDimensionar(Base):
+    def test_resultado_e_relatorio(self):
+        r = self.f.dimensionar(500.0, 0.80, tensao=380.0, potencia_curto_kva=20000.0)
+        self.assertEqual(r["banco"]["estagios"], [50, 50, 50, 12.5])
+        self.assertAlmostEqual(r["corrente_projeto"], 1.35 * r["corrente_nominal"])
+        self.assertFalse(r["risco_ressonancia"])
+        self.assertIn("162,5 kvar", self.f.relatorio(r))
+
+    def test_ja_corrigido(self):
+        r = self.f.dimensionar(100.0, 0.95)
+        self.assertIsNone(r["banco"])
+        self.assertIn("não precisa", self.f.relatorio(r))
 
 
 if __name__ == "__main__":

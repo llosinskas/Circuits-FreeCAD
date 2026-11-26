@@ -13,6 +13,8 @@ FORMULARIOS = {
     "aterramento": formularios.ATERRAMENTO,
     "gerador": formularios.GERADOR,
     "centro_medicao": formularios.CENTRO_MEDICAO,
+    "partida_motor": formularios.PARTIDA_MOTOR,
+    "fator_potencia": formularios.FATOR_POTENCIA,
 }
 BASICOS_MAXIMOS = 4
 
@@ -69,6 +71,16 @@ class TestCampos(unittest.TestCase):
         from freecad.Circuits.core.functions.Predial import aterramento
         aceitos = set(inspect.signature(aterramento.dimensionar).parameters)
         self.assertEqual({c["chave"] for c in formularios.ATERRAMENTO} - {"solo"} - aceitos, set())
+
+    def test_partida_e_fator_de_potencia_viram_argumentos(self):
+        from freecad.Circuits.core import comando, fator_potencia
+        dados = formularios.valores_iniciais(formularios.PARTIDA_MOTOR)
+        argumentos = formularios.argumentos_partida(dict(dados, partida="Estrela-triângulo"))
+        self.assertEqual(argumentos, {"potencia_cv": 5.0, "tensao": 380.0, "partida": "estrela_triangulo"})
+        self.assertIn("K3_estrela", comando.dimensionar_motor(**argumentos)["contatores"])
+        argumentos = formularios.argumentos_fator_potencia(formularios.valores_iniciais(formularios.FATOR_POTENCIA))
+        self.assertEqual(set(argumentos) - set(inspect.signature(fator_potencia.dimensionar).parameters), set())
+        self.assertEqual(fator_potencia.dimensionar(**argumentos)["banco"]["total"], 162.5)
 
     def test_formulario_do_gerador_vira_argumentos_de_dimensionar(self):
         from freecad.Circuits.core.functions.Predial import gerador

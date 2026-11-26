@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64">
+  <!-- Fator de potência: triângulo de potências e capacitor -->
+  <path d="M8 54H44V22Z" fill="#d2e3fc" stroke="#1a73e8" stroke-width="3" stroke-linejoin="round"/>
+  <path d="M50 22V34 M50 42V54 M42 34H58 M42 42H58" fill="none" stroke="#e8710a" stroke-width="4" stroke-linecap="round"/>
+</svg>

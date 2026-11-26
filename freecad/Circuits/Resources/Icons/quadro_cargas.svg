@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64">
+  <!-- Quadro de cargas: tabela com as colunas R, S e T -->
+  <path d="M6 8H58V56H6Z" fill="#ffffff" stroke="#5f6368" stroke-width="3" stroke-linejoin="round"/>
+  <path d="M6 18H58 M6 30H58 M6 42H58 M24 8V56" fill="none" stroke="#5f6368" stroke-width="2"/>
+  <path d="M30 26V22 M42 26V14 M54 26V18" stroke="#e53935" stroke-width="4"/>
+  <path d="M30 38V30 M42 38V34 M54 38V32" stroke="#1a73e8" stroke-width="4"/>
+  <path d="M30 50V44 M42 50V44 M54 50V40" stroke="#188038" stroke-width="4"/>
+</svg>

@@ -15,7 +15,7 @@ dicionário com:
 A ideia é o usuário responder poucas perguntas, com opções prontas, e só abrir
 as opções avançadas quando tiver os dados do catálogo ou do projeto.
 """
-from freecad.Circuits.core import centro_medicao
+from freecad.Circuits.core import centro_medicao, comando
 from freecad.Circuits.core.functions.Predial import aterramento, gerador, luminotecnico, pressurizacao, recalque
 from freecad.Circuits.core.simbolos import CATALOGO, ILUMINACAO
 
@@ -374,3 +374,53 @@ def converter(campo, texto):
     if numero < campo.get("minimo", 0) or numero > campo.get("maximo", 1000000):
         return None
     return numero
+
+
+# --- quadro de comando e fator de potência ----------------------------------------------------
+
+PARTIDA_MOTOR = [
+    {
+        "chave": "potencia_cv", "rotulo": "Potência do motor", "valor": 5.0, "minimo": 0.25, "maximo": 500.0,
+        "decimais": 2, "sufixo": "cv", "dica": "Potência de placa (no eixo) do motor trifásico.",
+    },
+    {"chave": "alimentacao", "rotulo": "Alimentação", "valor": TRIFASICAS, "dica": "Tensão entre fases do motor."},
+    {
+        "chave": "partida", "rotulo": "Partida", "valor": list(comando.PARTIDAS.values()),
+        "dica": "Direta até uns 5 cv; estrela-triângulo, soft-starter ou inversor para reduzir a corrente de partida.",
+    },
+]
+
+FATOR_POTENCIA = [
+    {
+        "chave": "potencia_kw", "rotulo": "Potência ativa da instalação", "valor": 500.0, "minimo": 1.0,
+        "maximo": 100000.0, "decimais": 1, "sufixo": "kW", "dica": "Demanda ativa no horário de ponta.",
+    },
+    {
+        "chave": "fp_atual", "rotulo": "Fator de potência atual", "valor": 0.80, "minimo": 0.30, "maximo": 0.99,
+        "decimais": 2, "dica": "Da conta de energia ou de uma medição.",
+    },
+    {"chave": "alimentacao", "rotulo": "Tensão do banco", "valor": TRIFASICAS, "dica": "Tensão entre fases no QGBT."},
+    {
+        "chave": "fp_desejado", "rotulo": "Fator de potência desejado", "avancado": True, "valor": 0.92,
+        "minimo": 0.92, "maximo": 1.0, "decimais": 2, "dica": "0,92 é o mínimo da regulação; use 0,95 para folga.",
+    },
+    {
+        "chave": "potencia_curto_kva", "rotulo": "Potência de curto no QGBT (0 = não verificar)", "avancado": True,
+        "valor": 20000.0, "minimo": 0.0, "maximo": 1000000.0, "decimais": 0, "sufixo": "kVA",
+        "dica": "Para a verificação de ressonância com a rede (Curto-circuito dá esse valor).",
+    },
+]
+
+
+def argumentos_partida(dados):
+    """Argumentos de ``core.comando.dimensionar_motor`` a partir do formulário."""
+    tensao, _ = ALIMENTACOES[dados["alimentacao"]]
+    return {"potencia_cv": float(dados["potencia_cv"]), "tensao": float(tensao),
+            "partida": comando.partida_pelo_rotulo(dados["partida"])}
+
+
+def argumentos_fator_potencia(dados):
+    """Argumentos de ``core.fator_potencia.dimensionar`` a partir do formulário."""
+    dados = dict(dados)
+    tensao, _ = ALIMENTACOES[dados.pop("alimentacao")]
+    return dict(dados, tensao=float(tensao))

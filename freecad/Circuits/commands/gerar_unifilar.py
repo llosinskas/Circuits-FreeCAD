@@ -10,7 +10,7 @@ from freecad.Circuits.commands._base import documento_ou_aviso, recursos
 from freecad.Circuits.qt import QtWidgets
 from freecad.Circuits.core import balanceamento
 from freecad.Circuits.core import quadro as regras_quadro
-from freecad.Circuits.services import circuitos, identificacao, parametros, planilhas, unifilar
+from freecad.Circuits.services import circuitos, identificacao, parametros, planilhas, quadro_cargas, unifilar
 from freecad.Circuits.UI.dialogs.quadro_dialogs import Add_circuito, CriarQuadro
 
 
@@ -293,6 +293,62 @@ class AddCircuito:
         )
 
 
+class QuadroCargas:
+    """Quadro de cargas por fase, com desequilíbrio, DRs por grupo e as reservas da NBR 5410."""
+
+    TITULO = "Quadro de cargas"
+
+    def Activated(self):
+        doc = documento_ou_aviso()
+        if not doc:
+            return
+        quadro = _escolher_quadro(doc, self.TITULO)
+        if quadro is None:
+            return
+        if not planilhas.ler_circuitos(quadro):
+            QtWidgets.QMessageBox.information(
+                None, self.TITULO,
+                "O quadro ainda não tem circuitos na planilha de circuitos: use Montar circuitos ou preencha a planilha.")
+            return
+        doc.openTransaction(self.TITULO)
+        try:
+            faltam = quadro_cargas.reservas_que_faltam(quadro)
+            if faltam and QtWidgets.QMessageBox.question(
+                    None, self.TITULO,
+                    f"A NBR 5410 (6.5.4.7) pede {len(faltam)} circuito(s) de reserva a mais neste quadro "
+                    f"({', '.join(r['N_circuito'] for r in faltam)}).\n\nAcrescentar na planilha de circuitos?",
+                    QtWidgets.QMessageBox.Yes | QtWidgets.QMessageBox.No) == QtWidgets.QMessageBox.Yes:
+                quadro_cargas.acrescentar_reservas(quadro)
+            folha, dados = quadro_cargas.gerar(doc, quadro)
+            doc.commitTransaction()
+        except Exception:
+            doc.abortTransaction()
+            raise
+        carga = dados["carga"]
+        linhas = [f"Quadro {quadro.Label}: R {carga['R']:.0f} VA · S {carga['S']:.0f} VA · T {carga['T']:.0f} VA",
+                  f"Desequilíbrio: {dados['desequilibrio']:.1f} %".replace(".", ",")]
+        if dados["grupos_dr"]:
+            linhas.append("DRs: " + "; ".join(f"{nome} ({', '.join(n)})" for nome, n in dados["grupos_dr"]))
+        if dados["sem_fase"]:
+            linhas.append(f"Sem fase (fora da conta): {', '.join(dados['sem_fase'])}")
+        if dados["sugestao"]:
+            linhas.append("Para equilibrar: " + ", ".join(f"C{n} → {f}" for n, f in dados["sugestao"].items())
+                          + ". Use Balancear fases para gravar.")
+        linhas.append(f"\nPlanilha \"{folha.Label}\" (para a folha: Inserir na folha).")
+        QtWidgets.QMessageBox.information(None, self.TITULO, "\n".join(linhas))
+
+    def IsActive(self):
+        return True
+
+    def GetResources(self):
+        return recursos(
+            "quadro_cargas.svg",
+            "Quadro de cargas",
+            "Monta o quadro de cargas por fase (R, S, T) com o desequilíbrio, os DRs por grupo (coluna Grupo do DR) "
+            "e oferece as reservas da NBR 5410",
+        )
+
+
 Gui.addCommand("AddCircuito", AddCircuito())
 Gui.addCommand("BalancearFases", BalancearFases())
 Gui.addCommand("GerarMultifilar", GerarMultifilar())
@@ -301,3 +357,4 @@ Gui.addCommand("MontarCircuitos", MontarCircuitos())
 Gui.addCommand("ComponentesQuadro", ComponentesQuadro())
 Gui.addCommand("GerarUnifilar", GerarUnifilar())
 Gui.addCommand("GerarPlanilha", GerarPlanilha())
+Gui.addCommand("QuadroCargas", QuadroCargas())

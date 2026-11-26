@@ -106,7 +106,9 @@ class TestLinhaPlanilha(unittest.TestCase):
         grupo = circuitos.agrupar([ponto("1", 600, TUG, fp=0.8)])
         circuitos.distribuir_fases(grupo, 3)
         linha = circuitos.linha_planilha(grupo[0])
-        self.assertEqual(set(linha), set(COLUNAS_CIRCUITO.values()) | {"Comprimento", "Queda", "Criterio", "_avisos"})
+        # o grupo do DR é escolha do projetista: Montar circuitos não o escreve (a planilha o mantém)
+        self.assertEqual(set(linha), set(COLUNAS_CIRCUITO.values()) - {"Grupo_DR"}
+                         | {"Comprimento", "Queda", "Criterio", "_avisos"})
         self.assertEqual(linha["Potencia"], "480")
         self.assertEqual(linha["Corrente"], "4.72")
         self.assertEqual((linha["Cabo"], linha["Disjuntor"]), ("2.5", "6"))

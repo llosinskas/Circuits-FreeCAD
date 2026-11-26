@@ -1,4 +1,4 @@
-"""Etapa 6: quadro de comando e proteção de motores (core/comando.py).
+"""Quadro de comando e proteção de motores (core/comando.py).
 
 Estrela-triângulo: contatores de rede e de triângulo com 0,58·In, de estrela com
 0,33·In, relé térmico ajustado em 0,58·In (ligado nas fases do enrolamento).
@@ -6,12 +6,13 @@ Contatores em AC-3 e faixas de disjuntor-motor são listas genéricas de catálo
 """
 import unittest
 
-from tests.plano._apoio import carregar
+from tests import ROOT  # noqa: F401  (configura o caminho do pacote)
+from freecad.Circuits.core import comando
 
 
 class Base(unittest.TestCase):
     def setUp(self):
-        self.c = carregar(self, "comando", 6)
+        self.c = comando
 
 
 class TestPartidaDireta(Base):
@@ -70,6 +71,17 @@ class TestMotorPelaPotencia(Base):
         r = self.c.dimensionar_motor(5, 380, "direta")
         self.assertAlmostEqual(r["corrente_nominal"], esperado)
         self.assertGreaterEqual(r["contatores"]["K1"], esperado)
+
+
+class TestFormulario(Base):
+    def test_dados_do_motor_para_inserir_na_planta(self):
+        r = self.c.dimensionar_motor(10, 380, "soft_starter")
+        self.assertEqual((r["motor"]["motor_cv"], r["motor"]["fases"]), (10.0, 3))
+        self.assertAlmostEqual(r["motor"]["corrente"], r["corrente_nominal"])
+        self.assertEqual(self.c.partida_pelo_rotulo("Inversor de frequência"), "inversor")
+        texto = self.c.relatorio(r)
+        self.assertIn("Soft-starter", texto)
+        self.assertNotIn("Relé térmico", texto)  # a proteção está no soft-starter
 
 
 if __name__ == "__main__":

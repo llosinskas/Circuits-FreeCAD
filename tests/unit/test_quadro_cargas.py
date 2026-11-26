@@ -1,16 +1,28 @@
-"""Etapa 1: unifilar como folha de projeto (core/quadro_cargas.py).
+"""Quadro de cargas, para o unifilar como folha de projeto (core/quadro_cargas.py).
 
 Quadro de cargas por fase, desequilíbrio, sugestão de fases, reservas e DR por grupo.
 Os circuitos são as linhas da planilha de circuitos (``planilhas.ler_circuitos_completos``).
 """
 import unittest
 
-from tests.plano._apoio import carregar, circuito
+from tests import ROOT  # noqa: F401  (configura o caminho do pacote)
+from freecad.Circuits.core import quadro_cargas
+
+
+def circuito(numero, potencia, fases="R", destino="", dr=False, grupo_dr="", **outros):
+    """Linha da planilha de circuitos, no formato de ``planilhas.ler_circuitos_completos``."""
+    linha = {
+        "N_circuito": str(numero), "Destino": destino, "Potencia": str(potencia),
+        "Fase_R": str("R" in fases), "Fase_S": str("S" in fases), "Fase_T": str("T" in fases),
+        "DR": str(dr), "Grupo_DR": grupo_dr, "Corrente": "", "Disjuntor": "", "Cabo": "",
+    }
+    linha.update(outros)
+    return linha
 
 
 class Base(unittest.TestCase):
     def setUp(self):
-        self.qc = carregar(self, "quadro_cargas", 1)
+        self.qc = quadro_cargas
 
 
 class TestCargaPorFase(Base):

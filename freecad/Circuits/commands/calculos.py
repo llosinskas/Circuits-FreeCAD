@@ -4,10 +4,11 @@ import FreeCADGui as Gui
 
 from freecad.Circuits.commands._base import documento_ou_aviso, recursos
 from freecad.Circuits.commands.gerar_unifilar import _escolher_quadro
-from freecad.Circuits.core import formularios
+from freecad.Circuits.core import comando, curto, fator_potencia, formularios
 from freecad.Circuits.core.functions.Predial import demanda, gerador, luminotecnico, pressurizacao, recalque
 from freecad.Circuits.qt import QtWidgets
 from freecad.Circuits.services import circuitos, pavimentos
+from freecad.Circuits.services import curto as servico_curto
 from freecad.Circuits.services import gerador as servico_gerador
 from freecad.Circuits.services import unifilar
 from freecad.Circuits.services import luminotecnico as servico_luminotecnico
@@ -217,8 +218,112 @@ class DistribuirLuminarias:
         )
 
 
+class CalcPartidaMotor:
+    """Quadro de comando de um motor: partida, contatores, relé térmico e disjuntor-motor."""
+
+    TITULO = "Partida de motor"
+
+    @staticmethod
+    def _calcular(dados):
+        resultado = comando.dimensionar_motor(**formularios.argumentos_partida(dados))
+        return resultado, comando.relatorio(resultado)
+
+    def Activated(self):
+        dialog = CalculoDialog(self.TITULO, formularios.PARTIDA_MOTOR, self._calcular, TEXTO_INSERIR, "partida_motor")
+        if dialog.exec_() and dialog.resultado:
+            motor = dialog.resultado["motor"]
+            _inserir_motor(f"Motor ({comando.PARTIDAS[dialog.resultado['partida']].lower()})", motor)
+
+    def IsActive(self):
+        return True
+
+    def GetResources(self):
+        return recursos(
+            "partida_motor.svg",
+            "Partida de motor",
+            "Dimensiona a partida do motor (direta, estrela-triângulo, soft-starter ou inversor): contatores em "
+            "AC-3, relé térmico e disjuntor-motor",
+        )
+
+
+class CalcFatorPotencia:
+    """Banco de capacitores para corrigir o fator de potência."""
+
+    TITULO = "Fator de potência"
+
+    @staticmethod
+    def _calcular(dados):
+        resultado = fator_potencia.dimensionar(**formularios.argumentos_fator_potencia(dados))
+        return resultado, fator_potencia.relatorio(resultado)
+
+    def Activated(self):
+        CalculoDialog(self.TITULO, formularios.FATOR_POTENCIA, self._calcular, "", "fator_potencia").exec_()
+
+    def IsActive(self):
+        return True
+
+    def GetResources(self):
+        return recursos(
+            "fator_potencia.svg",
+            "Fator de potência",
+            "Banco de capacitores para levar o fator de potência a 0,92: kvar, estágios, corrente de projeto e "
+            "risco de ressonância com a rede",
+        )
+
+
+class CalcCurto:
+    """Estudo de curto-circuito (IEC 60909) das barras da planilha."""
+
+    TITULO = "Curto-circuito"
+
+    def Activated(self):
+        doc = documento_ou_aviso()
+        if not doc:
+            return
+        folha = servico_curto.planilha(doc)
+        if folha is None:
+            folha, quadros = servico_curto.criar(doc)
+            Gui.Selection.clearSelection()
+            Gui.Selection.addSelection(folha)
+            QtWidgets.QMessageBox.information(
+                None, self.TITULO,
+                f"Criei a planilha \"{folha.Label}\" com a entrada (rede de 500 MVA e transformador de 1000 kVA, "
+                f"de exemplo) e {quadros} quadro(s).\n\nAcerte a rede (ou a potência de curto da concessionária), o "
+                "transformador, a tensão e o cabo e comprimento de cada quadro. Depois clique de novo em Curto-circuito.",
+            )
+            return
+        try:
+            barras, tensao = servico_curto.ler(folha)
+            resultado = curto.estudo(barras, tensao)
+        except ValueError as erro:
+            QtWidgets.QMessageBox.warning(None, self.TITULO, str(erro))
+            return
+        doc.openTransaction(self.TITULO)
+        avisos = servico_curto.gravar_resultado(doc, folha, resultado)
+        doc.commitTransaction()
+        texto = curto.relatorio(resultado)
+        if avisos:
+            texto += "\n\nAtenção:\n" + "\n".join(avisos)
+        QtWidgets.QMessageBox.information(None, self.TITULO, texto + "\n\nResultado gravado na planilha e no "
+                                          "campo de curto de cada quadro.")
+
+    def IsActive(self):
+        return True
+
+    def GetResources(self):
+        return recursos(
+            "curto.svg",
+            "Curto-circuito",
+            "Estudo de curto pela IEC 60909: I″k3, pico, fase-terra mínima e capacidade de interrupção em cada "
+            "barra. Na primeira vez cria a planilha com a entrada e os quadros do projeto",
+        )
+
+
 Gui.addCommand("CalcDemanda", CalcDemanda())
 Gui.addCommand("CalcGerador", CalcGerador())
 Gui.addCommand("DistribuirLuminarias", DistribuirLuminarias())
 Gui.addCommand("CalcPressurizacao", CalcPressurizacao())
 Gui.addCommand("CalcRecalque", CalcRecalque())
+Gui.addCommand("CalcPartidaMotor", CalcPartidaMotor())
+Gui.addCommand("CalcFatorPotencia", CalcFatorPotencia())
+Gui.addCommand("CalcCurto", CalcCurto())

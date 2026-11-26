@@ -232,6 +232,10 @@ Depois de gravar, gere o Unifilar de novo para atualizar as fases no diagrama.
 | Sensibilidade do DR | 30 mA |
 | Corrente de curto na entrada e tempo de atuação | 5 kA e 0 (0 não verifica o curto) |
 
+### Quadro de cargas
+
+**Dados do quadro > Quadro de cargas** monta a planilha *Quadro de cargas* do quadro: a carga de cada circuito em R, S e T (o bifásico dividido entre as fases), o total, o desequilíbrio e os DRs. Circuitos com o mesmo nome na coluna **Grupo do DR** (coluna Q da planilha de circuitos) ficam sob um DR só; com DR e sem grupo, cada um tem o seu. Se faltarem as reservas da NBR 5410, o botão oferece acrescentá-las. Com desequilíbrio acima de 10 %, mostra as fases sugeridas (grave com **Balancear fases**). A planilha vai para a folha final com **Inserir na folha**.
+
 ### Unifilar e componentes
 
 - **Unifilar:** um diagrama por quadro, com medidor (quando a origem do quadro é uma medição), disjuntor geral, DPS, barramentos de fases, neutro e terra, e, em cada circuito, o disjuntor com os terminais e o arco, a proteção (`C16A`) e as fases, o DR com a sensibilidade, os traços de terra, neutro e fases, a seção (`#2,5 mm²`), a potência, o número e a descrição.
@@ -431,6 +435,12 @@ O botão **Aterramento** da barra *Planta elétrica* reúne:
 | Pressurização | Vazão de ar da escada (portas fechadas e abertas), ventilador e motor |
 | Bomba de recalque | Vazão, tubo, altura manométrica e motor |
 | Resistência de terra | Resistência das hastes em linha e número de hastes (no botão Aterramento) |
+
+### Curto-circuito, fator de potência e partida de motor
+
+- **Cálculos > Curto-circuito** (IEC 60909): no primeiro clique cria a planilha *Estudo de curto* com a entrada (rede e transformador, com valores de exemplo) e uma barra por quadro, com o cabo de entrada dele. Acerte a potência de curto da rede (ou a da concessionária), o transformador, a tensão e o cabo e o comprimento de cada quadro, e clique de novo: sai o I″k3, a corrente de pico, a fase-terra mínima e a capacidade de interrupção mínima de cada barra. O curto vai para o campo de curto de cada quadro (aparece no unifilar), e há aviso quando o disjuntor geral do quadro não aguenta.
+- **Cálculos > Fator de potência**: com a potência ativa e o FP atual, dá os kvar para chegar a 0,92, o banco em estágios comerciais, a corrente de projeto do banco (× 1,35) e o risco de ressonância com a rede.
+- **Cálculos > Partida de motor**: com a potência e a partida (direta, estrela-triângulo, soft-starter ou inversor), dá os contatores em AC-3, o relé térmico e o disjuntor-motor, e insere o motor na planta.
 
 ### Gerador diesel
 

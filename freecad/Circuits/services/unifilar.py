@@ -63,19 +63,20 @@ def desenhar_dps(doc, posicao, h, grupo):
 def desenhar_quadro(doc, h, grupo, planilha):
     """Desenha a entrada, o disjuntor geral e os dados do quadro."""
     try:
-        identificacao = planilha.get("indentificacao_painel")
-        bitola = planilha.get("bitola")
-        origem = planilha.get("origem")
-        descricao = planilha.get("descricao")
-        tensao = planilha.get("tensao")
-        numero_fases = planilha.get("numero_fases")
-        curva_disjuntor = planilha.get("curva_disjuntor")
-        corrente_nominal = planilha.get("corrente_nominal_disjuntor")
-        corrente_cc = planilha.get("corrente_curto_circuito")
-        potencia_instalada = planilha.get("potencia_instalada")
-        potencia_demanda = planilha.get("potencia_demanda")
-        material = planilha.get("material_quadro")
-        tem_dps = planilha.get("DPS")
+        dados = planilhas.ler_quadro(planilha)  # campo vazio não derruba o cabeçalho (alias perdido)
+        identificacao = dados["indentificacao_painel"]
+        bitola = dados["bitola"]
+        origem = dados["origem"]
+        descricao = dados["descricao"]
+        tensao = dados["tensao"]
+        numero_fases = int(float(dados["numero_fases"].replace(",", ".") or 3))  # número, como dava o get
+        curva_disjuntor = dados["curva_disjuntor"]
+        corrente_nominal = dados["corrente_nominal_disjuntor"]
+        corrente_cc = dados["corrente_curto_circuito"]
+        potencia_instalada = dados["potencia_instalada"]
+        potencia_demanda = dados["potencia_demanda"]
+        material = dados["material_quadro"]
+        tem_dps = dados["DPS"]
 
         add_texto(origem, App.Vector(-h * 0.5, 0.5 * h, 0), 90, h, grupo)
         add_texto(f"#{bitola}", App.Vector(5 * h, h, 0), 0, h, grupo)
@@ -84,16 +85,16 @@ def desenhar_quadro(doc, h, grupo, planilha):
         add_texto(f"Material: {material}", App.Vector(0, -2 * h, 0), 0, h, grupo)
         add_texto(f"Potência Instalada:{potencia_instalada} kW", App.Vector(0, -3 * h, 0), 0, h, grupo)
         add_texto(f"Demanda:{potencia_demanda} kW", App.Vector(0, -4 * h, 0), 0, h, grupo)
-        curto = planilha.get("curto_circuito")
+        curto = dados["curto_circuito"]
         add_texto(f"Nível de curto circuito no ponto {curto} kA", App.Vector(0, -5 * h, 0), 0, h, grupo)
         add_texto(f"{descricao}", App.Vector(0, -6 * h, 0), 0, h, grupo)
         add_texto(identificacao, App.Vector(0, 5 * h, 0), 0, h, grupo)
         add_texto(f"{tensao}V", App.Vector(5 * h, 5 * h, 0), 0, h, grupo)
 
         if tem_dps == "True":
-            classe_dps = planilha.get("classe_DPS")
-            tensao_dps = planilha.get("tensao_DPS")
-            corrente_dps = planilha.get("corrente_DPS")
+            classe_dps = dados["classe_DPS"]
+            tensao_dps = dados["tensao_DPS"]
+            corrente_dps = dados["corrente_DPS"]
             desenhar_dps(doc, App.Vector(15 * h, 5 / 2 * h, 0), h, grupo)
             add_texto(f"Classe: {classe_dps}", App.Vector(h * 17, 0, 0), 0, h, grupo)
             add_texto(f"{tensao_dps}V", App.Vector(h * 17, -h, 0), 0, h, grupo)
@@ -118,8 +119,9 @@ def desenhar_quadro(doc, h, grupo, planilha):
     pl.Base = App.Vector(11.5 * h, 5 / 2 * h, 0)
     grupo.addObject(Draft.make_circle(radius=1.5 * h, placement=pl, startangle=0, endangle=180))
 
-    neutro = planilha.get("neutro") == "True"
-    terra = planilha.get("terra") == "True"
+    dados = planilhas.ler_quadro(planilha)
+    neutro = dados["neutro"] == "True"
+    terra = dados["terra"] == "True"
     desenhar_cabo_unifilar(doc, numero_fases, terra, neutro, h, App.Vector(5 * h, 2 * h, 0), grupo)
 
     fator = {1: 0, 2: -0.25, 3: -0.5}.get(numero_fases, 1)

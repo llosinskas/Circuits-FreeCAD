@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64">
+  <!-- Partida de motor: motor com o contator -->
+  <circle cx="22" cy="40" r="16" fill="#ffffff" stroke="#5f6368" stroke-width="3"/>
+  <path d="M14 46V34L22 42L30 34V46" fill="none" stroke="#5f6368" stroke-width="3" stroke-linejoin="round"/>
+  <path d="M44 8V20 M52 8V20 M44 20L50 30 M52 20L58 30 M50 30V38 M58 30V38" fill="none" stroke="#1a73e8" stroke-width="3" stroke-linecap="round"/>
+  <path d="M40 24H60" stroke="#e8710a" stroke-width="3" stroke-dasharray="4 3"/>
+</svg>

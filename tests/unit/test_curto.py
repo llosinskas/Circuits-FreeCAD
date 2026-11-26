@@ -1,4 +1,4 @@
-"""Etapa I2: estudo de curto-circuito pela IEC 60909 (core/curto.py).
+"""Estudo de curto-circuito pela IEC 60909 (core/curto.py).
 
 Impedâncias em mΩ, referidas à baixa tensão; correntes em kA; tensões de linha em V.
 Valores de referência: rede de 500 MVA, transformador de 1000 kVA com uk = 5 % e
@@ -7,14 +7,15 @@ Valores de referência: rede de 500 MVA, transformador de 1000 kVA com uk = 5 % 
 import math
 import unittest
 
-from tests.plano._apoio import carregar
+from tests import ROOT  # noqa: F401  (configura o caminho do pacote)
+from freecad.Circuits.core import curto
 
 U = 380.0
 
 
 class Base(unittest.TestCase):
     def setUp(self):
-        self.c = carregar(self, "curto", "I2")
+        self.c = curto
 
     def assertProximo(self, valor, esperado, tolerancia=0.01):
         self.assertAlmostEqual(valor, esperado, delta=abs(esperado) * tolerancia)
@@ -89,6 +90,34 @@ class TestEstudo(Base):
     def test_origem_que_nao_existe(self):
         with self.assertRaises(ValueError):
             self.c.estudo([{"nome": "QD1", "origem": "QGBT", "cabo": {"secao": 10.0, "comprimento": 5.0}}], U)
+
+
+class TestPlanilha(Base):
+    def test_entrada_e_uma_barra_por_quadro(self):
+        linhas = self.c.linhas_dos_quadros([("QGBT", "", "240"), ("QD1", "QGBT", "16"), ("QD2", "Medidor", "")])
+        self.assertEqual([(l["nome"], l.get("origem", "")) for l in linhas],
+                         [("Entrada", ""), ("QGBT", "Entrada"), ("QD1", "QGBT"), ("QD2", "Entrada")])
+        self.assertEqual(linhas[3]["secao"], "10")  # sem cabo de entrada no quadro, um palpite
+
+    def test_barras_das_linhas_com_virgula_e_erros_com_a_linha(self):
+        linhas = [(3, {"nome": "Entrada", "rede_mva": "500", "trafo_kva": "1000", "uk": "5", "perdas_cobre_w": ""}),
+                  (4, {"nome": "QD1", "origem": "Entrada", "secao": "16", "comprimento": "12,5", "material": "Alumínio"}),
+                  (5, {"nome": ""})]
+        entrada, qd1 = self.c.barras_das_linhas(linhas)
+        self.assertEqual(entrada["transformador"], {"potencia_kva": 1000.0, "uk": 5.0, "perdas_cobre_w": 0.0})
+        self.assertEqual(qd1["cabo"], {"secao": 16.0, "comprimento": 12.5, "paralelos": 1, "material": "aluminio"})
+        with self.assertRaisesRegex(ValueError, "Linha 7"):
+            self.c.barras_das_linhas([(7, {"nome": "QD", "origem": "X", "secao": "16", "comprimento": "dez"})])
+        with self.assertRaisesRegex(ValueError, "Linha 3.*origem"):
+            self.c.barras_das_linhas([(3, {"nome": "Solta"})])
+
+    def test_estudo_da_planilha_e_relatorio(self):
+        barras = self.c.barras_das_linhas([
+            (3, {"nome": "Entrada", "rede_mva": "500", "trafo_kva": "1000", "uk": "5", "perdas_cobre_w": "10500"}),
+            (4, {"nome": "QD1", "origem": "Entrada", "secao": "16", "comprimento": "30"})])
+        resultado = self.c.estudo(barras, U)
+        self.assertLess(resultado["QD1"]["ik1_min"], resultado["QD1"]["ik3"])
+        self.assertIn("QD1:", self.c.relatorio(resultado))
 
 
 if __name__ == "__main__":

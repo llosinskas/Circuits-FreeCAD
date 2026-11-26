@@ -27,15 +27,27 @@ def criar_planilha_quadro(doc, dados):
     planilha.quadro = "Quadro"
     planilha.set("A1", nome_quadro)
     planilha.mergeCells("A1:S1")
+    planilha.set("A4", "Circuitos")
+    planilha.mergeCells("A4:S4")
+    valores = list(dados.values())
     for indice, titulo in enumerate(layout.CABECALHO_QUADRO):
         coluna = layout.coluna(indice)
         planilha.set(f"{coluna}2", titulo)
+        valor = str(valores[indice]) if indice < len(valores) else ""
+        if valor:  # o valor antes do alias: escrever "" apaga a célula, e o alias junto
+            planilha.set(f"{coluna}3", valor)
         planilha.setAlias(f"{coluna}3", titulo)
-    planilha.set("A4", "Circuitos")
-    planilha.mergeCells("A4:S4")
-    for indice, valor in enumerate(dados.values()):
-        planilha.set(f"{layout.coluna(indice)}3", str(valor))
     return planilha
+
+
+def celula_do_campo(planilha, alias):
+    """Célula da linha 3 do quadro com o campo: pelo alias ou, se ele se perdeu (planilhas criadas
+    antes com o campo vazio), pela posição de ``core.planilha.CABECALHO_QUADRO``."""
+    try:
+        celula = planilha.getCellFromAlias(alias)
+    except Exception:
+        celula = None
+    return celula or f"{layout.coluna(layout.CABECALHO_QUADRO.index(alias))}3"
 
 
 def listar_quadros(doc):
@@ -59,8 +71,10 @@ def _texto(planilha, celula):
 
 
 def ler_quadro(planilha):
-    """Dados da linha 3 do quadro, em texto, pelas chaves de ``CABECALHO_QUADRO``."""
-    return {alias: _texto(planilha, alias) for alias in layout.CABECALHO_QUADRO}
+    """Dados da linha 3 do quadro, em texto, pelas chaves de ``CABECALHO_QUADRO`` (pelo alias, ou pela
+    posição da coluna quando o alias se perdeu)."""
+    return {alias: _texto(planilha, alias) or _texto(planilha, celula_do_campo(planilha, alias))
+            for alias in layout.CABECALHO_QUADRO}
 
 
 def _circuitos_no_quadro(quadro):
@@ -199,16 +213,19 @@ def adicionar_circuito(quadro, dados):
     linha = linha_do_circuito(quadro, dados["N_circuito"])
     if linha is None:
         linha = max(ultima_linha(planilha) + 1, layout.PRIMEIRA_LINHA_PLANILHA_CIRCUITOS)
+    elif "Grupo_DR" not in dados:  # quem não sabe do grupo do DR (Montar circuitos) não o apaga
+        coluna = next(col for col, chave, _ in layout.PLANILHA_CIRCUITOS if chave == "Grupo_DR")
+        dados = dict(dados, Grupo_DR=_texto(planilha, f"{coluna}{linha}"))
     _gravar_linha(planilha, linha, dados)
     return linha
 
 
 def gravar_potencia_instalada(planilha, potencia_kw):
-    planilha.set(planilha.getCellFromAlias("potencia_instalada"), str(potencia_kw))
+    planilha.set(celula_do_campo(planilha, "potencia_instalada"), str(potencia_kw))
 
 
 def gravar_potencia_demanda(planilha, potencia_kw):
-    planilha.set(planilha.getCellFromAlias("potencia_demanda"), str(potencia_kw))
+    planilha.set(celula_do_campo(planilha, "potencia_demanda"), str(potencia_kw))
 
 
 def _potencia_da_linha(celulas):

@@ -125,13 +125,15 @@ INFRA_TOOLS = [
     "Add_Node", "MudarAltura", "ListaVerticais", "SimbolosVerticais", "EditarDescidas", "DetalharVerticais", "Cabo",
     "InsertCableTray", "GerarSuportes",
 ]
-BOARD_DATA_TOOLS = ["GerarPlanilha", "CircuitosQuadro", "AddCircuito", "BalancearFases"]
+BOARD_DATA_TOOLS = ["GerarPlanilha", "CircuitosQuadro", "AddCircuito", "BalancearFases", "QuadroCargas"]
 BOARD_TOOLS = [
-    "GerarPlanilha", "CircuitosQuadro", "AddCircuito", "BalancearFases", "MontarCircuitos", "ComponentesQuadro",
+    "GerarPlanilha", "CircuitosQuadro", "AddCircuito", "BalancearFases", "QuadroCargas", "MontarCircuitos",
+    "ComponentesQuadro",
     "GerarUnifilar", "GerarMultifilar",
 ]
 DIAGRAM_TOOLS = ["GerarUnifilar", "GerarMultifilar"]
-CALC_TOOLS = ["CalcDemanda", "CalcGerador", "CalcPressurizacao", "CalcRecalque"]
+CALC_TOOLS = ["CalcDemanda", "CalcGerador", "CalcCurto", "CalcFatorPotencia", "CalcPartidaMotor", "CalcPressurizacao",
+              "CalcRecalque"]
 DOCUMENT_TOOLS = [
     "GerarQuantitativos",
     "LegendaSimbolos",
@@ -172,7 +174,7 @@ GROUPS = {
         GROUNDING_TOOLS,
     ),
     "Grupo_Quadros": ("Quadros", "Quadro de distribuição, de comando, de medição, medição agrupada, gerador e QTA, na planta; centro de medição Enel (busway ou medição agrupada)", BOARD_SYMBOL_TOOLS),
-    "Grupo_DadosQuadro": ("Dados do quadro", "Planilha de dados do quadro, planilha de circuitos, circuito digitado em formulário e balanceamento das fases", BOARD_DATA_TOOLS),
+    "Grupo_DadosQuadro": ("Dados do quadro", "Planilha de dados do quadro, planilha de circuitos, circuito digitado em formulário, balanceamento das fases e quadro de cargas", BOARD_DATA_TOOLS),
     "Grupo_Circuitos": ("Circuitos", "Definir o circuito dos pontos, ligar interruptores e identificar na planta", CIRCUIT_TOOLS),
     "Grupo_Infra": (
         "Infraestrutura",
@@ -181,7 +183,7 @@ GROUPS = {
         INFRA_TOOLS,
     ),
     "Grupo_Diagramas": ("Diagramas", "Diagramas unifilar e multifilar de cada quadro", DIAGRAM_TOOLS),
-    "Grupo_Calculos": ("Cálculos", "Demanda do quadro, gerador diesel, pressurização de escada e bomba de recalque", CALC_TOOLS),
+    "Grupo_Calculos": ("Cálculos", "Demanda do quadro, gerador diesel, curto-circuito, fator de potência, partida de motor, pressurização de escada e bomba de recalque", CALC_TOOLS),
     "Grupo_Documentos": ("Documentos", "Quantitativos, legenda de símbolos, notas, Sketches em preto e relatório em PDF", DOCUMENT_TOOLS),
     "Grupo_Folhas": (
         "Folhas", "Folhas de desenho com carimbo: planta, diagramas, cortes e detalhes arrumados na escala",

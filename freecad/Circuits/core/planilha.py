@@ -92,6 +92,7 @@ COLUNAS_CIRCUITO = {
     "W": "Comprimento",
     "X": "Queda",
     "Y": "Criterio",
+    "Z": "Grupo_DR",
 }
 
 LINHA_CABECALHO_CIRCUITOS = 5
@@ -133,6 +134,7 @@ PLANILHA_CIRCUITOS = [
     ("N", "Comprimento", "Comprimento [m]"),
     ("O", "Queda", "Queda de tensão [%]"),
     ("P", "Criterio", "Critério determinante"),
+    ("Q", "Grupo_DR", "Grupo do DR (mesmo nome = um DR)"),
 ]
 LINHA_TITULO_CIRCUITOS = 1
 LINHA_TITULOS_COLUNAS = 2

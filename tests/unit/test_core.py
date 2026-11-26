@@ -66,7 +66,7 @@ class TestPlanilhaDeCircuitos(unittest.TestCase):
         circuito = {"N_circuito": "3", "Destino": "Chuveiro", "Potencia": "5500", "Tensao": "220", "Corrente": "25",
                     "Cabo": "4", "Disjuntor": "25", "Curva": "C", "Fase_R": "True", "Fase_S": "True", "Fase_T": "False",
                     "Neutro": "False", "Terra": "True", "DR": "True", "Corrente_DR": "30mA",
-                    "Comprimento": "18", "Queda": "2.1", "Criterio": "Capacidade de condução"}
+                    "Comprimento": "18", "Queda": "2.1", "Criterio": "Capacidade de condução", "Grupo_DR": "DR1"}
         linha = layout.circuito_para_linha(circuito)
         self.assertEqual((linha["E"], linha["J"], linha["L"], linha["M"]), ("RS", "S", "N", "S"))
         self.assertEqual((linha["N"], linha["O"], linha["P"]), ("18", "2.1", "Capacidade de condução"))
