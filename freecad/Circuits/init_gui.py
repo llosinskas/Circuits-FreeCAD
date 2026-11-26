@@ -122,7 +122,7 @@ BOARD_SYMBOL_TOOLS = [
 CIRCUIT_TOOLS = ["DefinirCircuito", "LigarInterruptor", "IdentificarPontos", "IdentificarFios"]
 INFRA_TOOLS = [
     "InsertConduit", "Ponto_caixa_passagem", "ConectarEletrodutos", "RotaCircuito", "OcupacaoEletrodutos",
-    "Add_Node", "ListaVerticais", "SimbolosVerticais", "EditarDescidas", "DetalharVerticais", "Cabo",
+    "Add_Node", "MudarAltura", "ListaVerticais", "SimbolosVerticais", "EditarDescidas", "DetalharVerticais", "Cabo",
     "InsertCableTray", "GerarSuportes",
 ]
 BOARD_DATA_TOOLS = ["GerarPlanilha", "CircuitosQuadro", "AddCircuito", "BalancearFases"]
@@ -327,6 +327,14 @@ class CircuitsWorkbench(gui.Workbench):
             reports,
             tools,
         )
+
+        # Subidas, descidas, rótulos e 3D dos eletrodutos se refazem sozinhos ao mudar a altura.
+        try:
+            from .UI import observador_verticais
+
+            observador_verticais.instalar()
+        except Exception as erro:
+            app.Console.PrintWarning(f"Circuits: atualização automática das verticais desligada: {erro}\n")
 
         # Os grupos só podem ser registrados depois dos comandos que eles reúnem.
         from .commands import grupos

@@ -147,6 +147,42 @@ class TestServico(unittest.TestCase):
         self.assertEqual(self.servico.editar_descida(doc, descida, -50.0, 2800.0 + 3), [])  # dentro da tolerância
         self.assertEqual(teto.Altura3D, 3000.0)
 
+    def test_mudar_altura_a_partir_do_vertice_sobe_ali(self):
+        e = Linha("E", [(0, 0), (3000, 0), (3000, 2000), (6000, 2000)], Diametro="3/4", Altura3D=2800.0,
+                  Tipo="Rígido")
+        doc = types.SimpleNamespace(Objects=[e], getObject={"E": e}.get)
+        self.assertEqual(self.servico.mudar_altura(e, 300.0, vertices=[(3000, 2000)]), [2800.0, 2800.0, 300.0])
+        self.assertEqual((e.AlturasTrechos, e.Altura3D), ([2800.0, 2800.0, 300.0], 2800.0))
+        caminhos = self.servico.caminhos_do_eletroduto(e)
+        self.assertEqual([(c["altura"], c["rotulo_altura"]) for c in caminhos], [(2800.0, "+2,80"), (300.0, "+0,30")])
+        with mock.patch.object(self.servico.rede, "listar_eletrodutos", return_value=[e]), \
+                mock.patch.object(self.servico.rede, "listar_caixas", return_value=[]):
+            (_, descida), = self.servico.descidas(doc)
+        self.assertEqual((descida["x"], descida["y"], descida["de"], descida["ate"]), (3000, 2000, 300.0, 2800.0))
+        # o editor de descidas muda só o lance que chega nela
+        self.servico.editar_descida(doc, descida, 400.0, 2800.0)
+        self.assertEqual(e.AlturasTrechos, [2800.0, 2800.0, 400.0])
+        # de volta a uma altura só: a lista fica vazia
+        self.servico.mudar_altura(e, 2800.0)
+        self.assertEqual((e.AlturasTrechos, e.Altura3D), ([], 2800.0))
+        self.assertEqual([c["rotulo_altura"] for c in self.servico.caminhos_do_eletroduto(e)], [""])
+
+    def test_mudar_so_o_trecho_selecionado(self):
+        e = Linha("E", [(0, 0), (3000, 0), (3000, 2000), (6000, 2000)], Diametro="3/4", Altura3D=2800.0)
+        self.assertEqual(self.servico.mudar_altura(e, 3200.0, arestas=[(3000, 1000)]), [2800.0, 3200.0, 2800.0])
+
+    def test_atualizar_marca_o_fim_para_o_observador(self):
+        doc, teto, piso = self._teto_e_piso()
+        doc.getObject = lambda nome: None
+        doc.recompute = mock.Mock()
+        verticais = types.SimpleNamespace(desenhar_simbolos=mock.Mock())
+        with mock.patch.object(self.servico.rede, "listar_eletrodutos", return_value=[teto, piso]), \
+                mock.patch.dict(sys.modules, {"freecad.Circuits.services.verticais": verticais}):
+            antes = self.servico.ULTIMA_ATUALIZACAO
+            self.servico.atualizar_depois_de_editar(doc)
+        self.assertGreater(self.servico.ULTIMA_ATUALIZACAO, antes)
+        self.assertFalse(self.servico.ATUALIZANDO)
+
     def test_atualizar_refaz_so_o_que_existe_ou_tudo_ao_ligar(self):
         doc, teto, piso = self._teto_e_piso()
         doc.getObject = lambda nome: None  # sem tubos 3D

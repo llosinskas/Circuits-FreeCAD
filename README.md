@@ -278,6 +278,14 @@ O botão **Fiação** desenha na planta os traços de fase, neutro e terra ao la
 - Nas eletrocalhas a norma não dá uma taxa: a planilha mostra a área ocupada sobre a seção útil (largura × aba) e a largura de uma camada única de cabos, com 40 % só como referência.
 - **Circuitos > Fios por trecho** escreve ao lado de cada eletroduto (do lado oposto ao `Ø`) os fios que passam nele, uma linha por circuito: `C1 #2,5 F+N+T`, `C3 #1,5 F+2R`; na eletrocalha, os circuitos e o total de cabos. Trechos do mesmo eletroduto com os mesmos fios levam um texto só. Os textos vão para a pasta *Fiação* do pavimento; repetir o comando apaga e escreve de novo.
 
+### Mudar a altura no meio do eletroduto (como no Revit)
+
+- **Infraestrutura > Mudar altura**: selecione o eletroduto inteiro, um ou mais trechos dele (as arestas) ou um vértice, e digite a altura do piso até o eletroduto, em metros. Com um vértice, escolha se a altura muda dali até o fim ou do início até ali.
+- Onde a altura muda, o eletroduto **sobe ou desce naquele vértice**: duas curvas de 90° e a vertical no 3D, o símbolo de subida/descida na planta, a vertical nos quantitativos. Cada lance passa a mostrar a altura no rótulo: `Ø3/4" +2,80`, `Ø3/4" +0,30`.
+- Para mudar no meio de um trecho, crie antes um vértice com **Add Node**.
+- **Tudo se atualiza sozinho**: ao mudar a altura, os pontos ou o diâmetro de um eletroduto (pelo botão, pelas propriedades ou arrastando os vértices), os símbolos de subida e descida, os rótulos e o 3D que já existem são refeitos um segundo depois. Em projetos grandes, desligue pela preferência `AtualizarVerticais` em `BaseApp/Preferences/Mod/Circuits`.
+- **Editar descidas** muda só o lance que chega na descida, não o eletroduto inteiro.
+
 ### Subidas, descidas e detalhes das verticais
 
 - **Infraestrutura > Subidas e descidas** desenha na planta o símbolo de cada vertical, com o texto ao lado (`Ø3/4" desce 2,50 m`, `EL 200x50 sobe 0,50 m`):
@@ -467,6 +475,7 @@ As barras *Desenho*, *Modificador*, *Snap* e *Arquitetura* trazem as ferramentas
 - **Dimensionamento:** o método de instalação é sempre B1 (eletroduto), porque as bandejas ainda não entram na rede dos circuitos. A capacidade de interrupção dos disjuntores não é verificada, e o curto-circuito só quando o tempo de atuação é informado (disjuntores limitadores: confira o I²t no catálogo). Tabelas transcritas da NBR 5410:2004, a conferir com a norma.
 - **Folhas de desenho:** conferidas no FreeCAD 1.0.2 (folha exportada em PDF); falta conferir no 1.1. O detalhe é retangular e sai recortado no PDF, mas não no SVG exportado. As plantas e os diagramas na folha não se atualizam sozinhos: use **Atualizar folhas**.
 - **Ocupação dos eletrodutos:** diâmetros internos dos eletrodutos e externos dos cabos (450/750 V, unipolares) aproximados, de catálogos de mercado; a rota é o caminho mais curto do quadro, não necessariamente o que você quer: confira com **Rota do circuito**.
+- **Altura por trecho:** a altura muda só nos vértices; o eletroduto com mais de uma altura usa no 3D as curvas do raio do tipo (não as do Draft).
 - **Fios e verticais:** dependem de a rede de eletrodutos estar conectada às caixas. Os fios não são roteados pelas prumadas entre pavimentos (cada pavimento é calculado à parte).
 - **Demanda:** fatores de guias residenciais, não conferidos com a fonte; cada concessionária tem a sua tabela, e a demanda do edifício inteiro não é calculada.
 - **Aterramento:** resistividades de solo típicas e fórmulas para hastes em linha; meça o solo e confira o valor máximo com a NBR 5410 e a NBR 5419.

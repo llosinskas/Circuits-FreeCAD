@@ -8,10 +8,12 @@ caixa) e ``anotar`` (diâmetro de cada eletroduto e siglas das peças, textos co
 a propriedade ``rotulo_eletroduto`` na pasta Eletrodutos do pavimento).
 """
 import importlib
+import time
 
 import Draft
 import FreeCAD as App
 
+from freecad.Circuits.core import alturas as regras_alturas
 from freecad.Circuits.core import pecas_eletroduto as regras
 from freecad.Circuits.objects.ponto import create_ponto
 from freecad.Circuits.services import bandejas, eletrodutos, pavimentos, rede
@@ -66,6 +68,20 @@ def caminho(obj):
         "instalacao": _texto(getattr(obj, "Instalacao", regras.TETO) or regras.TETO),
         "altura": float(getattr(altura, "Value", altura)),
     }
+
+
+def caminhos_do_eletroduto(obj):
+    """Um caminho de ``caminho`` por lance de mesma altura (``rede.lances_do_eletroduto``).
+
+    Onde a altura muda no meio do eletroduto, os lances se encontram no vértice e a
+    análise vê ali uma subida ou descida. Com mais de uma altura, cada lance leva no
+    rótulo a altura dele (``rotulo_altura``), como o offset do Revit.
+    """
+    base = caminho(obj)
+    lances = rede.lances_do_eletroduto(obj)
+    varias = len(lances) > 1
+    return [dict(base, pontos=lance["pontos"], altura=lance["altura"],
+                 rotulo_altura=regras_alturas.rotulo(lance["altura"]) if varias else "") for lance in lances]
 
 
 def _nome_pavimento(doc, obj):
@@ -137,17 +153,17 @@ def analisar(doc):
     caixas = {}
     for caixa in rede.listar_caixas(doc):
         caixas.setdefault(caixa["pavimento"], []).append((caixa["x"], caixa["y"]))
-    caminhos = {}
+    caminhos_ = {}
     for obj in rede.listar_eletrodutos(doc):
         if not hasattr(obj, "Points"):
             continue
         try:
-            caminhos.setdefault(_nome_pavimento(doc, obj), []).append(caminho(obj))
+            caminhos_.setdefault(_nome_pavimento(doc, obj), []).extend(caminhos_do_eletroduto(obj))
         except Exception:
             continue
     calhas = eletrocalhas_por_pavimento(doc)
     return {pav: regras.analisar(lista, caixas.get(pav, []) + (caixas.get("", []) if pav else []), calhas.get(pav, []))
-            for pav, lista in caminhos.items()}
+            for pav, lista in caminhos_.items()}
 
 
 def criar_caixas(doc, resultados=None):
@@ -214,7 +230,7 @@ def anotar(doc, resultados=None):
     por_pavimento = {}
     for obj in rede.listar_eletrodutos(doc):
         if hasattr(obj, "Points"):
-            por_pavimento.setdefault(_nome_pavimento(doc, obj), []).append(caminho(obj))
+            por_pavimento.setdefault(_nome_pavimento(doc, obj), []).extend(caminhos_do_eletroduto(obj))
     total = 0
     for pav_nome, caminhos in por_pavimento.items():
         pav = pavimentos.por_nome(doc, pav_nome) if pav_nome else None
@@ -257,7 +273,8 @@ def editar_descida(doc, descida, de, ate):
     """Muda as alturas da descida: os eletrodutos que chegam na altura de baixo vão para ``de``,
     e os da altura de cima para ``ate`` (alturas a partir do piso, mm).
 
-    A altura é do eletroduto inteiro (``Altura3D``): a outra ponta dele também muda.
+    Muda só o lance (trechos seguidos de mesma altura) que chega na descida, como no Revit:
+    num eletroduto de uma altura só, é ele inteiro; num que muda de altura, só aquele lance.
 
     Returns:
         Eletrodutos alterados.
@@ -270,8 +287,15 @@ def editar_descida(doc, descida, de, ate):
         nova = de if _mesma(braco["altura"], descida["de"]) else ate if _mesma(braco["altura"], descida["ate"]) else None
         if nova is None or _mesma(nova, braco["altura"]):
             continue
-        obj.Altura3D = float(nova)
-        alterados.append(obj)
+        if hasattr(obj, "Points") and len(obj.Points) >= 2:
+            pontos = [(v.x, v.y) for v in (obj.Placement.multVec(p) for p in obj.Points)]
+            alturas = regras_alturas.trocar_no_no(pontos, rede.alturas_do_eletroduto(obj), descida["x"], descida["y"],
+                                                  braco["altura"], nova)
+            rede.gravar_alturas(obj, alturas)
+        else:
+            obj.Altura3D = float(nova)
+        if obj not in alterados:
+            alterados.append(obj)
     return alterados
 
 
@@ -301,6 +325,30 @@ def caixa_na_descida(doc, pav_nome, descida):
     return caixa
 
 
+ATUALIZANDO = False  # durante a atualização: o observador ignora as mudanças que ela mesma faz
+ULTIMA_ATUALIZACAO = 0.0  # time.monotonic() do fim da última atualização
+
+
+def pontos_do_eletroduto(obj):
+    return [(v.x, v.y) for v in (obj.Placement.multVec(p) for p in obj.Points)]
+
+
+def mudar_altura(obj, altura_mm, arestas=(), vertices=(), sentido="fim"):
+    """Muda a altura dos trechos escolhidos do eletroduto (``core.alturas.trechos_da_selecao``).
+
+    Onde a altura passa a ser diferente da do trecho vizinho, o eletroduto sobe ou desce
+    naquele vértice (curvas, vertical, símbolo), como mudar o offset no Revit.
+
+    Returns:
+        A nova lista de alturas, uma por trecho.
+    """
+    pontos = pontos_do_eletroduto(obj)
+    trechos = regras_alturas.trechos_da_selecao(pontos, arestas, vertices, sentido)
+    alturas = regras_alturas.mudar(rede.alturas_do_eletroduto(obj), trechos, altura_mm)
+    rede.gravar_alturas(obj, alturas)
+    return alturas
+
+
 def atualizar_depois_de_editar(doc, sempre=False):
     """Refaz os tubos 3D (com as descidas) e os símbolos de subida e descida que já existiam.
 
@@ -311,16 +359,25 @@ def atualizar_depois_de_editar(doc, sempre=False):
     Returns:
         (refez o 3D, refez os símbolos).
     """
+    global ATUALIZANDO, ULTIMA_ATUALIZACAO
     verticais = importlib.import_module("freecad.Circuits.services.verticais")  # ela importa este módulo
 
-    tem_3d = any(doc.getObject(f"{obj.Name}_3D") is not None for obj in rede.listar_eletrodutos(doc))
-    if tem_3d:
-        eletrodutos.gerar_tubos(doc, rede.listar_eletrodutos(doc))
-    elif sempre:
-        tem_3d = eletrodutos.gerar_descidas(doc) > 0
-        tem_3d = eletrodutos.gerar_saidas_3d(doc) > 0 or tem_3d
-    tem_simbolos = sempre or any(hasattr(obj, "simbolo_vertical") for obj in doc.Objects)
-    if tem_simbolos:
-        verticais.desenhar_simbolos(doc)
-    doc.recompute()
+    ATUALIZANDO = True
+    try:
+        tem_3d = any(doc.getObject(f"{obj.Name}_3D") is not None for obj in rede.listar_eletrodutos(doc))
+        if tem_3d:
+            eletrodutos.gerar_tubos(doc, rede.listar_eletrodutos(doc))
+        elif sempre:
+            tem_3d = eletrodutos.gerar_descidas(doc) > 0
+            tem_3d = eletrodutos.gerar_saidas_3d(doc) > 0 or tem_3d
+        tem_simbolos = sempre or any(hasattr(obj, "simbolo_vertical") for obj in doc.Objects)
+        if tem_simbolos:
+            verticais.desenhar_simbolos(doc)
+        tem_rotulos = any(hasattr(obj, "rotulo_eletroduto") for obj in doc.Objects)
+        if tem_rotulos:
+            anotar(doc)  # o rótulo leva a altura de cada lance
+        doc.recompute()
+    finally:
+        ATUALIZANDO = False
+        ULTIMA_ATUALIZACAO = time.monotonic()
     return tem_3d, tem_simbolos

@@ -332,6 +332,69 @@ class IdentificarFios:
         )
 
 
+class MudarAltura:
+    """Muda a altura de um eletroduto inteiro, de trechos ou a partir de um vértice (offset do Revit)."""
+
+    def Activated(self):
+        doc = documento_ou_aviso()
+        if not doc:
+            return
+        escolhas = [s for s in Gui.Selection.getSelectionEx() if rede.eh_eletroduto(s.Object)
+                    and len(getattr(s.Object, "Points", [])) >= 2]
+        if not escolhas:
+            QtWidgets.QMessageBox.information(
+                None, "Mudar altura",
+                "Selecione um eletroduto (ele inteiro), um ou mais trechos dele, ou um vértice: a altura muda "
+                "do vértice até a ponta, e ali o eletroduto sobe ou desce, com as curvas e o símbolo na planta.\n\n"
+                "Para mudar no meio de um trecho, crie antes um vértice (Add Node).")
+            return
+        atual = rede.alturas_do_eletroduto(escolhas[0].Object)[0] / 1000.0
+        altura, ok = QtWidgets.QInputDialog.getDouble(
+            None, "Mudar altura", "Altura do piso até o eletroduto [m]:", atual, -5.0, 100.0, 2)
+        if not ok:
+            return
+        sentido = "fim"
+        if any(self._partes(s)[1] for s in escolhas):
+            opcoes = ["Do vértice até o fim do eletroduto", "Do início do eletroduto até o vértice"]
+            escolha, ok = QtWidgets.QInputDialog.getItem(None, "Mudar altura", "Mudar a altura:", opcoes, 0, False)
+            if not ok:
+                return
+            sentido = "fim" if escolha == opcoes[0] else "inicio"
+        doc.openTransaction("Mudar altura do eletroduto")
+        try:
+            for item in escolhas:
+                arestas, vertices = self._partes(item)
+                eletrodutos_planta.mudar_altura(item.Object, altura * 1000.0, arestas, vertices, sentido)
+            eletrodutos_planta.atualizar_depois_de_editar(doc, sempre=True)
+            doc.commitTransaction()
+        except Exception:
+            doc.abortTransaction()
+            raise
+
+    @staticmethod
+    def _partes(item):
+        """(meios das arestas, vértices) selecionados no eletroduto, em planta."""
+        arestas, vertices = [], []
+        for nome, forma in zip(item.SubElementNames, item.SubObjects):
+            if nome.startswith("Edge"):
+                meio = forma.valueAt((forma.FirstParameter + forma.LastParameter) / 2.0)
+                arestas.append((meio.x, meio.y))
+            elif nome.startswith("Vertex"):
+                vertices.append((forma.Point.x, forma.Point.y))
+        return arestas, vertices
+
+    def IsActive(self):
+        return True
+
+    def GetResources(self):
+        return recursos(
+            "mudar_altura.svg",
+            "Mudar altura",
+            "Muda a altura do eletroduto selecionado, dos trechos selecionados ou do vértice selecionado até a "
+            "ponta. Onde a altura muda, o eletroduto sobe ou desce com curvas, símbolo na planta e 3D, como no Revit",
+        )
+
+
 Gui.addCommand("ConectarEletrodutos", ConectarEletrodutos())
 Gui.addCommand("EditarDescidas", EditarDescidas())
 Gui.addCommand("ListaVerticais", ListaVerticais())
@@ -340,3 +403,4 @@ Gui.addCommand("DetalharVerticais", DetalharVerticais())
 Gui.addCommand("RotaCircuito", RotaCircuito())
 Gui.addCommand("OcupacaoEletrodutos", OcupacaoEletrodutos())
 Gui.addCommand("IdentificarFios", IdentificarFios())
+Gui.addCommand("MudarAltura", MudarAltura())

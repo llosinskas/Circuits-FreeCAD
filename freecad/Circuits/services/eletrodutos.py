@@ -4,6 +4,7 @@ import math
 import FreeCAD as App
 import Part
 
+from freecad.Circuits.core import alturas as regras_alturas
 from freecad.Circuits.core import pecas_eletroduto
 from freecad.Circuits.core.tables.eletrodutos import COR_PADRAO, CORES, DIAMETRO_PADRAO, DIAMETROS_EXTERNOS
 from freecad.Circuits.services import pavimentos
@@ -94,6 +95,37 @@ def _descidas_para_tomadas(obj, tomadas, raio, cota_eletroduto=None, doc=None):
     return descidas
 
 
+def _lances(obj):
+    """Lances de mesma altura (``core.alturas``) do Draft Wire; um só sem ``AlturasTrechos``."""
+    if not hasattr(obj, "Points") or len(obj.Points) < 2:
+        return []
+    pontos = [(v.x, v.y) for v in (obj.Placement.multVec(p) for p in obj.Points)]
+    alturas = regras_alturas.alturas_dos_trechos(len(pontos) - 1, obj.Altura3D.Value, getattr(obj, "AlturasTrechos", ()))
+    return regras_alturas.lances(pontos, alturas)
+
+
+def _raio_da_curva(obj, raio_tubo):
+    """Raio das curvas horizontais: o ``FilletRadius`` do Draft Wire ou o do tipo de eletroduto."""
+    raio = getattr(getattr(obj, "FilletRadius", 0.0), "Value", getattr(obj, "FilletRadius", 0.0)) or 0.0
+    if raio > 0:
+        return float(raio)
+    return raio_tubo * (FATOR_RAIO_CURVA_FLEXIVEL if getattr(obj, "Tipo", "") == "Flexível" else FATOR_RAIO_CURVA_RIGIDO)
+
+
+def _arredondar(fio, raio):
+    """Curvas nas quinas do lance: a varredura do tubo falha depois de uma quina viva."""
+    if len(fio.Edges) < 2 or raio <= 0:
+        return fio
+    try:
+        import DraftGeomUtils
+
+        arredondado = DraftGeomUtils.filletWire(fio, raio)
+        return arredondado if arredondado and not arredondado.isNull() else fio
+    except Exception as erro:
+        App.Console.PrintWarning(f"Curvas do eletroduto não arredondadas: {erro}\n")
+        return fio
+
+
 def _aparar(fio, cortes):
     """Encurta as pontas do fio que estão sobre uma descida, pelo raio da curva.
 
@@ -137,30 +169,46 @@ def _gerar_tubo(doc, obj, tomadas, cortes=()):
         return False
 
     # A altura do eletroduto é medida a partir do piso do pavimento dele.
-    cota = obj.Altura3D.Value + pavimentos.elevacao_do_objeto(doc, obj)
-    deslocamento = cota - fio.Vertexes[0].Point.z
-    if abs(deslocamento) > 1e-4:
-        fio.translate(App.Vector(0, 0, deslocamento))
+    piso = pavimentos.elevacao_do_objeto(doc, obj)
+    cota = obj.Altura3D.Value + piso
+    lances = _lances(obj)
+    if len(lances) > 1:
+        # muda de altura no meio: um tubo reto por lance; a subida entre eles (curvas e vertical) é
+        # uma descida de ``gerar_descidas``. As curvas horizontais do Draft (FilletRadius) ficam de fora.
+        fios = [_arredondar(Part.makePolygon([App.Vector(x, y, piso + lance["altura"]) for x, y in lance["pontos"]]),
+                            _raio_da_curva(obj, raio))
+                for lance in lances]
+    else:
+        deslocamento = cota - fio.Vertexes[0].Point.z
+        if abs(deslocamento) > 1e-4:
+            fio.translate(App.Vector(0, 0, deslocamento))
+        fios = [fio]
     if cortes:
-        try:
-            fio = _aparar(fio, cortes)
-        except Exception as e:
-            App.Console.PrintWarning(f"Não foi possível encurtar {obj.Name} para a curva da descida: {e}\n")
-
-    primeira_aresta = fio.Edges[0]
-    if primeira_aresta.Length < 1e-5:
-        return False
-
-    inicio = primeira_aresta.valueAt(primeira_aresta.FirstParameter)
-    direcao = primeira_aresta.tangentAt(primeira_aresta.FirstParameter)
-    perfil = Part.Wire([Part.makeCircle(raio, inicio, direcao)])
+        aparados = []
+        for um in fios:
+            try:
+                aparados.append(_aparar(um, cortes))
+            except Exception as e:
+                App.Console.PrintWarning(f"Não foi possível encurtar {obj.Name} para a curva da descida: {e}\n")
+                aparados.append(um)
+        fios = aparados
 
     nome = f"{obj.Name}_3D"
     if doc.getObject(nome):
         doc.removeObject(nome)
 
     try:
-        tubos = [Part.Wire(fio).makePipeShell([perfil], True, True)]
+        tubos = []
+        for um in fios:
+            primeira_aresta = um.Edges[0]
+            if primeira_aresta.Length < 1e-5:
+                continue
+            inicio = primeira_aresta.valueAt(primeira_aresta.FirstParameter)
+            direcao = primeira_aresta.tangentAt(primeira_aresta.FirstParameter)
+            perfil = Part.Wire([Part.makeCircle(raio, inicio, direcao)])
+            tubos.append(Part.Wire(um).makePipeShell([perfil], True, True))
+        if not tubos:
+            return False
         tubos += _descidas_para_tomadas(obj, tomadas, raio, cota, doc)
         forma = Part.makeCompound(tubos) if len(tubos) > 1 else tubos[0]
 

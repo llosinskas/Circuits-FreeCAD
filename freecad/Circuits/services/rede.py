@@ -1,6 +1,7 @@
 """Rede de eletrodutos do documento: encaixe nas caixas, fiação dos circuitos e verticais."""
 import FreeCAD as App
 
+from freecad.Circuits.core import alturas as regras_alturas
 from freecad.Circuits.core import quantitativos as tabelas
 from freecad.Circuits.core import rede as regras
 from freecad.Circuits.core import quadro as regras_quadro
@@ -41,6 +42,35 @@ def _pavimento(doc, obj):
 def _pontos(obj):
     """Vértices do caminho em coordenadas globais, (x, y)."""
     return [(v.x, v.y) for v in (obj.Placement.multVec(p) for p in obj.Points)]
+
+
+def alturas_do_eletroduto(obj):
+    """Altura de cada trecho [mm do piso]: ``AlturasTrechos`` ou, sem ela, ``Altura3D`` em todos."""
+    altura = _mm(obj.Altura3D) if hasattr(obj, "Altura3D") else ALTURA_ELETRODUTO_PADRAO
+    n_trechos = max(len(getattr(obj, "Points", [])) - 1, 1)
+    return regras_alturas.alturas_dos_trechos(n_trechos, altura, getattr(obj, "AlturasTrechos", ()))
+
+
+def lances_do_eletroduto(obj):
+    """Lances de mesma altura do eletroduto (``core.alturas.lances``), com os pontos em planta."""
+    pontos = _pontos(obj)
+    alturas = alturas_do_eletroduto(obj)
+    if len(pontos) < 2:
+        return [{"pontos": pontos, "altura": alturas[0], "trechos": (0, 0)}]
+    return regras_alturas.lances(pontos, alturas)
+
+
+def gravar_alturas(obj, alturas):
+    """Grava a altura de cada trecho: ``AlturasTrechos`` e ``Altura3D`` = a do primeiro trecho.
+
+    Com todas iguais, a lista fica vazia e vale só ``Altura3D`` (eletroduto de uma altura).
+    """
+    alturas = [float(a) for a in alturas]
+    if not hasattr(obj, "AlturasTrechos"):
+        obj.addProperty("App::PropertyFloatList", "AlturasTrechos", "Conduit",
+                        "Altura de cada trecho, do piso [mm]; vazia: todos na Altura3D")
+    obj.AlturasTrechos = alturas if regras_alturas.varias_alturas(alturas) else []
+    obj.Altura3D = alturas[0]
 
 
 def _gravar_pontos(obj, pontos_xy):
@@ -214,12 +244,13 @@ def analisar(doc):
     caminhos_por_pav = {}
     for obj in listar_eletrodutos(doc):
         try:
-            pontos = _pontos(obj)
+            lances = lances_do_eletroduto(obj)
         except Exception:
             continue
-        altura = _mm(obj.Altura3D) if hasattr(obj, "Altura3D") else ALTURA_ELETRODUTO_PADRAO
-        caminho = {"pontos": pontos, "altura": altura, "diametro": str(getattr(obj, "Diametro", "3/4"))}
-        caminhos_por_pav.setdefault(_pavimento(doc, obj), []).append(caminho)
+        for lance in lances:  # cada mudança de altura no meio do eletroduto vira uma subida ou descida
+            caminho = {"pontos": lance["pontos"], "altura": lance["altura"],
+                       "diametro": str(getattr(obj, "Diametro", "3/4"))}
+            caminhos_por_pav.setdefault(_pavimento(doc, obj), []).append(caminho)
 
     caixas = listar_caixas(doc)
     pavs = set(caminhos_por_pav) | {c["pavimento"] for c in caixas}

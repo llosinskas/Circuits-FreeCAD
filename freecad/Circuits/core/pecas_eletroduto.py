@@ -374,7 +374,8 @@ def materiais(resultado):
 
 
 def rotulos(caminhos, afastamento=120.0, evitar=(), distancia_minima=500.0):
-    """Texto do diâmetro de cada eletroduto, no meio do trecho mais longo e afastado da linha.
+    """Texto do diâmetro de cada eletroduto (e a altura do lance, ``rotulo_altura``, se houver),
+    no meio do trecho mais longo e afastado da linha.
 
     Se houver uma peça (``evitar``: posições das siglas) a menos de
     ``distancia_minima`` do meio, o texto vai para 1/4 do trecho.
@@ -396,7 +397,8 @@ def rotulos(caminhos, afastamento=120.0, evitar=(), distancia_minima=500.0):
         if any(math.hypot(px - mx, py - my) < distancia_minima for px, py in evitar):
             mx, my = a[0] + (b[0] - a[0]) / 4, a[1] + (b[1] - a[1]) / 4
         resultado.append((round(mx - uy * afastamento, 6), round(my + ux * afastamento, 6),
-                          math.degrees(math.atan2(uy, ux)), f'Ø{caminho["diametro"]}"'))
+                          math.degrees(math.atan2(uy, ux)),
+                          f'Ø{caminho["diametro"]}"' + (f' {caminho["rotulo_altura"]}' if caminho.get("rotulo_altura") else "")))
     return resultado
 
 

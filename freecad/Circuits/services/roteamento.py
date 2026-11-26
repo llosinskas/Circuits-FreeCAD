@@ -17,10 +17,10 @@ MARCA_FIOS = "fios_trecho"
 ALTURA_TEXTO_FIOS = 100.0  # mm
 
 
-def _caminho_eletroduto(obj):
-    altura = rede._mm(obj.Altura3D) if hasattr(obj, "Altura3D") else rede.ALTURA_ELETRODUTO_PADRAO
-    return {"pontos": rede._pontos(obj), "altura": altura, "diametro": str(getattr(obj, "Diametro", "3/4")),
-            "nome": obj.Name}
+def _caminhos_eletroduto(obj):
+    """Um caminho por lance de mesma altura, todos com o nome do eletroduto."""
+    return [{"pontos": lance["pontos"], "altura": lance["altura"], "diametro": str(getattr(obj, "Diametro", "3/4")),
+             "nome": obj.Name} for lance in rede.lances_do_eletroduto(obj)]
 
 
 def _caminho_bandeja(obj):
@@ -38,7 +38,7 @@ def analisar(doc, com_bandejas=True):
     caminhos_por_pav = {}
     for obj in rede.listar_eletrodutos(doc):
         try:
-            caminhos_por_pav.setdefault(rede._pavimento(doc, obj), []).append(_caminho_eletroduto(obj))
+            caminhos_por_pav.setdefault(rede._pavimento(doc, obj), []).extend(_caminhos_eletroduto(obj))
         except Exception:
             continue
     if com_bandejas:
