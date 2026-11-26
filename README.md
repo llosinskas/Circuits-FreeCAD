@@ -262,6 +262,8 @@ Depois de gravar, gere o Unifilar de novo para atualizar as fases no diagrama.
    Todas entram nos quantitativos, no total e por pavimento. No 3D, o rígido faz a curva com raio de 3 diâmetros.
 3. **Lista de verticais** cria a planilha *Verticais*, com a descida ou subida de cada caixa: altura do eletroduto, altura da caixa, comprimento e diâmetro.
 
+**Snap de ligação:** ao desenhar um eletroduto (ou qualquer linha do Draft), passe o cursor sobre uma tomada, luminária, interruptor, quadro ou caixa de passagem: o ponto prende direto na caixa do símbolo, com o marcador do snap especial, como o conector de um dispositivo no Revit. Para desligar, use a preferência `SnapConexao` em `BaseApp/Preferences/Mod/Circuits`.
+
 Os fios são contados pelo caminho mais curto na rede, do quadro até os pontos de cada circuito:
 
 - fase até pontos e interruptores; neutro e terra até os pontos;
@@ -283,6 +285,7 @@ O botão **Fiação** desenha na planta os traços de fase, neutro e terra ao la
 - **Infraestrutura > Mudar altura**: selecione o eletroduto inteiro, um ou mais trechos dele (as arestas) ou um vértice, e digite a altura do piso até o eletroduto, em metros. Com um vértice, escolha se a altura muda dali até o fim ou do início até ali.
 - Onde a altura muda, o eletroduto **sobe ou desce naquele vértice**: duas curvas de 90° e a vertical no 3D, o símbolo de subida/descida na planta, a vertical nos quantitativos. Cada lance passa a mostrar a altura no rótulo: `Ø3/4" +2,80`, `Ø3/4" +0,30`.
 - Para mudar no meio de um trecho, crie antes um vértice com **Add Node**.
+- O símbolo mostra o **sentido**: seguindo o eletroduto a partir do quadro, ele **desce** (seta para dentro do círculo, `Ø3/4" desce 2,50 m`) ou **sobe** (seta para fora). Sem quadro ligado pela rede, vale o sentido em que o eletroduto foi desenhado.
 - **Tudo se atualiza sozinho**: ao mudar a altura, os pontos ou o diâmetro de um eletroduto (pelo botão, pelas propriedades ou arrastando os vértices), os símbolos de subida e descida, os rótulos e o 3D que já existem são refeitos um segundo depois. Em projetos grandes, desligue pela preferência `AtualizarVerticais` em `BaseApp/Preferences/Mod/Circuits`.
 - **Editar descidas** muda só o lance que chega na descida, não o eletroduto inteiro.
 

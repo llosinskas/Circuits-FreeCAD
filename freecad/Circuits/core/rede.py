@@ -101,6 +101,8 @@ class Rede:
         self.vizinhos = []
         self.chegando = []  # (altura, diâmetro) de cada eletroduto com vértice no nó
         self.dono = {}  # {frozenset(nó, nó): (nome, tipo)} de cada trecho, quando o caminho tem ``nome``
+        self.altura_aresta = {}  # {frozenset(nó, nó): altura do caminho do trecho}
+        self.ordem_aresta = {}  # {frozenset(nó, nó): (caminho, trecho)}: ordem em que foi desenhado
 
     @classmethod
     def construir(cls, caminhos, tolerancia=TOLERANCIA_CONEXAO_MM):
@@ -116,12 +118,12 @@ class Rede:
         rede = cls(tolerancia)
         indices = [[rede._no(p, c["altura"], c.get("diametro", "")) for p in c["pontos"]] for c in caminhos]
         saidas = rede._saidas_nas_bandejas(caminhos, indices)
-        for caminho, sequencia in zip(caminhos, indices):
+        for ordem, (caminho, sequencia) in enumerate(zip(caminhos, indices)):
             dono = (caminho["nome"], "bandeja" if caminho.get("largura") else "eletroduto") \
                 if caminho.get("nome") else None
-            for a, b in zip(sequencia, sequencia[1:]):
+            for trecho, (a, b) in enumerate(zip(sequencia, sequencia[1:])):
                 if a != b:
-                    rede._ligar_trecho(a, b, dono)
+                    rede._ligar_trecho(a, b, dono, float(caminho["altura"]), (ordem, trecho))
         for ponta, no, dono in saidas:
             if ponta != no and no not in rede.vizinhos[ponta]:
                 comprimento = distancia(rede.nos[ponta], rede.nos[no])
@@ -165,24 +167,53 @@ class Rede:
         self.chegando.append([(float(altura), str(diametro))])
         return len(self.nos) - 1
 
-    def transicoes(self):
+    def transicoes(self, distancias=None):
         """Nós onde chegam eletrodutos de alturas diferentes (ex.: do teto para o piso).
 
+        Args:
+            distancias: {nó: distância pela rede até o quadro mais perto}, para o sentido.
         Returns:
-            Lista de {'x', 'y', 'de', 'ate' [mm], 'comprimento' [m], 'diametro'}: a
-            vertical entre a menor e a maior altura, no maior diâmetro que chega.
+            Lista de {'x', 'y', 'de', 'ate' [mm], 'comprimento' [m], 'diametro', 'sentido'}:
+            a vertical entre a menor e a maior altura, no maior diâmetro que chega, e o
+            sentido de ``sentido_no_no``.
         """
         resultado = []
-        for (x, y), chegando in zip(self.nos, self.chegando):
+        for indice, ((x, y), chegando) in enumerate(zip(self.nos, self.chegando)):
             alturas = [altura for altura, _ in chegando]
             if max(alturas) - min(alturas) <= TOLERANCIA_ALTURA_MM:
                 continue
             diametro = max((d for _, d in chegando), key=lambda d: DIAMETROS_EXTERNOS.get(d, 0.0))
             resultado.append({"x": float(x), "y": float(y), "de": min(alturas), "ate": max(alturas),
-                              "comprimento": round((max(alturas) - min(alturas)) / 1000.0, 2), "diametro": diametro})
+                              "comprimento": round((max(alturas) - min(alturas)) / 1000.0, 2), "diametro": diametro,
+                              "sentido": self.sentido_no_no(indice, distancias)})
         return resultado
 
-    def _ligar_trecho(self, a, b, dono=None):
+    def sentido_no_no(self, no, distancias=None):
+        """'desce', 'sobe' ou 'sobe_desce': para onde o eletroduto vai, seguindo o caminho.
+
+        O trecho de chegada é o que vem do quadro pela rede (``distancias``); sem quadro
+        que chegue ao nó, o desenhado primeiro (a ordem dos caminhos e dos trechos, como os
+        lances de um mesmo eletroduto). Se todos os outros trechos estão mais baixos que o
+        de chegada, desce; mais altos, sobe; uns e outros, sobe_desce.
+        """
+        trechos = [(vizinho, frozenset((no, vizinho))) for vizinho in self.vizinhos[no]]
+        trechos = [(v, a) for v, a in trechos if a in self.altura_aresta]
+        if len(trechos) < 2:
+            return "sobe_desce"
+        if distancias and no in distancias and all(v in distancias for v, _ in trechos):
+            chegada = min(trechos, key=lambda t: distancias[t[0]])
+        else:
+            chegada = min(trechos, key=lambda t: self.ordem_aresta[t[1]])
+        altura = self.altura_aresta[chegada[1]]
+        outras = [self.altura_aresta[a] for v, a in trechos if a != chegada[1]
+                  and abs(self.altura_aresta[a] - altura) > TOLERANCIA_ALTURA_MM]
+        if outras and all(h < altura for h in outras):
+            return "desce"
+        if outras and all(h > altura for h in outras):
+            return "sobe"
+        return "sobe_desce"
+
+    def _ligar_trecho(self, a, b, dono=None, altura=None, ordem=None):
         """Liga A a B passando pelos nós que caem sobre o trecho (derivações em T)."""
         meio = []
         for k, ponto in enumerate(self.nos):
@@ -198,6 +229,9 @@ class Rede:
             self.vizinhos[v][u] = comprimento
             if dono:
                 self.dono[frozenset((u, v))] = dono
+            if altura is not None:
+                self.altura_aresta[frozenset((u, v))] = altura
+                self.ordem_aresta[frozenset((u, v))] = ordem
 
     def no_mais_proximo(self, ponto):
         """Nó a até a tolerância do ponto, ou None."""
@@ -452,8 +486,12 @@ def analisar(caminhos, caixas, info_circuito, folga=FOLGA_PONTA_MM, tolerancia=T
          "condutores": por_aresta.get(aresta, []), "de": tuple(rede.nos[a]), "ate": tuple(rede.nos[b])}
         for aresta, dono in rede.dono.items() for a, b in [tuple(aresta)]
     ]
+    distancias = {}
+    for quadro in quadros:  # distância de cada nó ao quadro mais perto, para o sentido das transições
+        for no, d in rede.distancias(ligadas[quadro["id"]][0])[0].items():
+            distancias[no] = min(d, distancias.get(no, math.inf))
     return {"fios": fios, "circuitos": circuitos, "verticais": verticais, "avisos": avisos,
-            "transicoes": rede.transicoes(), "trechos": trechos, "rotas": rotas}
+            "transicoes": rede.transicoes(distancias), "trechos": trechos, "rotas": rotas}
 
 
 def juntar(resultados):

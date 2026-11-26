@@ -25,6 +25,13 @@ class Outlet:
         self._add_properties(obj)
 
     def _add_properties(self, obj):
+        # --- Snap especial do Draft: o eletroduto prende no ponto da caixa ---
+        if not hasattr(obj, "SnapPoints"):
+            obj.addProperty("App::PropertyVectorList", "SnapPoints", "Símbolo 2D",
+                            "Ponto de ligação dos eletrodutos (a caixa), oferecido pelo snap especial")
+            obj.SnapPoints = [App.Vector(0, 0, 0)]
+            obj.setEditorMode("SnapPoints", 2)
+
         # --- Identificação ---
         if not hasattr(obj, "Circuito"):
             obj.addProperty(

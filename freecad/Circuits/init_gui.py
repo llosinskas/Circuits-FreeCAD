@@ -336,6 +336,14 @@ class CircuitsWorkbench(gui.Workbench):
         except Exception as erro:
             app.Console.PrintWarning(f"Circuits: atualização automática das verticais desligada: {erro}\n")
 
+        # Snap especial de ligação: a linha do Draft prende no ponto da caixa dos símbolos.
+        try:
+            from .UI import snap_conexao
+
+            snap_conexao.instalar()
+        except Exception as erro:
+            app.Console.PrintWarning(f"Circuits: snap de ligação desligado: {erro}\n")
+
         # Os grupos só podem ser registrados depois dos comandos que eles reúnem.
         from .commands import grupos
 

@@ -3,8 +3,9 @@
 Itens verticais vêm de três lugares:
 
 - descidas e subidas do eletroduto até as caixas (``core.rede``, ``verticais``);
-- encontros de eletrodutos em alturas diferentes, como do teto para o piso
-  (``core.rede``, ``transicoes``);
+- encontros de eletrodutos em alturas diferentes, como do teto para o piso, ou um
+  eletroduto que muda de altura num vértice (``core.rede``, ``transicoes``), com o
+  sentido de quem vem do quadro (``Rede.sentido_no_no``);
 - trechos verticais das eletrocalhas e leitos (``core.bandejas``, ``verticais``).
 
 Símbolo na planta (convenção da bancada):
@@ -30,9 +31,9 @@ TOLERANCIA_PRUMADA_MM = 100.0  # pontas de pavimentos diferentes a até esta dis
 PAVIMENTO, TETO, PISO, PASSA = "pavimento", "teto", "piso", "passa"  # onde a vertical está em relação ao pavimento
 # Ordem e texto da legenda: (tipo, nível, sentido) -> descrição; sentido None vale para qualquer um
 LEGENDA = [
-    ("eletroduto", PAVIMENTO, "desce", "Eletroduto que desce à caixa, no pavimento"),
-    ("eletroduto", PAVIMENTO, "sobe", "Eletroduto que sobe à caixa, no pavimento"),
-    ("eletroduto", PAVIMENTO, "sobe_desce", "Eletroduto que passa do teto para o piso, no pavimento"),
+    ("eletroduto", PAVIMENTO, "desce", "Eletroduto que desce (à caixa ou a outra altura), no pavimento"),
+    ("eletroduto", PAVIMENTO, "sobe", "Eletroduto que sobe (à caixa ou a outra altura), no pavimento"),
+    ("eletroduto", PAVIMENTO, "sobe_desce", "Eletroduto que sobe e desce no mesmo ponto, no pavimento"),
     ("eletroduto", TETO, None, "Eletroduto que sobe ao pavimento de cima, pelo teto"),
     ("eletroduto", PISO, None, "Eletroduto que desce ao pavimento de baixo, pelo piso"),
     ("eletroduto", PASSA, None, "Eletroduto que passa pelo pavimento, entre os de cima e de baixo"),
@@ -76,7 +77,7 @@ def itens_de_eletroduto(descidas, transicoes):
         })
     for t in transicoes:
         itens.append({
-            "tipo": "eletroduto", "x": float(t["x"]), "y": float(t["y"]), "sentido": "sobe_desce",
+            "tipo": "eletroduto", "x": float(t["x"]), "y": float(t["y"]), "sentido": t.get("sentido", "sobe_desce"),
             "de": float(t["de"]), "ate": float(t["ate"]), "diametro": str(t["diametro"]),
             "local": f"({t['x'] / 1000:.1f}; {t['y'] / 1000:.1f}) m", "pavimento": t.get("pavimento", ""),
             "caixa": False,

@@ -152,6 +152,13 @@ class PontoEletrico:
         if nova("App::PropertyFloat", "Escala", "Símbolo 2D", "Multiplica o tamanho do símbolo (2 = dobro)"):
             obj.Escala = 1.0
 
+        # --- Snap especial do Draft: o eletroduto prende no ponto da caixa ---
+        if not hasattr(obj, "SnapPoints"):
+            obj.addProperty("App::PropertyVectorList", "SnapPoints", "Símbolo 2D",
+                            "Ponto de ligação dos eletrodutos (a caixa), oferecido pelo snap especial")
+            obj.SnapPoints = [App.Vector(0, 0, 0)]
+            obj.setEditorMode("SnapPoints", 2)
+
         # --- Geração 3D ---
         largura, profundidade, altura = dados["caixa_mm"]
         if nova("App::PropertyDistance", "Altura3D", "Caixa 3D", "Altura de montagem em relação ao piso"):

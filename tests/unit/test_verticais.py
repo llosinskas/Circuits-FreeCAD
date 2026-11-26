@@ -28,9 +28,30 @@ class TestRede(unittest.TestCase):
                     {"pontos": [(4000, 0), (4000, 3000)], "altura": -100.0, "diametro": "1"}]  # no piso
         r = rede.analisar(caminhos, [], info)
         self.assertEqual(r["transicoes"], [{"x": 4000.0, "y": 0.0, "de": -100.0, "ate": 2800.0,
-                                            "comprimento": 2.9, "diametro": "1"}])
+                                            "comprimento": 2.9, "diametro": "1", "sentido": "desce"}])
         mesma = rede.analisar([caminhos[0], dict(caminhos[1], altura=2800.0)], [], info)
         self.assertEqual(mesma["transicoes"], [])
+
+    def test_sentido_de_quem_vem_do_quadro(self):
+        caminhos = [{"pontos": [(0, 0), (4000, 0)], "altura": 2800.0, "diametro": "3/4"},
+                    {"pontos": [(4000, 0), (4000, 3000)], "altura": -100.0, "diametro": "3/4"}]
+        # quadro na ponta do teto: o cabo chega pelo teto e desce
+        r = rede.analisar(caminhos, [caixa("QD1", 0, 0, 1500.0, "quadro")], info)
+        self.assertEqual(r["transicoes"][0]["sentido"], "desce")
+        # quadro na ponta do piso: o cabo chega pelo piso e sobe, mesmo desenhado depois
+        r = rede.analisar(caminhos, [caixa("QD1", 4000, 3000, 1500.0, "quadro")], info)
+        self.assertEqual(r["transicoes"][0]["sentido"], "sobe")
+
+    def test_sem_quadro_vale_a_ordem_do_desenho(self):
+        caminhos = [{"pontos": [(4000, 0), (4000, 3000)], "altura": -100.0, "diametro": "3/4"},
+                    {"pontos": [(0, 0), (4000, 0)], "altura": 2800.0, "diametro": "3/4"}]
+        self.assertEqual(rede.analisar(caminhos, [], info)["transicoes"][0]["sentido"], "sobe")
+
+    def test_sobe_e_desce_no_mesmo_ponto(self):
+        caminhos = [{"pontos": [(0, 0), (4000, 0)], "altura": 1500.0, "diametro": "3/4"},
+                    {"pontos": [(4000, 0), (4000, 3000)], "altura": 2800.0, "diametro": "3/4"},
+                    {"pontos": [(4000, 0), (8000, 0)], "altura": -100.0, "diametro": "3/4"}]
+        self.assertEqual(rede.analisar(caminhos, [], info)["transicoes"][0]["sentido"], "sobe_desce")
 
     def test_juntar_soma_as_transicoes(self):
         um = {"fios": {}, "circuitos": [], "verticais": [], "avisos": [], "transicoes": [{"x": 0}]}
@@ -52,6 +73,9 @@ class TestItens(unittest.TestCase):
         self.assertEqual((d["tipo"], d["sentido"], d["de"], d["ate"], d["local"]), ("eletroduto", "desce", 300.0,
                                                                                     2800.0, "T1"))
         self.assertEqual((t["sentido"], t["de"], t["ate"], t["diametro"]), ("sobe_desce", -100.0, 2800.0, "1"))
+        desce, = verticais.itens_de_eletroduto([], [dict(TRANSICAO, sentido="desce")])
+        self.assertEqual(desce["sentido"], "desce")  # o sentido da rede vai para o símbolo e o texto
+        self.assertTrue(verticais.texto(desce).startswith('Ø1" desce 2,90 m'))
         subida = verticais.itens_de_eletroduto([dict(DESCIDA, sentido="subida", altura_caixa=1200.0,
                                                      altura_eletroduto=-100.0)], [])[0]
         self.assertEqual((subida["sentido"], subida["de"], subida["ate"]), ("sobe", -100.0, 1200.0))
