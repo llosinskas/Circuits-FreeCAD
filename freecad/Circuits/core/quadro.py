@@ -40,7 +40,7 @@ def numero(texto, padrao=0.0):
 
 
 def verdadeiro(texto):
-    return str(texto).strip().lower() in ("true", "1", "sim", "1.0")
+    return str(texto).strip().lower() in ("true", "1", "sim", "1.0", "s", "x")
 
 
 def _formatar(valor):
@@ -89,6 +89,31 @@ def sensibilidade_texto(valor):
     if not texto:
         return SENSIBILIDADE_DR
     return texto if texto.lower().endswith("ma") else f"{texto}mA"
+
+
+def idr_geral(quadro):
+    """DR geral (IDR) na entrada do quadro, se a coluna ``IDR`` do quadro está marcada.
+
+    Bipolar no quadro monofásico (ou bifásico sem neutro), tetrapolar nos outros; corrente
+    nominal comercial igual ou acima da do disjuntor geral (acima da tabela, a do disjuntor).
+
+    Args:
+        quadro: dados da linha 3 da planilha (``core.planilha.CABECALHO_QUADRO``).
+    Returns:
+        None ou {'polos', 'corrente', 'sensibilidade', 'especificacao'}.
+    """
+    if not verdadeiro(quadro.get("IDR", "")):
+        return None
+    fases = max(1, min(3, int(numero(quadro.get("numero_fases"), 1))))
+    polos = 2 if fases == 1 or (fases == 2 and not verdadeiro(quadro.get("neutro", ""))) else 4
+    geral = numero(quadro.get("corrente_nominal_disjuntor"))
+    try:
+        corrente = dr_comercial(max(geral, CORRENTES_DR[0]))
+    except ValueError:
+        corrente = _formatar(geral)  # acima da tabela: o usuário escolhe no catálogo
+    sensibilidade = sensibilidade_texto(quadro.get("sensibilidade_IDR", ""))
+    return {"polos": polos, "corrente": corrente, "sensibilidade": sensibilidade,
+            "especificacao": f"{polos}P {corrente} A, {sensibilidade}"}
 
 
 def grupo_dr(circuito):
@@ -220,6 +245,12 @@ def componentes(quadro, circuitos):
         )
         itens.append(_item("DPS", especificacao, quantidade))
         modulos += quantidade
+
+    # DR geral (IDR) na entrada
+    idr = idr_geral(quadro)
+    if idr:
+        itens.append(_item("Interruptor DR geral (IDR)", idr["especificacao"], 1))
+        modulos += idr["polos"]
 
     # DR e disjuntores dos circuitos
     drs, disjuntores, grupos = [], [], {}

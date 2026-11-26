@@ -4,7 +4,7 @@ TIPO_SKETCH = "Sketcher::SketchObject"
 
 
 def pintar_sketch(sketch):
-    """Pinta de preto as linhas e os pontos de um Sketch.
+    """Pinta de preto as linhas e os pontos de um Sketch, de forma que a cor fique gravada no arquivo.
 
     Returns:
         False se o Sketch não tem vista (FreeCAD sem janela); True nos demais casos.
@@ -12,6 +12,9 @@ def pintar_sketch(sketch):
     vista = getattr(sketch, "ViewObject", None)
     if vista is None:
         return False
+    if hasattr(vista, "AutoColor"):
+        # FreeCAD 1.0: com AutoColor (padrão), a cor volta à das preferências (branco) ao abrir o arquivo
+        vista.AutoColor = False
     for nome in ("LineColor", "PointColor"):
         if hasattr(vista, nome):
             setattr(vista, nome, COR_SKETCH)

@@ -220,6 +220,38 @@ def textos_grupo_dr(nome, membros):
     return {"dr": "DR", "especificacao": dr["especificacao"], "nome": nome}
 
 
+X_IDR = 15.9  # DR geral (IDR) na entrada: depois do DPS (15) e antes do barramento (18)
+LARGURA_IDR = 1.4
+ALTURA_IDR = 1.0
+X_SAIDA_GERAL = 13.0  # segundo terminal do disjuntor geral
+X_BARRAMENTO = 18.0
+
+
+def entrada_com_idr(h, idr):
+    """Linha do disjuntor geral ao barramento e, com IDR, o retângulo dele interrompendo a linha.
+
+    Coordenadas do diagrama do quadro (a entrada está em y = ``Y_ENTRADA_QUADRO``·h).
+
+    Args:
+        idr: de ``core.quadro.idr_geral`` (ou None, sem IDR).
+    Returns:
+        {'linhas': [(x1, y1, x2, y2)], 'textos': [(x, y, texto, altura)]}.
+    """
+    y = Y_ENTRADA_QUADRO * h
+    inicio, fim = X_SAIDA_GERAL * h, X_BARRAMENTO * h
+    if not idr:
+        return {"linhas": [(inicio, y, fim, y)], "textos": []}
+    e, d = X_IDR * h, (X_IDR + LARGURA_IDR) * h
+    meia = ALTURA_IDR * h / 2
+    linhas = [(inicio, y, e, y), (d, y, fim, y),
+              (e, y - meia, d, y - meia), (e, y + meia, d, y + meia), (e, y - meia, e, y + meia),
+              (d, y - meia, d, y + meia)]
+    altura = ALTURA_TEXTO * h
+    textos = [(e + 0.25 * h, y - 0.2 * h, "IDR", altura),
+              (e - 0.6 * h, y + meia + 0.25 * h, idr["especificacao"], altura)]  # em cima: embaixo fica o DPS
+    return {"linhas": linhas, "textos": textos}
+
+
 def condutores_do_circuito(circuito):
     """(número de fases, neutro, terra) do circuito; sem fase marcada vale 1, e o terra vai sempre."""
     fases = len(fases_do_circuito(circuito)) or 1

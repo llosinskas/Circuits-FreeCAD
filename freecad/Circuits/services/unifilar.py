@@ -102,13 +102,22 @@ def desenhar_quadro(doc, h, grupo, planilha):
     except Exception as e:
         print(f"Erro ao acessar o valor da planilha do quadro: {e}")
 
-    # Linhas de entrada e saída
+    # Linhas de entrada e saída; com DR geral (IDR), ele interrompe a saída do disjuntor geral
     for p1, p2 in (
         (App.Vector(0, 0, 0), App.Vector(0, 5 * h, 0)),
         (App.Vector(0, 5 / 2 * h, 0), App.Vector(10 * h, 5 / 2 * h, 0)),
-        (App.Vector(13 * h, 5 / 2 * h, 0), App.Vector(18 * h, 5 / 2 * h, 0)),
     ):
         grupo.addObject(Draft.make_line(p1, p2))
+    try:
+        idr = regras_quadro.idr_geral(planilhas.ler_quadro(planilha))
+    except Exception as e:
+        App.Console.PrintWarning(f"IDR do quadro {planilha.Label} não lido: {e}\n")
+        idr = None
+    entrada = desenho.entrada_com_idr(h, idr)
+    for x1, y1, x2, y2 in entrada["linhas"]:
+        grupo.addObject(Draft.make_line(App.Vector(x1, y1, 0), App.Vector(x2, y2, 0)))
+    for x, y, texto, altura in entrada["textos"]:
+        add_texto(texto, App.Vector(x, y, 0), 0, altura, grupo)
 
     # Terminais e arco do disjuntor
     pl = App.Placement()
@@ -295,6 +304,10 @@ def gerar_diagramas(doc, quadros, h=ALTURA_PADRAO):
     topo = 0.0
     for quadro in quadros:
         _remover_diagrama_anterior(doc, quadro)
+        try:
+            planilhas.completar_cabecalho_quadro(quadro)  # títulos das colunas novas (IDR) nos quadros antigos
+        except Exception as e:
+            App.Console.PrintWarning(f"Cabeçalho do quadro {quadro.Label} não completado: {e}\n")
         grupo = doc.addObject("App::DocumentObjectGroup", "diagrama")
         grupo.Label = f"diagrama_{quadro.Label}"
         grupo.addProperty("App::PropertyString", "quadro_origem", "Diagrama", "Planilha do quadro que gerou o diagrama")

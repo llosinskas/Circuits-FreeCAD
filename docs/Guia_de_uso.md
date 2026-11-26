@@ -102,6 +102,17 @@ Desenhe o trajeto com linhas, selecione e clique em **Infraestrutura ▾ > Bande
 - **Infraestrutura ▾ > Ocupação eletrodutos:** confere a taxa de ocupação (53/31/40 %) e oferece aumentar os eletrodutos pequenos.
 - **Circuitos ▾ > Fios por trecho:** escreve os fios de cada eletroduto na planta (`C1 #2,5 F+N+T`).
 
+### Descida até as caixas
+
+Desenhe o eletroduto no teto (2,80 m, por exemplo) até o símbolo da tomada, mesmo que ela esteja a 0,30 m. A bancada liga os dois por uma descida:
+
+- no 3D (**Modelo 3D ▾ > Modelo 3D completo**), o tubo faz a curva de 90° na ponta e desce até o topo da caixa; o eletroduto do piso sobe até a base dela;
+- se o eletroduto só passa sobre a caixa e continua, a descida sai dele sem curva;
+- no rígido, cada curva entra nos quantitativos como *Curva 90° vertical*, e o comprimento vertical entra nos metros de eletroduto;
+- **Infraestrutura ▾ > Editar descidas** lista também essas descidas (*Até a caixa de …*), onde dá para mudar a altura do eletroduto.
+
+Depois de mudar a altura de um símbolo, gere o Modelo 3D de novo.
+
 Desenhe a rede **antes** de montar os circuitos: assim o comprimento (queda de tensão) e o agrupamento entram no dimensionamento dos cabos.
 
 ## 6. Quadro: planilhas e dimensionamento
@@ -182,7 +193,19 @@ Em vez de um DR por circuito, é comum proteger vários circuitos com **um DR s�
 - O **Montar circuitos** não apaga a coluna Q: você pode montar de novo à vontade.
 - Para tirar um circuito do grupo, apague o nome na coluna Q e, se ele precisar de DR próprio, ponha `S` na coluna J.
 - Agrupe circuitos de um mesmo tipo de área (molhada, quartos, externa). Um DR com muitos circuitos soma as correntes de fuga e pode desarmar sem defeito.
-- O DR geral do quadro (IDR na entrada) ainda não é desenhado.
+- Para um DR geral na entrada do quadro, use o **IDR** (abaixo) em vez de um grupo com todos os circuitos.
+
+### DR geral do quadro (IDR)
+
+Para pôr um DR na entrada do quadro, que protege todos os circuitos:
+
+1. Ao criar o quadro (**Dados do quadro ▾ > Planilha do quadro**), marque **Tem DR geral (IDR)** e escolha a sensibilidade (30 mA para pessoas; 100 a 500 mA para proteção contra incêndio).
+2. Num quadro já criado, abra a planilha do quadro e ponha `S` na linha 3 da coluna **IDR** (coluna T). Se o título da coluna não aparecer, gere o Unifilar uma vez: ele escreve os títulos que faltam.
+3. Gere o Unifilar.
+
+O IDR aparece na entrada, depois do disjuntor geral e do DPS, com a especificação em cima: bipolar no quadro monofásico, tetrapolar nos outros, com corrente nominal igual ou acima da do disjuntor geral. O multifilar o desenha abraçando as fases e o neutro, e a lista de **Componentes** ganha o *Interruptor DR geral (IDR)*.
+
+> O IDR não substitui os DRs dos circuitos de áreas molhadas quando você quer seletividade: com IDR e DR no mesmo circuito, use no IDR um modelo seletivo (tipo S) ou uma sensibilidade maior. A bancada não confere essa coordenação.
 
 ## 8. Fases, quadro de cargas e componentes
 
@@ -235,6 +258,8 @@ Para imprimir, use os botões de exportação do TechDraw com a folha aberta.
 | O símbolo entrou no pavimento errado | Ative o pavimento certo (**Projeto ▾ > Pavimento** ou duplo clique no nível do BIM) ou use **Mover para pavimento**. |
 | O 3D dos eletrodutos não acompanha a mudança | Confira a preferência `AtualizarVerticais` ou use **Modelo 3D completo**. |
 | A folha mostra a planta antiga | **Folhas ▾ > Atualizar folhas**. |
+| Os diagramas ficaram brancos depois de abrir o projeto | Projetos gravados antes desta versão: **Documentos ▾ > Sketches em preto** uma vez e salve. |
+| A descida até a tomada não aparece no 3D | Gere o **Modelo 3D**: ela sai junto com o tubo do eletroduto. |
 | O PDF não é gerado | Falta a biblioteca `reportlab`: aceite a instalação que o botão oferece. |
 
 > **Atenção:** os dimensionamentos são simplificados e usam tabelas e valores de catálogo genéricos. Confira os resultados com as normas (NBR 5410, NBR 5419) e com os catálogos dos fabricantes antes de usar em um projeto real. Veja a seção *Limitações* do [README](../README.md).

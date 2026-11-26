@@ -103,13 +103,8 @@ def _ponta(caminho, ponto):
     return None
 
 
-def _descida(rede, indice, ligados, por_nome):
-    """Descida no nó, se chegam eletrodutos em alturas diferentes; senão None.
-
-    Cada eletroduto que termina no nó sozinho na menor ou na maior altura faz
-    uma curva de 90° até a vertical; os que passam pelo nó, ou dividem a altura
-    com outro (derivação), chegam à vertical sem curva.
-    """
+def _bracos(rede, indice, ligados, por_nome):
+    """Eletrodutos que chegam ao nó, com a direção saindo dele, a altura e se terminam ali."""
     x, y = rede.nos[indice]
     bracos = []
     for t in ligados:
@@ -118,22 +113,86 @@ def _descida(rede, indice, ligados, por_nome):
                        "ux": math.cos(angulo), "uy": math.sin(angulo), "altura": float(t["altura"] or 0),
                        "diametro": t["diametro"], "tipo": t["tipo"], "material": t["material"],
                        "instalacao": t["instalacao"], "comprimento": rede.comprimento(t), "curva": False})
-    alturas = [b["altura"] for b in bracos]
-    de, ate = min(alturas), max(alturas)
-    if ate - de <= TOLERANCIA_ALTURA_MM:
-        return None
+    return bracos
+
+
+def _curvas_e_raio(bracos, de, ate, extremos):
+    """Marca a curva de 90° no eletroduto que termina sozinho em cada altura de ``extremos`` e
+    devolve (principal, raio): o raio cabe na vertical e no trecho reto que chega."""
     principal = max(bracos, key=lambda b: _diametro_externo(b["diametro"]))
     nas_pontas = []
-    for altura in (de, ate):
+    for altura in extremos:
         mesma = [b for b in bracos if abs(b["altura"] - altura) <= TOLERANCIA_ALTURA_MM]
         if len(mesma) == 1 and mesma[0]["ponta"]:
             mesma[0]["curva"] = True
             nas_pontas.append(mesma[0])
     raio = raio_da_curva(principal["diametro"], principal["tipo"])
-    if nas_pontas:  # a curva cabe na vertical e no trecho reto que chega
+    if nas_pontas:
         raio = min([raio, (ate - de) / len(nas_pontas)] + [0.9 * b["comprimento"] for b in nas_pontas])
+    return principal, round(raio, 1)
+
+
+def _descida(rede, indice, ligados, por_nome):
+    """Descida no nó, se chegam eletrodutos em alturas diferentes; senão None.
+
+    Cada eletroduto que termina no nó sozinho na menor ou na maior altura faz
+    uma curva de 90° até a vertical; os que passam pelo nó, ou dividem a altura
+    com outro (derivação), chegam à vertical sem curva.
+    """
+    x, y = rede.nos[indice]
+    bracos = _bracos(rede, indice, ligados, por_nome)
+    alturas = [b["altura"] for b in bracos]
+    de, ate = min(alturas), max(alturas)
+    if ate - de <= TOLERANCIA_ALTURA_MM:
+        return None
+    principal, raio = _curvas_e_raio(bracos, de, ate, (de, ate))
     return {"x": x, "y": y, "de": de, "ate": ate, "diametro": principal["diametro"], "tipo": principal["tipo"],
-            "raio": round(raio, 1), "bracos": bracos}
+            "raio": raio, "bracos": bracos}
+
+
+def limites_da_caixa(altura, altura_caixa=100.0, posicao="centro"):
+    """(base, topo) da caixa 3D do símbolo, do piso [mm].
+
+    Args:
+        altura: altura de montagem do símbolo (``Altura3D``): o centro da caixa, ou o topo
+            na tomada de piso (``core.simbolos.posicao_da_caixa`` 'piso').
+        altura_caixa: altura da caixa [mm].
+    """
+    altura, altura_caixa = float(altura), float(altura_caixa)
+    if posicao == "piso":
+        return altura - altura_caixa, altura
+    return altura - altura_caixa / 2, altura + altura_caixa / 2
+
+
+def descidas_na_caixa(rede, indice, ligados, por_nome, caixa):
+    """Interligação vertical dos eletrodutos com a caixa do símbolo: [descida], uma por lado.
+
+    O eletroduto acima da caixa (ex.: no teto, a 2,80 m) desce até o topo dela (a tomada
+    a 0,40 m); o de baixo (no piso) sobe até a base. Quem termina no nó sozinho na altura
+    mais longe da caixa faz a curva de 90°; os outros chegam à vertical sem curva.
+
+    Args:
+        caixa: {'altura', 'altura_caixa', 'posicao', 'nome'} (``services.rede.listar_caixas``).
+    Returns:
+        Descidas no formato de ``_descida``, com ``caixa`` = nome do símbolo.
+    """
+    if caixa.get("altura") is None:
+        return []
+    x, y = rede.nos[indice]
+    base, topo = limites_da_caixa(caixa["altura"], caixa.get("altura_caixa", 100.0), caixa.get("posicao", "centro"))
+    resultado = []
+    for acima in (True, False):
+        bracos = [b for b in _bracos(rede, indice, ligados, por_nome)
+                  if (b["altura"] > topo + TOLERANCIA_ALTURA_MM if acima else b["altura"] < base - TOLERANCIA_ALTURA_MM)]
+        if not bracos:
+            continue
+        alturas = [b["altura"] for b in bracos]
+        de, ate = (topo, max(alturas)) if acima else (min(alturas), base)
+        principal, raio = _curvas_e_raio(bracos, de, ate, (ate,) if acima else (de,))
+        resultado.append({"x": x, "y": y, "de": de, "ate": ate, "diametro": principal["diametro"],
+                          "tipo": principal["tipo"], "raio": raio, "bracos": bracos,
+                          "caixa": str(caixa.get("nome", "")), "lado": "cima" if acima else "baixo"})
+    return resultado
 
 
 def _na_bandeja(ponto, bandejas, folga):
@@ -266,7 +325,9 @@ def analisar(caminhos, caixas=(), eletrocalhas=()):
     Args:
         caminhos: dicionários com ``pontos`` [(x, y)], ``tipo`` ('Flexível' ou
             'Rígido'), ``material``, ``instalacao``, ``diametro``, ``altura`` e ``nome``.
-        caixas: posições (x, y) das caixas da planta (pontos, quadros, passagens).
+        caixas: caixas da planta (pontos, quadros, passagens): posições (x, y) ou
+            dicionários com ``x``, ``y`` e, para a interligação vertical
+            (``descidas_na_caixa``), ``altura``, ``altura_caixa``, ``posicao`` e ``nome``.
         eletrocalhas: eletrocalhas do pavimento, para as saídas (``saidas``).
     Returns:
         {'pecas': [{x, y, peca, diametro, tipo, material, instalacao}],
@@ -275,9 +336,11 @@ def analisar(caminhos, caixas=(), eletrocalhas=()):
          'pontas_soltas': [{x, y, diametro, altura, nome}]} — pontas sem caixa, que podem
         ser prumadas para outro pavimento (``core.verticais.ligacoes_entre_pavimentos``),
          'descidas': [{x, y, de, ate, diametro, tipo, raio, bracos}]} — ver ``_descida``, mais
-         as das saídas verticais de eletrocalha, e 'saidas' — ver ``saidas``.
+         as das caixas (com ``caixa``, ``descidas_na_caixa``) e as das saídas verticais de
+         eletrocalha, e 'saidas' — ver ``saidas``.
     """
     lista_saidas = saidas(caminhos, eletrocalhas)
+    lista_caixas = [dict(c) if isinstance(c, dict) else {"x": c[0], "y": c[1]} for c in caixas]
     por_nome = {c.get("nome"): c for c in caminhos}
     rede = bandejas.Rede(TOLERANCIA_MM)
     for caminho in caminhos:
@@ -297,8 +360,12 @@ def analisar(caminhos, caixas=(), eletrocalhas=()):
             return {"x": x, "y": y, "peca": nome, "diametro": trecho["diametro"], "tipo": trecho["tipo"],
                     "material": trecho["material"], "instalacao": trecho["instalacao"]}
 
-        if any(math.hypot(cx - x, cy - y) <= TOLERANCIA_MM for cx, cy in caixas):
+        caixa = next((c for c in lista_caixas if math.hypot(c["x"] - x, c["y"] - y) <= TOLERANCIA_MM), None)
+        if caixa is not None:
             pecas += [peca(BUCHA, t) for t in ligados if t["tipo"] == "Rígido"]
+            for descida in descidas_na_caixa(rede, indice, ligados, por_nome, caixa):
+                descidas.append(descida)
+                pecas += [peca(CURVA_VERTICAL, b) for b in descida["bracos"] if b["curva"] and b["tipo"] == "Rígido"]
             continue
         descida = _descida(rede, indice, ligados, por_nome) if len(ligados) > 1 else None
         if descida:

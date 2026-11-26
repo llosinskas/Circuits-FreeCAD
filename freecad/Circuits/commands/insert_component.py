@@ -261,7 +261,8 @@ class Conduit:
                 rede.conectar(doc, marcados)
             textos = eletrodutos_planta.anotar(doc)
             resultados = eletrodutos_planta.analisar(doc)
-            descidas = eletrodutos_planta.descidas(doc, resultados)
+            descidas = eletrodutos_planta.descidas(doc, resultados, nas_caixas=False)
+            nas_caixas = len(eletrodutos_planta.descidas(doc, resultados)) - len(descidas)
             if descidas:  # eletrodutos de alturas diferentes ligados: descida com curvas no 3D e símbolo na planta
                 eletrodutos_planta.atualizar_depois_de_editar(doc, sempre=True)
             elif any(r.get("saidas") for r in resultados.values()):  # só saídas horizontais: a peça no 3D
@@ -273,8 +274,9 @@ class Conduit:
         avisos = verticais.avisos_de_pontas_soltas(doc)  # a ponta que é prumada para outro pavimento não é aviso
         linhas_msg = [f"{len(marcados)} eletroduto(s); {juncoes} junção(ões) entre eletrodutos; "
                       f"{caixas_ligadas} caixa(s) ligada(s); {caixas_novas} caixa(s) de passagem criada(s); "
-                      f"{textos} texto(s) na planta; {len(descidas)} subida(s) ou descida(s) entre alturas "
-                      "(edite em Infraestrutura > Editar descidas)."]
+                      f"{textos} texto(s) na planta; {len(descidas)} subida(s) ou descida(s) entre alturas e "
+                      f"{nas_caixas} descida(s) até as caixas (edite em Infraestrutura > Editar descidas; "
+                      "o 3D sai com o Modelo 3D)."]
         if avisos:
             linhas_msg += [""] + avisos[:15]
         QtWidgets.QMessageBox.information(None, "Eletroduto", "\n".join(linhas_msg))

@@ -6,7 +6,8 @@ from freecad.Circuits.core import quantitativos as tabelas
 from freecad.Circuits.core import rede as regras
 from freecad.Circuits.core import quadro as regras_quadro
 from freecad.Circuits.core.circuitos import SECAO_MINIMA
-from freecad.Circuits.core.simbolos import ATERRAMENTO, CATALOGO, COMANDO, ILUM, LIGACOES, PASSAGEM, QUADRO
+from freecad.Circuits.core.simbolos import (ATERRAMENTO, CATALOGO, COMANDO, ILUM, LIGACOES, PASSAGEM, QUADRO,
+                                            posicao_da_caixa)
 from freecad.Circuits.services import pavimentos, planilhas
 from freecad.Circuits.services.alinhamento import listar_simbolos
 from freecad.Circuits.services.eletrodutos import _preparar_caminho
@@ -145,6 +146,9 @@ def listar_caixas(doc):
             App.Console.PrintWarning(f"{obj.Label} ficou fora da rede: {erro}\n")
             continue
         if caixa is not None:
+            # a caixa 3D, para a interligação vertical do eletroduto (``core.pecas_eletroduto.descidas_na_caixa``)
+            caixa.setdefault("altura_caixa", _mm(getattr(obj, "CaixaAltura", 100.0)) or 100.0)
+            caixa.setdefault("posicao", posicao_da_caixa(getattr(obj, "Simbolo", "")))
             caixas.append(caixa)
     return caixas
 

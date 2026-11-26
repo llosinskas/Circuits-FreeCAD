@@ -42,6 +42,8 @@ ALTURA_TEXTO = 0.4
 LARGURA_LETRA = 0.6  # largura de uma letra, em alturas do texto (para o retângulo caber a descrição)
 Y_ENTRADA = 4.2  # a entrada começa acima dos barramentos
 Y_GERAL = 2.6  # primeiro terminal dos polos do disjuntor geral
+Y_IDR_TOPO = 1.5  # DR geral (IDR) entre o disjuntor geral e os barramentos
+Y_IDR_BASE = 0.7
 
 
 def barramentos(dados):
@@ -198,15 +200,27 @@ def geometria(dados, circuitos, h):
     # Entrada por cima, com o disjuntor geral nas fases
     fases_quadro = [b for b in barras if b in FASES]
     y0, yg = Y_ENTRADA * h, Y_GERAL * h
+    idr = regras_quadro.idr_geral(dados)
+    no_idr = [b for b in barras if b != "PE"] if idr else []  # o IDR abraça as fases e o neutro
+    topo_idr, base_idr = Y_IDR_TOPO * h, Y_IDR_BASE * h
     for nome, x in x_barra.items():
+        inicio = y0
         if nome in fases_quadro:
             c, a = _polo_vertical(x, yg, h)
             circulos += c
             arcos += a
-            linhas += [(x, y0, x, yg + terminal), (x, yg - 2 * r - terminal, x, 0.0)]
+            linhas.append((x, y0, x, yg + terminal))
+            inicio = yg - 2 * r - terminal
+        if nome in no_idr:
+            linhas += [(x, inicio, x, topo_idr), (x, base_idr, x, 0.0)]
         else:
-            linhas.append((x, y0, x, 0.0))
+            linhas.append((x, inicio, x, 0.0))
         textos.append((x - 0.12 * h, y0 + 0.25 * h, nome, texto * 0.8, 0.0))
+    if idr:
+        xs = [x_barra[b] for b in no_idr]
+        linhas += _retangulo(min(xs) - 0.3 * h, topo_idr, max(xs) + 0.2 * h, base_idr)  # o PE passa ao lado
+        textos.append((x_ultima + 0.8 * h, (topo_idr + base_idr) / 2 - 0.15 * h,
+                       f"IDR {idr['especificacao']}", texto * 0.9, 0.0))
     if len(fases_quadro) > 1:
         xs = [x_barra[f] for f in fases_quadro]
         linhas += _tracejado(xs[0] + r, yg - r, xs[-1] + r, yg - r, h)

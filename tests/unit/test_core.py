@@ -36,7 +36,7 @@ class TestPlanilha(unittest.TestCase):
         self.assertEqual(coluna(18), "S")
 
     def test_cabecalhos_cabem_nas_colunas_mescladas(self):
-        self.assertEqual(len(CABECALHO_QUADRO), 19)  # mergeCells A:S
+        self.assertEqual(len(CABECALHO_QUADRO), 21)  # mergeCells A:U
         self.assertEqual(len(CABECALHO_CIRCUITOS), 19)
 
     def test_ultima_linha(self):

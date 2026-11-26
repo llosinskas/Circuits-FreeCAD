@@ -31,7 +31,6 @@ class TestGerarTubos(unittest.TestCase):
         doc, nivel = mock.MagicMock(), object()
         with mock.patch.object(self.servico, "_preparar_caminho"), \
                 mock.patch.object(self.servico, "_gerar_tubo", return_value=True), \
-                mock.patch.object(self.servico, "listar_tomadas", return_value=[]), \
                 mock.patch.object(self.servico.pavimentos, "pavimento_do_objeto",
                                   side_effect=lambda d, o: None if o is solta else object()), \
                 mock.patch.object(self.servico.pavimentos, "pavimento_para_insercao", return_value=nivel), \
@@ -39,6 +38,20 @@ class TestGerarTubos(unittest.TestCase):
             self.assertEqual(self.servico.gerar_tubos(doc, [solta, guardada]), 2)
         arquivar.assert_called_once_with(doc, solta, nivel)
 
+
+    def test_descida_ate_a_caixa_so_com_o_tubo_3d(self):
+        descida = {"x": 0.0, "y": 0.0, "de": 450.0, "ate": 2800.0, "diametro": "3/4", "tipo": "Rígido",
+                   "raio": 80.0, "caixa": "T1", "lado": "cima",
+                   "bracos": [{"nome": "Wire", "curva": True, "altura": 2800.0, "ux": 1.0, "uy": 0.0}]}
+        doc = mock.MagicMock()
+        doc.Objects = []
+        doc.getObject.return_value = None  # sem tubo 3D do eletroduto
+        with mock.patch.object(self.servico, "solidos_da_descida", return_value=[]):
+            self.assertEqual(self.servico.gerar_descidas(doc, [("", descida)]), 0)
+            doc.getObject.side_effect = lambda nome: object() if nome == "Wire_3D" else None
+            self.assertEqual(self.servico.gerar_descidas(doc, [("", descida)]), 1)
+        criada = doc.addObject.return_value
+        self.assertTrue(criada.descida_3d.endswith(":cima"))
 
     def test_rigido_tambem_faz_a_curva_em_arco_no_3d(self):
         linha = types.SimpleNamespace(Diametro="3/4", Tipo="Rígido", Altura3D=2800.0, Cor="Amarelo", FilletRadius=0.0)

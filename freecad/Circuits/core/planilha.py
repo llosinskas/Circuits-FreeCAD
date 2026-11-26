@@ -44,6 +44,8 @@ CABECALHO_QUADRO = [
     "classe_DPS",
     "tensao_DPS",
     "corrente_DPS",
+    "IDR",
+    "sensibilidade_IDR",
 ]
 
 CABECALHO_CIRCUITO_QUADRO = [

@@ -26,9 +26,9 @@ def criar_planilha_quadro(doc, dados):
         planilha.addProperty("App::PropertyString", "quadro")
     planilha.quadro = "Quadro"
     planilha.set("A1", nome_quadro)
-    planilha.mergeCells("A1:S1")
+    planilha.mergeCells(f"A1:{layout.coluna(len(layout.CABECALHO_QUADRO) - 1)}1")
     planilha.set("A4", "Circuitos")
-    planilha.mergeCells("A4:S4")
+    planilha.mergeCells(f"A4:{layout.coluna(len(layout.CABECALHO_QUADRO) - 1)}4")
     valores = list(dados.values())
     for indice, titulo in enumerate(layout.CABECALHO_QUADRO):
         coluna = layout.coluna(indice)
@@ -38,6 +38,15 @@ def criar_planilha_quadro(doc, dados):
             planilha.set(f"{coluna}3", valor)
         planilha.setAlias(f"{coluna}3", titulo)
     return planilha
+
+
+def completar_cabecalho_quadro(planilha):
+    """Escreve na linha 2 os títulos das colunas novas que faltam em quadros antigos (ex.: IDR),
+    para o usuário saber onde preencher. Não mexe nos valores da linha 3."""
+    for indice, titulo in enumerate(layout.CABECALHO_QUADRO):
+        celula = f"{layout.coluna(indice)}2"
+        if not _texto(planilha, celula).strip():
+            planilha.set(celula, titulo)
 
 
 def celula_do_campo(planilha, alias):

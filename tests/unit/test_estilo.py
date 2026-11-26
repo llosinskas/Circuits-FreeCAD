@@ -17,6 +17,12 @@ class TestEstilo(unittest.TestCase):
         self.assertTrue(estilo.pintar_sketch(s))
         self.assertEqual((s.ViewObject.LineColor, s.ViewObject.PointColor), ((0.0, 0.0, 0.0), (0.0, 0.0, 0.0)))
 
+    def test_desliga_a_cor_automatica_para_a_cor_ficar_no_arquivo(self):
+        s = sketch()
+        s.ViewObject.AutoColor = True  # FreeCAD 1.0: com ela, o Sketch volta branco ao abrir o arquivo
+        estilo.pintar_sketch(s)
+        self.assertFalse(s.ViewObject.AutoColor)
+
     def test_sem_vista_nao_quebra(self):
         self.assertFalse(estilo.pintar_sketch(sketch(com_vista=False)))
 

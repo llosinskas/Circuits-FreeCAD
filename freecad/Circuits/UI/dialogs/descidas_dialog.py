@@ -4,6 +4,7 @@ from freecad.Circuits.qt import QtCore, QtWidgets
 CURVAS = "Curvas de 90°"
 CAIXA = "Caixa de passagem"
 FORMAS = [CURVAS, CAIXA]
+NA_CAIXA = "Até a caixa de"
 COLUNAS = ["Pavimento", "Posição (m)", "Eletrodutos", "Ø", "Altura de cima (mm)", "Altura de baixo (mm)", "Ligação"]
 
 
@@ -24,7 +25,8 @@ class DescidasDialog(QtWidgets.QDialog):
         layout.addWidget(QtWidgets.QLabel(
             "Altura medida do piso do pavimento. Mudar a altura muda o eletroduto inteiro que chega nela.\n"
             "Curvas: o eletroduto de cima e o de baixo fazem curva de 90° na vertical. "
-            "Caixa de passagem: cria uma caixa no ponto e os eletrodutos descem até ela."))
+            "Caixa de passagem: cria uma caixa no ponto e os eletrodutos descem até ela.\n"
+            "Até a caixa: o eletroduto desce (ou sobe) até a caixa do símbolo; mude a altura do eletroduto."))
         self.tabela = QtWidgets.QTableWidget(len(self._descidas), len(COLUNAS))
         self.tabela.setHorizontalHeaderLabels(COLUNAS)
         self._entradas = []
@@ -37,7 +39,12 @@ class DescidasDialog(QtWidgets.QDialog):
                 self.tabela.setItem(linha, coluna, item)
             cima, baixo = self._altura(d["ate"]), self._altura(d["de"])
             forma = QtWidgets.QComboBox()
-            forma.addItems(FORMAS)
+            if d.get("caixa"):  # interligação com a caixa do símbolo: só a altura do eletroduto muda
+                forma.addItems([f"{NA_CAIXA} {d['caixa']}"])
+                forma.setEnabled(False)
+                (baixo if d.get("lado") == "cima" else cima).setEnabled(False)
+            else:
+                forma.addItems(FORMAS)
             self.tabela.setCellWidget(linha, 4, cima)
             self.tabela.setCellWidget(linha, 5, baixo)
             self.tabela.setCellWidget(linha, 6, forma)
@@ -68,6 +75,8 @@ class DescidasDialog(QtWidgets.QDialog):
         mudancas = []
         for indice, ((_, d), (cima, baixo, forma)) in enumerate(zip(self._descidas, self._entradas)):
             de, ate, escolha = baixo.value(), cima.value(), forma.currentText()
+            if d.get("caixa"):
+                escolha = CURVAS  # a ligação com a caixa não muda
             if abs(de - d["de"]) > 0.5 or abs(ate - d["ate"]) > 0.5 or escolha != CURVAS:
                 mudancas.append({"indice": indice, "de": de, "ate": ate, "forma": escolha})
         return mudancas

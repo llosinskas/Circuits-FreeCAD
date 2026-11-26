@@ -144,7 +144,8 @@ class EditarDescidas:
             QtWidgets.QMessageBox.information(
                 None, self.TITULO,
                 "Nenhuma descida: ligue dois eletrodutos de alturas diferentes no mesmo ponto da planta "
-                "(ex.: um no teto e outro no piso) e marque-os com o botão Eletroduto.",
+                "(ex.: um no teto e outro no piso), ou um eletroduto à caixa de um símbolo em outra altura, "
+                "e marque-os com o botão Eletroduto.",
             )
             return
 

@@ -8,9 +8,7 @@ from freecad.Circuits.core import alturas as regras_alturas
 from freecad.Circuits.core import pecas_eletroduto
 from freecad.Circuits.core.tables.eletrodutos import COR_PADRAO, CORES, DIAMETRO_PADRAO, DIAMETROS_EXTERNOS
 from freecad.Circuits.services import pavimentos
-from freecad.Circuits.services.tomadas import listar_tomadas
 
-TOLERANCIA_TOMADA_MM = 10.0
 FATOR_RAIO_CURVA_FLEXIVEL = pecas_eletroduto.FATOR_RAIO_CURVA_FLEXIVEL
 FATOR_RAIO_CURVA_RIGIDO = pecas_eletroduto.FATOR_RAIO_CURVA_RIGIDO  # curva pré-fabricada: 3 diâmetros externos
 
@@ -59,40 +57,6 @@ def _como_wire(obj):
             App.Console.PrintWarning(f"Não foi possível converter a forma de {obj.Name} em Wire: {e}\n")
             return None
     return forma
-
-
-def _descidas_para_tomadas(obj, tomadas, raio, cota_eletroduto=None, doc=None):
-    """Tubos verticais entre a altura do eletroduto e as tomadas sob seus pontos."""
-    descidas = []
-    pontos = obj.Points if hasattr(obj, "Points") else [v.Point for v in obj.Shape.Vertexes]
-    atendidas = set()
-
-    for ponto in pontos:
-        for tomada in tomadas:
-            if tomada.Name in atendidas:
-                continue
-            tx, ty = tomada.Placement.Base.x, tomada.Placement.Base.y
-            if (App.Vector(ponto.x, ponto.y, 0) - App.Vector(tx, ty, 0)).Length >= TOLERANCIA_TOMADA_MM:
-                continue
-            atendidas.add(tomada.Name)
-
-            z_tomada = float(tomada.altura_piso) if hasattr(tomada, "altura_piso") else 0.0
-            if doc is not None:
-                z_tomada += pavimentos.elevacao_do_objeto(doc, tomada)
-            topo = App.Vector(tx, ty, obj.Altura3D.Value if cota_eletroduto is None else cota_eletroduto)
-            base = App.Vector(tx, ty, z_tomada)
-            if (topo - base).Length <= 1e-2:
-                continue
-
-            linha = Part.Wire([Part.makeLine(topo, base)])
-            direcao = base - topo
-            direcao.normalize()
-            perfil = Part.Wire([Part.makeCircle(raio, topo, direcao)])
-            try:
-                descidas.append(linha.makePipe(perfil))
-            except Exception as e:
-                App.Console.PrintWarning(f"Falha ao gerar descida para {tomada.Name}: {e}\n")
-    return descidas
 
 
 def _lances(obj):
@@ -153,10 +117,12 @@ def _aparar(fio, cortes):
     return Part.Wire(arestas)
 
 
-def _gerar_tubo(doc, obj, tomadas, cortes=()):
+def _gerar_tubo(doc, obj, cortes=()):
     """Gera o tubo de um caminho. Devolve True se o objeto 3D foi criado.
 
-    ``cortes``: pontas a encurtar para a curva da descida (``_aparar``).
+    ``cortes``: pontas a encurtar para a curva da descida (``_aparar``). A interligação
+    vertical com as caixas dos símbolos (tomadas, luminárias, interruptores) é uma
+    descida de ``gerar_descidas``, com a curva de 90° na ponta do eletroduto.
     """
     if not hasattr(obj, "Shape") or obj.Shape.isNull() or len(obj.Shape.Edges) == 0:
         return False
@@ -209,7 +175,6 @@ def _gerar_tubo(doc, obj, tomadas, cortes=()):
             tubos.append(Part.Wire(um).makePipeShell([perfil], True, True))
         if not tubos:
             return False
-        tubos += _descidas_para_tomadas(obj, tomadas, raio, cota, doc)
         forma = Part.makeCompound(tubos) if len(tubos) > 1 else tubos[0]
 
         tubo = doc.addObject("Part::Feature", nome)
@@ -238,14 +203,13 @@ def gerar_tubos(doc, caminhos):
             pavimentos.arquivar(doc, obj, destino)
     doc.recompute()  # as curvas dos Wires precisam estar atualizadas antes da varredura
 
-    tomadas = listar_tomadas(doc)
     descidas = _descidas_do_documento(doc)
     cortes = {}
     for _, descida in descidas:
         for braco in descida["bracos"]:
             if braco["curva"]:
                 cortes.setdefault(braco["nome"], []).append((descida["x"], descida["y"], descida["raio"]))
-    criados = sum(1 for obj in caminhos if _gerar_tubo(doc, obj, tomadas, cortes.get(obj.Name, ())))
+    criados = sum(1 for obj in caminhos if _gerar_tubo(doc, obj, cortes.get(obj.Name, ())))
     gerar_descidas(doc, descidas)
     gerar_saidas_3d(doc)
     doc.recompute()
@@ -318,6 +282,8 @@ def gerar_descidas(doc, descidas=None):
         doc.removeObject(obj.Name)
     feitas = 0
     for pav_nome, descida in descidas:
+        if descida.get("caixa") and not any(doc.getObject(f"{b['nome']}_3D") for b in descida["bracos"]):
+            continue  # a interligação com a caixa só aparece junto com o tubo 3D do eletroduto
         pav = pavimentos.por_nome(doc, pav_nome) if pav_nome else None
         cota = pavimentos.elevacao(pav) if pav is not None else 0.0
         try:
@@ -327,9 +293,11 @@ def gerar_descidas(doc, descidas=None):
             continue
         objeto = doc.addObject("Part::Feature", "Descida_3D")
         objeto.Shape = forma
-        objeto.Label = f"Descida 3D Ø{descida['diametro']}\""
-        objeto.addProperty("App::PropertyString", "descida_3d", "Conduit", "Descida entre eletrodutos de alturas diferentes")
-        objeto.descida_3d = f"{pav_nome}:{descida['x']:.0f};{descida['y']:.0f}"
+        objeto.Label = (f"Descida 3D Ø{descida['diametro']}\" até {descida['caixa']}" if descida.get("caixa")
+                        else f"Descida 3D Ø{descida['diametro']}\"")
+        objeto.addProperty("App::PropertyString", "descida_3d", "Conduit",
+                           "Descida entre eletrodutos de alturas diferentes ou do eletroduto até a caixa")
+        objeto.descida_3d = f"{pav_nome}:{descida['x']:.0f};{descida['y']:.0f}" + (f":{descida['lado']}" if descida.get("caixa") else "")
         origem = doc.getObject(descida["bracos"][0]["nome"])
         try:
             objeto.ViewObject.ShapeColor = CORES.get(getattr(origem, "Cor", ""), COR_PADRAO)

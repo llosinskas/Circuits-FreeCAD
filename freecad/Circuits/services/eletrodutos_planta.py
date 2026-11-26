@@ -152,7 +152,8 @@ def analisar(doc):
     """{nome do pavimento: resultado de ``core.pecas_eletroduto.analisar``}, com as saídas das eletrocalhas."""
     caixas = {}
     for caixa in rede.listar_caixas(doc):
-        caixas.setdefault(caixa["pavimento"], []).append((caixa["x"], caixa["y"]))
+        caixas.setdefault(caixa["pavimento"], []).append(
+            {chave: caixa.get(chave) for chave in ("x", "y", "altura", "altura_caixa", "posicao", "nome")})
     caminhos_ = {}
     for obj in rede.listar_eletrodutos(doc):
         if not hasattr(obj, "Points"):
@@ -259,10 +260,16 @@ def materiais_por_pavimento(doc):
 
 # --- subidas e descidas entre eletrodutos de alturas diferentes ----------------
 
-def descidas(doc, resultados=None):
-    """[(nome do pavimento, descida de ``core.pecas_eletroduto``)] de todos os pavimentos."""
+def descidas(doc, resultados=None, nas_caixas=True):
+    """[(nome do pavimento, descida de ``core.pecas_eletroduto``)] de todos os pavimentos.
+
+    Args:
+        nas_caixas: inclui a interligação vertical dos eletrodutos com as caixas dos
+            símbolos (descidas com ``caixa``); False deixa só as entre eletrodutos.
+    """
     resultados = resultados if resultados is not None else analisar(doc)
-    return [(pav, d) for pav, resultado in resultados.items() for d in resultado.get("descidas", [])]
+    return [(pav, d) for pav, resultado in resultados.items() for d in resultado.get("descidas", [])
+            if nas_caixas or not d.get("caixa")]
 
 
 def _mesma(altura, referencia):

@@ -1,8 +1,10 @@
 import os
+import time
+
 import FreeCAD as App
 import FreeCADGui as Gui
 
-from freecad.Circuits.services import planilhas, quantitativos
+from freecad.Circuits.services import estilo, planilhas, quantitativos
 
 try:
     from reportlab.lib.pagesizes import A4
@@ -77,19 +79,52 @@ def _caixa_dos_objetos(objetos):
     return (x2 - x1, y2 - y1) if x2 > x1 and y2 > y1 else None
 
 
+ESPERA_CAMERA_S = 3.0
+
+
+def _esperar_a_camera(view):
+    """Atualiza a interface até a câmera olhar de cima (z para baixo), por até ``ESPERA_CAMERA_S``."""
+    fim = time.monotonic() + ESPERA_CAMERA_S
+    while True:
+        Gui.updateGui()
+        try:
+            direcao = view.getViewDirection()
+            if abs(direcao.z + 1.0) < 1e-3 or time.monotonic() > fim:
+                return
+        except Exception:
+            return
+        time.sleep(0.05)
+
+
 def capturar_diagrama(doc, view, grupo, caminho):
     """Grava a imagem de um diagrama: só ele visível, vista de topo e enquadrado nele.
 
     A imagem tem a proporção do desenho (até ``ALTURA_MAXIMA_IMAGEM``) e fundo branco.
     Quem chama restaura a visibilidade e a câmera.
     """
+    # sem a animação de navegação do FreeCAD (ligada por padrão): com ela, a imagem era gravada
+    # no meio do giro para o topo, ainda na vista em que o usuário estava
+    parametros = App.ParamGet("User parameter:BaseApp/Preferences/View")
+    animacao = parametros.GetBool("UseNavigationAnimations", True)
+    parametros.SetBool("UseNavigationAnimations", False)
+    try:
+        _capturar(doc, view, grupo, caminho)
+    finally:
+        parametros.SetBool("UseNavigationAnimations", animacao)
+
+
+def _capturar(doc, view, grupo, caminho):
     dentro = [grupo] + descendentes(grupo)
     nomes = {o.Name for o in dentro}
+    for obj in dentro:  # projetos gravados antes: o Sketch voltou branco ao abrir e some no fundo branco
+        if getattr(obj, "TypeId", "") == estilo.TIPO_SKETCH:
+            estilo.pintar_sketch(obj)
     for obj in doc.Objects:
         if hasattr(obj, "ViewObject") and obj.ViewObject:
             obj.ViewObject.Visibility = obj.Name in nomes
     Gui.updateGui()
     view.viewTop()
+    _esperar_a_camera(view)
     Gui.Selection.clearSelection()
     for obj in dentro[1:]:
         try:
@@ -101,7 +136,7 @@ def capturar_diagrama(doc, view, grupo, caminho):
     except Exception:
         view.fitAll()
     Gui.Selection.clearSelection()
-    Gui.updateGui()
+    _esperar_a_camera(view)
     tamanho = _caixa_dos_objetos(dentro[1:])
     altura = int(LARGURA_IMAGEM * 0.7)
     if tamanho:

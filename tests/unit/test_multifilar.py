@@ -64,6 +64,18 @@ class TestMultifilar(unittest.TestCase):
         self.assertEqual(textos(forma).count("30mA"), 2)
         self.assertNotIn("DR", textos(forma))
 
+    def test_idr_na_entrada_abraca_fases_e_neutro(self):
+        sem = m.geometria(QUADRO, [circuito("1", "R")], H)
+        com = m.geometria(dict(QUADRO, IDR="True"), [circuito("1", "R")], H)
+        self.assertIn("IDR 4P 63 A, 30mA", textos(com))  # disjuntor geral de 63 A
+        x_pe = 4 * m.PASSO_BARRA * H
+        topo = m.Y_IDR_TOPO * H
+        barras = {i * m.PASSO_BARRA * H for i in range(5)}
+        cortadas = {l[0] for l in com["linhas"] if l[0] == l[2] and l[0] in barras and abs(l[3] - topo) < 1e-6}
+        self.assertEqual(cortadas, {i * m.PASSO_BARRA * H for i in range(4)})  # R, S, T, N; o PE passa
+        self.assertNotIn(x_pe, cortadas)
+        self.assertEqual(len(com["linhas"]) - len(sem["linhas"]), 4 + 4)  # um trecho a mais por condutor e 4 lados
+
     def test_cada_circuito_termina_num_retangulo_com_numero_e_descricao(self):
         forma = m.geometria(QUADRO, [circuito("1", "R"), circuito("2", "RST", descricao="Motor da bomba de recalque")],
                             H)

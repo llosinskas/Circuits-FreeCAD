@@ -90,6 +90,14 @@ class CriarQuadro(QtWidgets.QDialog):
         self.corrente_DPS.setPlaceholderText("Ex. 3, 4, 5, ...")
         layout.addRow("Corrente do DPS [kA]", self.corrente_DPS)
 
+        self.idr = QtWidgets.QCheckBox()
+        self.idr.setToolTip("DR geral na entrada do quadro, depois do disjuntor geral e do DPS")
+        layout.addRow("Tem DR geral (IDR)", self.idr)
+
+        self.sensibilidade_idr = QtWidgets.QComboBox()
+        self.sensibilidade_idr.addItems(["30", "100", "300", "500"])
+        layout.addRow("Sensibilidade do IDR [mA]", self.sensibilidade_idr)
+
         self.submit_btn = QtWidgets.QPushButton("Criar")
         self.submit_btn.clicked.connect(self.accept)
 
@@ -118,6 +126,8 @@ class CriarQuadro(QtWidgets.QDialog):
             "classe_DPS": self.classe_DPS.text(),
             "tensao_DPS": self.tensao_DPS.text(),
             "corrente_DPS": self.corrente_DPS.text(),
+            "IDR": self.idr.isChecked(),
+            "sensibilidade_IDR": self.sensibilidade_idr.currentText(),
         }
 
 

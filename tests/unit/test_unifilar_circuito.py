@@ -108,6 +108,20 @@ class TestGrupoDR(unittest.TestCase):
         self.assertTrue(u.textos_grupo_dr("DR1", tres_fases)["especificacao"].startswith("4P 40 A"))
 
 
+class TestIDR(unittest.TestCase):
+    def test_sem_idr_a_linha_vai_direto_ao_barramento(self):
+        self.assertEqual(u.entrada_com_idr(10, None), {"linhas": [(130, 25, 180, 25)], "textos": []})
+
+    def test_idr_interrompe_a_linha_depois_do_dps(self):
+        idr = {"especificacao": "4P 63 A, 30mA"}
+        e = u.entrada_com_idr(10, idr)
+        horizontais = [l for l in e["linhas"] if l[1] == l[3] == 25]
+        self.assertEqual(horizontais, [(130, 25, u.X_IDR * 10, 25), ((u.X_IDR + u.LARGURA_IDR) * 10, 25, 180, 25)])
+        self.assertGreater(u.X_IDR, 15)  # depois do DPS
+        self.assertEqual(len(e["linhas"]), 6)
+        self.assertEqual([t[2] for t in e["textos"]], ["IDR", "4P 63 A, 30mA"])
+
+
 class TestServico(unittest.TestCase):
     MODULOS = ("FreeCAD", "FreeCADGui", "Part", "Draft", "Spreadsheet", "Sketcher")
     RECARREGAR = ("freecad.Circuits.services.unifilar", "freecad.Circuits.services.cabos",

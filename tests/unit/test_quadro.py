@@ -143,6 +143,17 @@ class TestComponentes(unittest.TestCase):
         self.assertEqual(quadro.dr_do_grupo([dict(circuito(1, 10), Corrente_DR="300")])["sensibilidade"], "300mA")
         self.assertEqual(quadro.sensibilidade_texto(""), "30mA")
 
+    def test_idr_geral(self):
+        self.assertIsNone(quadro.idr_geral(QUADRO))  # sem a coluna IDR
+        idr = quadro.idr_geral(dict(QUADRO, IDR="True", sensibilidade_IDR="30"))
+        self.assertEqual(idr["especificacao"], "4P 63 A, 30mA")  # trifásico, disjuntor geral de 63 A
+        mono = quadro.idr_geral(dict(QUADRO, IDR="S", numero_fases="1", corrente_nominal_disjuntor="40"))
+        self.assertEqual((mono["polos"], mono["corrente"]), (2, 40))
+        grande = quadro.idr_geral(dict(QUADRO, IDR="True", corrente_nominal_disjuntor="160"))
+        self.assertEqual(grande["corrente"], "160")  # acima da tabela de DR: o do disjuntor
+        mapa = por_item(quadro.componentes(dict(QUADRO, IDR="True"), self.circuitos))
+        self.assertEqual(mapa[("Interruptor DR geral (IDR)", "4P 63 A, 30mA")], 1)
+
     def test_quadro_sem_dps_nem_neutro(self):
         dados = dict(QUADRO, DPS="False", neutro="False", numero_fases="1", corrente_nominal_disjuntor="40")
         mapa = por_item(quadro.componentes(dados, [circuito(1, 16, neutro=False)]))
