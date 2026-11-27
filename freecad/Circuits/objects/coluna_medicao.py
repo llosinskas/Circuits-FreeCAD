@@ -198,6 +198,7 @@ class ColunaMedicao:
 
     def onDocumentRestored(self, obj):
         self._add_properties(obj)
+        pintar(obj)  # projetos gravados com a cor do 1.0 (4º número = transparência) abertos no 1.1
 
     def dumps(self):
         return {"Type": self.Type}
@@ -207,13 +208,47 @@ class ColunaMedicao:
             self.Type = state.get("Type", "ColunaMedicao")
 
 
-def cores_das_faces(forma, tipos):
-    """Cor (r, g, b, transparência 0 a 1) de cada face, pelo tipo de cada sólido (``CORES_DAS_PECAS``)."""
+def quarto_e_opacidade(versao=None):
+    """True se o 4º número das cores de ``DiffuseColor`` é a opacidade (FreeCAD 1.1 em diante: 1 = opaco).
+
+    No FreeCAD 1.0 ele é a transparência (0 = opaco). Gravar 0 numa peça opaca a deixa
+    invisível no 1.1 (conferido no 1.0.2 e no 1.1.0).
+    """
+    try:
+        versao = versao or App.Version()
+        return (int(versao[0]), int(str(versao[1]).split(".")[0] or 0)) >= (1, 1)
+    except (TypeError, ValueError, IndexError, AttributeError):
+        return False
+
+
+def cores_das_faces(forma, tipos, opacidade=None):
+    """Cor (r, g, b, 4º número) de cada face, pelo tipo de cada sólido (``CORES_DAS_PECAS``).
+
+    O 4º número é a transparência de 0 a 1 ou, com ``opacidade`` (padrão: ``quarto_e_opacidade()``),
+    1 − transparência, como o FreeCAD 1.1 espera.
+    """
+    if opacidade is None:
+        opacidade = quarto_e_opacidade()
     cores = []
     for solido, tipo in zip(forma.Solids, tipos):
         cor, transparencia = regras.CORES_DAS_PECAS.get(tipo, ((0.8, 0.8, 0.8), 0))
-        cores += [(cor[0], cor[1], cor[2], transparencia / 100.0)] * len(solido.Faces)
+        quarto = transparencia / 100.0
+        cores += [(cor[0], cor[1], cor[2], 1.0 - quarto if opacidade else quarto)] * len(solido.Faces)
     return cores
+
+
+def pintar(fp):
+    """Pinta as faces da coluna com as cores das peças, em material fosco (sem interface, não faz nada)."""
+    vobj = getattr(fp, "ViewObject", None)
+    if vobj is None:
+        return
+    try:
+        cores = cores_das_faces(fp.Shape, list(fp.TiposDasPecas))
+        if cores and len(cores) == len(fp.Shape.Faces):
+            vobj.DiffuseColor = cores
+            _fosco(vobj)
+    except Exception as erro:
+        App.Console.PrintWarning(f"Colunas de medição: cores não aplicadas ({erro}).\n")
 
 
 def _fosco(vobj):
@@ -245,13 +280,7 @@ class ViewProviderColunaMedicao:
 
     def updateData(self, fp, prop):
         if prop in ("Shape", "TiposDasPecas"):
-            try:
-                cores = cores_das_faces(fp.Shape, list(fp.TiposDasPecas))
-                if cores and len(cores) == len(fp.Shape.Faces):
-                    fp.ViewObject.DiffuseColor = cores
-                    _fosco(fp.ViewObject)
-            except Exception:
-                pass
+            pintar(fp)
 
     def onChanged(self, vp, prop):
         pass

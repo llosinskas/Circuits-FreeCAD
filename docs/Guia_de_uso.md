@@ -278,6 +278,7 @@ Para imprimir, use os botões de exportação do TechDraw com a folha aberta.
 | A descida até a tomada não aparece no 3D | Gere o **Modelo 3D**: ela sai junto com o tubo do eletroduto. |
 | O centro de medição diz "Nenhum andar com unidades" | Preencha a coluna C (unidades) da planilha *Centro de medição*. |
 | A medição descentralizada não aparece na lista | Precisa de 2 andares com unidades e *Andares por centro* maior que 0 (opções avançadas do Centro de medição). |
+| A coluna de medição é criada mas não aparece (FreeCAD 1.1) | Corrigido nesta versão: o 1.1 lê a cor das peças de outro jeito e a coluna ficava transparente. Atualize a bancada e reabra o projeto: a cor é refeita ao abrir. |
 | Não acho o centro de medição gerado | Ele fica na pasta *Busway e medição* do pavimento, sobre o símbolo de medição agrupada (ou na origem). Depois de gerar, os objetos ficam selecionados: use **Ver seleção**. |
 | O PDF não é gerado | Falta a biblioteca `reportlab`: aceite a instalação que o botão oferece. |
 

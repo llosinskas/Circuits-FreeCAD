@@ -111,10 +111,22 @@ class TestColunaParametrica(unittest.TestCase):
 
     def test_cores_por_face(self):
         forma = Composto([Forma(6), Forma(3)])
-        cores = self.m.cores_das_faces(forma, ["tampa", "eletroduto"])
+        cores = self.m.cores_das_faces(forma, ["tampa", "eletroduto"], opacidade=False)
         self.assertEqual(len(cores), 9)
         self.assertAlmostEqual(cores[0][3], 0.7)  # tampa transparente
         self.assertEqual(cores[-1][3], 0.0)
+        # FreeCAD 1.1: o 4º número é a opacidade (com 0 a peça opaca ficava invisível)
+        cores = self.m.cores_das_faces(forma, ["tampa", "eletroduto"], opacidade=True)
+        self.assertAlmostEqual(cores[0][3], 0.3)
+        self.assertEqual(cores[-1][3], 1.0)
+
+    def test_versao_do_freecad(self):
+        self.assertFalse(self.m.quarto_e_opacidade(("0", "21", "2")))
+        self.assertFalse(self.m.quarto_e_opacidade(("1", "0", "2")))
+        self.assertTrue(self.m.quarto_e_opacidade(("1", "1", "0")))
+        self.assertTrue(self.m.quarto_e_opacidade(("1", "2", "0dev")))
+        self.assertTrue(self.m.quarto_e_opacidade(("2", "0", "0")))
+        self.assertFalse(self.m.quarto_e_opacidade(("x",)))
 
     def test_layout_customizado_dimensoes_e_on_document_restored(self):
         self.obj.Medidores, self.obj.DemandaTotal = 12, 250.0
