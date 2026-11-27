@@ -101,6 +101,47 @@ class TestCondutor(unittest.TestCase):
         arquivar.assert_called_once_with(doc, linha, nivel)
         self.assertTrue(self.servico.eh_condutor(linha))
 
+    def test_calculo_gravado_e_levantamento_para_o_memorial(self):
+        class Planilha:
+            def __init__(self):
+                self.celulas, self.Label = {}, ""
+
+            def addProperty(self, tipo, nome, grupo="", dica=""):
+                setattr(self, nome, "")
+
+            def set(self, celula, valor):
+                self.celulas[celula] = valor
+
+            def getContents(self, celula):
+                return self.celulas.get(celula, "")
+
+            def get(self, celula):
+                return float(self.celulas[celula])
+
+            def setColumnWidth(self, *args):
+                pass
+
+        folha = Planilha()
+        doc = mock.MagicMock()
+        doc.Objects = []
+        doc.addObject.return_value = folha
+        with mock.patch.object(self.servico.pavimentos, "pavimento_para_insercao", return_value=None):
+            self.assertIsNone(self.servico.ler_calculo(doc))
+            self.servico.gravar_calculo(doc, {"resistividade": 300, "resistencia_alvo": 10, "hastes": 3,
+                                              "espacamento": 3, "comprimento_haste": 2.4, "diametro_haste": 15.9})
+        doc.Objects = [folha]
+        self.assertEqual(self.servico.ler_calculo(doc),
+                         {"resistividade": 300.0, "resistencia_alvo": 10.0, "hastes": 3, "espacamento": 3.0,
+                          "comprimento_haste": 2.4, "diametro_haste": 15.9})
+
+        def ponto(simbolo):
+            return types.SimpleNamespace(Simbolo=simbolo, Proxy=types.SimpleNamespace(Type="Ponto"))
+
+        cabo = types.SimpleNamespace(Points=[], SecaoAterramento="50", Shape=types.SimpleNamespace(Length=6000.0))
+        doc.Objects = [ponto("haste_aterramento"), ponto("haste_aterramento"), ponto("bep"), cabo, cabo]
+        self.assertEqual(self.servico.levantamento(doc),
+                         {"hastes": 2, "caixas_inspecao": 0, "bep": 1, "condutores": {"50": 12.0}})
+
 
 if __name__ == "__main__":
     unittest.main(verbosity=2)

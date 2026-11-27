@@ -152,5 +152,63 @@ class TestMontar(unittest.TestCase):
         self.assertEqual(m.tipo_do_circuito({"Destino": "Tomadas", "Potencia": "2800", "Fase_R": "True"}), m.TUG)
 
 
+class TestLuminotecnicoEAterramento(unittest.TestCase):
+    CALCULO = {"comprimento": 5.0, "largura": 4.0, "ambiente": "Escritório", "lampada": "LED 18 W",
+               "potencia": 18.0, "iluminancia": 500.0, "fluxo_luminaria": 2000.0, "pe_direito": 2.7,
+               "plano_trabalho": 0.75, "suspensao": 0.0, "fator_utilizacao_informado": 0.0}
+
+    def secao(self, dados, titulo):
+        return dict(m.montar(dict(dados, parametros=PARAMETROS, projeto={}, contagem={})))[titulo]
+
+    def test_luminotecnico_com_as_contas(self):
+        dados = {"luminotecnico": [{"nome": "Sala 1", "calculo": self.CALCULO, "luminarias": 9,
+                                    "potencia_va": 162.0}]}
+        blocos = self.secao(dados, "Luminotécnico")
+        t = textos(blocos)
+        self.assertIn("Hu = H − hp − hs = 2,70 − 0,75 − 0,00 = 1,95 m", t)
+        self.assertIn("K = C · L / (Hu · (C + L)) = 5,00 × 4,00 / (1,95 × (5,00 + 4,00)) = 1,14", t)
+        self.assertIn("N = E · A / (Φ · Fu · Fm) = 500 × 20,00 / (2000 ×", t)
+        self.assertIn("lx ≥ 500 lx → atende", t)
+        self.assertIn("W/m²", t)
+        tabela = next(b for b in blocos if b[0] == "tabela")
+        self.assertEqual(tabela[2][0][0], "Sala 1")
+        quantidade = int(tabela[2][0][4])
+        avisos = str(dict(m.montar(dict(dados, parametros=PARAMETROS, projeto={}, contagem={})))["Avisos e limitações"])
+        self.assertEqual(quantidade == 9, "a planta tem 9" not in avisos)
+
+    def test_luminotecnico_antigo_sem_calculo(self):
+        t = textos(self.secao({"luminotecnico": [{"nome": "Sala", "calculo": None, "luminarias": 4,
+                                                  "potencia_va": 400.0}]}, "Luminotécnico"))
+        self.assertIn("sem o cálculo gravado", t)
+
+    def test_aterramento_com_o_calculo_gravado(self):
+        dados = {"aterramento": {"levantamento": {"hastes": 2, "caixas_inspecao": 1, "bep": 1,
+                                                  "condutores": {"50": 12.5}},
+                                 "calculo": {"resistividade": 100.0, "resistencia_alvo": 10.0, "hastes": 0,
+                                             "espacamento": 3.0, "comprimento_haste": 2.4, "diametro_haste": 15.9}}}
+        blocos = self.secao(dados, "Aterramento")
+        t = textos(blocos)
+        self.assertIn("R1 = ρ / (2π·L) · [ln(4L/a) − 1] = 100 / (2π × 2,40) × [ln(4 × 2,40 / 0,00795) − 1]", t)
+        self.assertIn("Rn = R1 · (1 + λ · α) / n", t)
+        self.assertIn("→ atende", t)
+        tabela = next(b for b in blocos if b[0] == "tabela")
+        self.assertIn(["Cabo de cobre nu 50 mm² [m]", "12,5"], tabela[2])
+        avisos = str(dict(m.montar(dict(dados, parametros=PARAMETROS, projeto={}, contagem={})))["Avisos e limitações"])
+        self.assertIn("a planta tem 2 haste(s) e o cálculo usa", avisos)
+
+    def test_aterramento_sem_calculo_usa_as_hastes_da_planta(self):
+        dados = {"aterramento": {"levantamento": {"hastes": 3, "condutores": {}}, "calculo": None}}
+        t = textos(self.secao(dados, "Aterramento"))
+        self.assertIn("resistividade adotada de 100 Ω·m e as 3 haste(s) da planta", t)
+        self.assertIn("/ 3 =", t)
+
+    def test_sem_aterramento_nem_luminotecnico_ficam_de_fora(self):
+        titulos = [t for t, _ in m.montar({"parametros": PARAMETROS, "projeto": {}, "contagem": {},
+                                           "aterramento": {"levantamento": {"hastes": 0, "condutores": {}},
+                                                           "calculo": None}})]
+        self.assertNotIn("Aterramento", titulos)
+        self.assertNotIn("Luminotécnico", titulos)
+
+
 if __name__ == "__main__":
     unittest.main()

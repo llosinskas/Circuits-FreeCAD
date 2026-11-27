@@ -516,7 +516,22 @@ class TestDescentralizado(unittest.TestCase):
         self.assertIn("chave vertical", texto)
         self.assertIn(("Centros descentralizados", "3"), c.resumo(r))
         poucos = c.comparar(predio(andares=3), demanda_total_a=200.0)
-        self.assertIsNone(poucos["descentralizado"])  # cabem num centro só
+        desc = poucos["descentralizado"]  # cabem num centro só: divididos em dois
+        self.assertEqual([len(centro["andares"]) for centro in desc["centros"]], [2, 1])
+        self.assertTrue(any("caberiam num centro só" in a for a in desc["avisos"]))
+        self.assertIsNone(c.comparar(predio(andares=3), andares_por_centro=0)["descentralizado"])
+        self.assertIsNone(c.comparar([c.andar("Térreo", 0, 8)])["descentralizado"])  # um andar só
+
+    def test_andares_por_grupo(self):
+        self.assertEqual([c.andares_por_grupo(n, 4) for n in (1, 2, 3, 4, 5, 9)], [0, 1, 2, 2, 4, 4])
+        self.assertEqual(c.andares_por_grupo(6, 0), 0)
+
+    def test_planilha_com_um_pavimento_so_tem_unidades(self):
+        self.assertEqual(c.linhas_dos_pavimentos([("Térreo", 0.0)])[0]["unidades"], c.UNIDADES_PADRAO)
+        linhas = c.linhas_dos_pavimentos([("Térreo", 0.0), ("1º", 3.0)])
+        self.assertEqual([l["unidades"] for l in linhas], [0, c.UNIDADES_PADRAO])
+        with self.assertRaisesRegex(ValueError, "coluna C"):
+            c.comparar([c.andar("Térreo", 0, 0)])
 
 
 class TestPlanoDeGeracao(unittest.TestCase):

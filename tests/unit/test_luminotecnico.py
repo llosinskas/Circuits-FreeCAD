@@ -157,6 +157,28 @@ class TestServico(unittest.TestCase):
         self.assertEqual({(p.Potencia, p.Circuito, p.Ambiente) for p in criados}, {(20.0, "3", "Rectangle")})
         doc.commitTransaction.assert_called_once()
 
+    def test_calculo_guardado_no_ambiente_para_o_memorial(self):
+        class Objeto:
+            def __init__(self, nome, label):
+                self.Name, self.Label = nome, label
+
+            def addProperty(self, tipo, nome, grupo="", dica=""):
+                setattr(self, nome, "")
+
+        sala, velho = Objeto("Rectangle", "Sala"), Objeto("Rectangle001", "Cozinha")
+        self.servico.gravar_calculo(sala, {"comprimento": 5.0, "largura": 4.0, "iluminancia": 300})
+        self.assertEqual(self.servico.ler_calculo(sala)["iluminancia"], 300)
+        luz = types.SimpleNamespace(Name="P1", Ambiente="Rectangle", Potencia=20.0,
+                                    Proxy=types.SimpleNamespace(Type="Ponto"))
+        antiga = types.SimpleNamespace(Name="P2", Ambiente="Rectangle001", Potencia=60.0,
+                                       Proxy=types.SimpleNamespace(Type="Ponto"))
+        doc = mock.MagicMock()
+        doc.Objects = [sala, velho, luz, antiga]
+        doc.getObject.side_effect = {"Rectangle": sala, "Rectangle001": velho}.get
+        lista = self.servico.calculos(doc)
+        self.assertEqual([(a["nome"], a["luminarias"], a["potencia_va"], a["calculo"] is None) for a in lista],
+                         [("Sala", 1, 20.0, False), ("Cozinha", 1, 60.0, True)])
+
 
 if __name__ == "__main__":
     unittest.main(verbosity=2)

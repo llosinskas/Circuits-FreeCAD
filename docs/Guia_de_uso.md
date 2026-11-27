@@ -233,7 +233,19 @@ Todos ficam em **Cálculos ▾**. Os formulários mostram poucas perguntas, com 
 | Partida de motor | Contatores, relé térmico e disjuntor-motor; insere o motor na planta |
 | Pressurização, Bomba de recalque | Pré-dimensionamento do ventilador e da bomba |
 
-O luminotécnico fica em **Iluminação ▾ > Luminotécnico** (com o retângulo do ambiente selecionado), e a resistência de terra em **Aterramento ▾**.
+### Centro de medição (Enel SP)
+
+Fica em **Quadros ▾**, nesta ordem:
+
+1. **Centro de medição** (primeiro clique): cria a planilha *Centro de medição* com os pavimentos do projeto. Num projeto só com o Térreo, as unidades ficam nele; com andares, o mais baixo fica sem unidades. Preencha por andar a cota do piso (B), as unidades (C), a demanda de cada unidade em A (D) e as fases (E).
+2. **Centro de medição** (segundo clique): compara medição agrupada, descentralizada e busway, com o custo de cada uma. **Gravar na planilha** guarda os valores do formulário.
+3. **Gerar centro de medição:** escolha *agrupada* ou *descentralizada*. As colunas de medição, o abrigo e, na descentralizada, o ramal de cada centro são criados na pasta *Busway e medição* do pavimento, ficam selecionados e a vista enquadra neles. Ponha antes um símbolo de **Medição agrupada** na planta para eles nascerem ali.
+4. **Coluna de medição:** insere uma coluna avulsa (clique na planta para posicionar) ou, com uma coluna selecionada, edita a quantidade de medidores, o modelo e o desenho 3D.
+5. **Busway:** com o caminho do QDC ao shaft desenhado e selecionado.
+
+A **descentralizada** precisa de pelo menos 2 andares com unidades. Se todos caberiam num centro só (até 4 andares, o padrão de *Andares por centro*), eles são divididos em dois centros. Com *Andares por centro* = 0, ela fica de fora.
+
+O luminotécnico fica em **Iluminação ▾ > Luminotécnico** (com o retângulo do ambiente selecionado), e a resistência de terra em **Aterramento ▾ > Resistência de terra**. Os dois entram no memorial do relatório: o luminotécnico guarda o cálculo no retângulo do ambiente, e a resistência de terra, ao clicar em **Gravar no projeto**, na planilha *Cálculo de aterramento*.
 
 ## 11. Documentos e folhas finais
 
@@ -246,7 +258,7 @@ O luminotécnico fica em **Iluminação ▾ > Luminotécnico** (com o retângulo
 7. **Folhas ▾ > Atualizar folhas** depois de qualquer mudança no projeto.
 
 **Carimbo:** preencha uma vez, em **Projeto ▾ > Parâmetros**, as linhas *Carimbo: projeto, obra, cliente, desenho, responsável técnico e CREA/CFT*: elas aparecem em todas as folhas e mudam em todas quando você as muda. O conteúdo, a data e a revisão de cada folha ficam nas propriedades dela (grupo *Carimbo*). A numeração (01/03...) e a escala são automáticas. Também dá para editar o campo com dois cliques na própria folha: o texto vai para o parâmetro e para as outras folhas.
-8. **Documentos ▾ > Relatório PDF:** o memorial descritivo e de cálculo completo, com capa, sumário, parâmetros e normas, previsão de cargas e luminotécnico por ambiente, quadro de cargas, demanda, cada circuito verificado passo a passo (fórmula e valores), DR, curto-circuito, gerador, centro de medição, ocupação dos eletrodutos, avisos, materiais, diagramas e a vista 3D. Gere antes os diagramas e, se quiser essas seções, o estudo de curto e o gerador. O que não atende sai em vermelho e é listado em *Avisos e limitações*.
+8. **Documentos ▾ > Relatório PDF:** o memorial descritivo e de cálculo completo, com capa, sumário, parâmetros e normas, previsão de cargas e luminotécnico por ambiente, quadro de cargas, demanda, cada circuito verificado passo a passo (fórmula e valores), DR, curto-circuito, gerador, centro de medição, luminotécnico dos ambientes, aterramento (hastes, BEP, cabo de cobre nu e a resistência de terra com as contas), ocupação dos eletrodutos, avisos, materiais, diagramas e a vista 3D. Gere antes os diagramas e, se quiser essas seções, o estudo de curto, o gerador e a resistência de terra gravada. O que não atende sai em vermelho e é listado em *Avisos e limitações*.
 
 Para imprimir, use os botões de exportação do TechDraw com a folha aberta.
 
@@ -262,6 +274,9 @@ Para imprimir, use os botões de exportação do TechDraw com a folha aberta.
 | A folha mostra a planta antiga | **Folhas ▾ > Atualizar folhas**. |
 | Os diagramas ficaram brancos depois de abrir o projeto | Projetos gravados antes desta versão: **Documentos ▾ > Sketches em preto** uma vez e salve. |
 | A descida até a tomada não aparece no 3D | Gere o **Modelo 3D**: ela sai junto com o tubo do eletroduto. |
+| O centro de medição diz "Nenhum andar com unidades" | Preencha a coluna C (unidades) da planilha *Centro de medição*. |
+| A medição descentralizada não aparece na lista | Precisa de 2 andares com unidades e *Andares por centro* maior que 0 (opções avançadas do Centro de medição). |
+| Não acho o centro de medição gerado | Ele fica na pasta *Busway e medição* do pavimento, sobre o símbolo de medição agrupada (ou na origem). Depois de gerar, os objetos ficam selecionados: use **Ver seleção**. |
 | O PDF não é gerado | Falta a biblioteca `reportlab`: aceite a instalação que o botão oferece. |
 
 > **Atenção:** os dimensionamentos são simplificados e usam tabelas e valores de catálogo genéricos. Confira os resultados com as normas (NBR 5410, NBR 5419) e com os catálogos dos fabricantes antes de usar em um projeto real. Veja a seção *Limitações* do [README](../README.md).

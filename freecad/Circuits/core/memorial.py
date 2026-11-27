@@ -17,7 +17,9 @@ import math
 
 from freecad.Circuits.core import nbr5410, quadro as regras_quadro, quadro_cargas
 from freecad.Circuits.core import curto as regras_curto
+from freecad.Circuits.core.functions.Predial import aterramento as regras_aterramento
 from freecad.Circuits.core.functions.Predial import demanda as regras_demanda
+from freecad.Circuits.core.functions.Predial import luminotecnico as regras_luminotecnico
 from freecad.Circuits.core.simbolos import ILUM, TUE, TUG
 
 NORMAS = [
@@ -41,6 +43,10 @@ LIMITACOES = [
     "(caso mais desfavorável nos cabos finos).",
     "Fatores de demanda de guias de instalações residenciais: confira com a norma da concessionária.",
     "Curto-circuito sem contribuição de motores; a fase-terra mínima usa o condutor de proteção igual à fase.",
+    "Luminotécnico pelo método dos lúmens, com fator de utilização de uma curva genérica (luminária direta, "
+    "refletâncias claras) quando o do catálogo não foi informado; não verifica uniformidade nem ofuscamento.",
+    "Aterramento por hastes em linha (fórmula de Dwight e fator λ da IEEE 142); a resistividade do solo deve "
+    "ser medida (método de Wenner) e a resistência máxima conferida com a NBR 5410 e a NBR 5419.",
     "Valores de catálogo genéricos (disjuntores, DR, contatores, eletrodutos e cabos): confira com o fabricante.",
 ]
 
@@ -361,6 +367,171 @@ def _secao_ambientes(dados):
     return "Previsão de cargas e iluminação por ambiente", blocos
 
 
+# --- luminotécnico (Distribuir luminárias) -------------------------------------------------------------
+
+ENTRADAS_LUMINOTECNICO = ("comprimento", "largura", "iluminancia", "fluxo_luminaria", "pe_direito",
+                          "plano_trabalho", "suspensao", "fator_utilizacao_informado")
+
+
+def _blocos_luminotecnico(a):
+    """Blocos e linha da tabela de um ambiente do luminotécnico (``services.luminotecnico.calculos``)."""
+    calculo = a.get("calculo")
+    if not calculo:
+        linha = [a["nome"], "-", "-", "-", str(a["luminarias"]), "-", "-"]
+        return [("paragrafo", f"{a['nome']}: {a['luminarias']} luminária(s), {br_g(a['potencia_va'])} VA, "
+                              "distribuídas sem o cálculo gravado (versão anterior): refaça com Luminotécnico.")], \
+            linha, []
+    entradas = {k: float(calculo[k]) for k in ENTRADAS_LUMINOTECNICO if k in calculo}
+    r = regras_luminotecnico.dimensionar(**entradas)
+    c, l, hu = r["comprimento"], r["largura"], r["altura_util"]
+    area = c * l
+    potencia = numero(calculo.get("potencia"))
+    titulo = a["nome"] + (f" ({calculo['ambiente']})" if calculo.get("ambiente") else "")
+    fu = ("do catálogo" if entradas.get("fator_utilizacao_informado", 0) > 0
+          else "pela curva genérica, com o K")
+    blocos = [
+        ("subtitulo", titulo),
+        ("paragrafo", f"Ambiente de {br(c)} × {br(l)} m (A = {br(area)} m²); "
+                      + (f"{calculo['lampada']}, " if calculo.get("lampada") else "")
+                      + f"{br_g(r['fluxo_luminaria'])} lm e {br_g(potencia)} W por luminária."),
+        ("formula", f"Hu = H − hp − hs = {br(entradas.get('pe_direito', 2.7))} − "
+                    f"{br(entradas.get('plano_trabalho', regras_luminotecnico.PLANO_DE_TRABALHO))} − "
+                    f"{br(entradas.get('suspensao', 0.0))} = {br(hu)} m"),
+        ("formula", f"K = C · L / (Hu · (C + L)) = {br(c)} × {br(l)} / ({br(hu)} × ({br(c)} + {br(l)})) = "
+                    f"{br(r['indice_local'])}; Fu = {br(r['fator_utilizacao'])} ({fu}); "
+                    f"Fm = {br(r['fator_manutencao'])}"),
+        ("formula", f"N = E · A / (Φ · Fu · Fm) = {br_g(r['iluminancia'])} × {br(area)} / "
+                    f"({br_g(r['fluxo_luminaria'])} × {br(r['fator_utilizacao'])} × {br(r['fator_manutencao'])}) "
+                    f"= {br(r['quantidade_calculada'])} → {r['quantidade']} luminária(s), malha "
+                    f"{r['nx']} × {r['ny']}"),
+        ("formula", f"Espaçamento {br(r['espacamento_x'])} × {br(r['espacamento_y'])} m ≤ 1,5 · Hu = "
+                    f"{br(r['espacamento_maximo'])} m → "
+                    f"{_ok(max(r['espacamento_x'], r['espacamento_y']) <= r['espacamento_maximo'] + 1e-9)}"),
+        ("formula", f"Em = N · Φ · Fu · Fm / A = {r['quantidade']} × {br_g(r['fluxo_luminaria'])} × "
+                    f"{br(r['fator_utilizacao'])} × {br(r['fator_manutencao'])} / {br(area)} = "
+                    f"{br(r['iluminancia_resultante'], 0)} lx ≥ {br_g(r['iluminancia'])} lx → "
+                    f"{_ok(r['iluminancia_resultante'] >= r['iluminancia'] - 1e-6)}"),
+    ]
+    densidade = r["quantidade"] * potencia / area if area else 0.0
+    if potencia:
+        blocos.append(("formula", f"Densidade de potência = N · P / A = {r['quantidade']} × {br_g(potencia)} / "
+                                  f"{br(area)} = {br(densidade, 1)} W/m²"))
+    avisos = []
+    if a["luminarias"] != r["quantidade"]:
+        avisos.append(f"Luminotécnico de {a['nome']}: a planta tem {a['luminarias']} luminária(s) e o cálculo "
+                      f"pede {r['quantidade']}")
+        blocos.append(("aviso", avisos[-1] + "."))
+    blocos += [("aviso", aviso) for aviso in r.get("avisos", [])]
+    linha = [a["nome"], f"{br(c)} × {br(l)}", br_g(r["iluminancia"]), br(r["quantidade_calculada"]),
+             str(r["quantidade"]), br(r["iluminancia_resultante"], 0), br(densidade, 1) if potencia else "-"]
+    return blocos, linha, avisos
+
+
+def _secao_luminotecnico(dados):
+    """Ambientes calculados com Luminotécnico (Distribuir luminárias). Returns: (título, blocos, avisos)."""
+    ambientes = dados.get("luminotecnico") or []
+    if not ambientes:
+        return None, [], []
+    blocos, linhas, avisos = [], [], []
+    for a in ambientes:
+        try:
+            mais, linha, av = _blocos_luminotecnico(a)
+        except (ValueError, KeyError, TypeError) as erro:
+            avisos.append(f"Luminotécnico de {a.get('nome', '?')}: {erro}")
+            continue
+        blocos += mais
+        linhas.append(linha)
+        avisos += av
+    inicio = [
+        ("paragrafo", "Método dos lúmens: quantidade de luminárias para a iluminância média mantida E do "
+                      "ambiente (NBR ISO/CIE 8995-1; nas residências, a antiga NBR 5413), com o índice do local K, "
+                      "o fator de utilização Fu e o fator de manutenção Fm. As luminárias ficam numa malha "
+                      "regular, com espaçamento até 1,5 vez a altura útil."),
+        ("tabela", ["Ambiente", "C × L [m]", "E [lx]", "N calc.", "N", "Em [lx]", "W/m²"], linhas,
+         [2.4, 1.5, 0.9, 1.0, 0.7, 1.0, 0.9]),
+    ]
+    return "Luminotécnico", inicio + blocos, avisos
+
+
+# --- aterramento --------------------------------------------------------------------------------------
+
+RESISTIVIDADE_ADOTADA = 100.0  # Ω·m, quando o cálculo não foi gravado
+
+
+def _secao_aterramento(dados, parametros):
+    """Elementos de aterramento da planta e a resistência das hastes. Returns: (título, blocos, avisos)."""
+    info = dados.get("aterramento") or {}
+    planta = info.get("levantamento") or {}
+    entradas = info.get("calculo")
+    hastes_planta = int(planta.get("hastes", 0))
+    condutores = planta.get("condutores") or {}
+    if not entradas and not hastes_planta and not condutores and not planta.get("bep"):
+        return None, [], []
+    blocos = [("paragrafo", f"Esquema de aterramento: {parametros.get('esquema', '-')}. Eletrodo de aterramento "
+                            "por hastes verticais interligadas por cabo de cobre nu, ligado ao barramento de "
+                            "equipotencialização principal (BEP), ao qual chegam os condutores de proteção dos "
+                            "quadros (NBR 5410, 6.4).")]
+    linhas = [["Hastes de aterramento", str(hastes_planta)],
+              ["Caixas de inspeção", str(planta.get("caixas_inspecao", 0))],
+              ["BEP", str(planta.get("bep", 0))]]
+    linhas += [[f"Cabo de cobre nu {secao} mm² [m]", br(metros, 1)]
+               for secao, metros in sorted(condutores.items(), key=lambda item: numero(item[0]))]
+    blocos += [("subtitulo", "Elementos na planta"), ("tabela", ["Item", "Quantidade"], linhas, [3, 1.2])]
+    avisos = []
+    padrao = not entradas
+    if padrao:
+        entradas = {"resistividade": RESISTIVIDADE_ADOTADA, "hastes": hastes_planta}
+    e = {"resistividade": float(entradas.get("resistividade") or RESISTIVIDADE_ADOTADA),
+         "resistencia_alvo": float(entradas.get("resistencia_alvo") or regras_aterramento.ALVO_PADRAO),
+         "hastes": int(entradas.get("hastes") or 0),
+         "espacamento": float(entradas.get("espacamento") or regras_aterramento.ESPACAMENTO_PADRAO),
+         "comprimento_haste": float(entradas.get("comprimento_haste") or regras_aterramento.HASTE_COMPRIMENTO),
+         "diametro_haste": float(entradas.get("diametro_haste") or regras_aterramento.HASTE_DIAMETRO_MM)}
+    try:
+        r = regras_aterramento.dimensionar(**e)
+    except ValueError as erro:
+        avisos.append(f"Aterramento: {erro}")
+        return "Aterramento", blocos + [("aviso", str(erro))], avisos
+    rho, comp, n, s = e["resistividade"], e["comprimento_haste"], r["hastes"], e["espacamento"]
+    raio = e["diametro_haste"] / 2000.0
+    blocos.append(("subtitulo", "Resistência de aterramento das hastes em linha"))
+    if padrao:
+        blocos.append(("aviso", f"Cálculo não gravado no projeto: resistividade adotada de {br_g(rho)} Ω·m e as "
+                                f"{hastes_planta} haste(s) da planta. Meça o solo e grave com Resistência de terra."))
+        avisos.append("Aterramento calculado com a resistividade adotada de "
+                      f"{br_g(rho)} Ω·m: meça o solo (Wenner) e grave o cálculo")
+    blocos += [
+        ("paragrafo", f"Solo de {br_g(rho)} Ω·m; hastes de {br(comp)} m e {br(e['diametro_haste'], 1)} mm "
+                      f"(a = {br(raio, 5)} m), a cada {br(s, 1)} m."),
+        ("formula", f"R1 = ρ / (2π·L) · [ln(4L/a) − 1] = {br_g(rho)} / (2π × {br(comp)}) × [ln(4 × {br(comp)} / "
+                    f"{br(raio, 5)}) − 1] = {br(r['resistencia_uma_haste'])} Ω"),
+    ]
+    if n > 1:
+        alfa = rho / (2 * math.pi * r["resistencia_uma_haste"] * s)
+        lam = regras_aterramento.fator_lambda(n)
+        blocos += [
+            ("formula", f"α = ρ / (2π · R1 · s) = {br_g(rho)} / (2π × {br(r['resistencia_uma_haste'])} × {br(s, 1)}) "
+                        f"= {br(alfa, 3)}; λ = 2 · (1/2 + … + 1/n) = {br(lam, 3)}"),
+            ("formula", f"Rn = R1 · (1 + λ · α) / n = {br(r['resistencia_uma_haste'])} × (1 + {br(lam, 3)} × "
+                        f"{br(alfa, 3)}) / {n} = {br(r['resistencia'])} Ω"),
+        ]
+    blocos.append(("formula", f"R = {br(r['resistencia'])} Ω ≤ {br_g(r['resistencia_alvo'])} Ω → {_ok(r['atende'])}"
+                              + ("" if r["atende"] or not r["hastes_necessarias"]
+                                 else f" (seriam necessárias {r['hastes_necessarias']} hastes)")))
+    if not r["atende"]:
+        avisos.append(f"Aterramento: {br(r['resistencia'])} Ω com {n} haste(s), acima de "
+                      f"{br_g(r['resistencia_alvo'])} Ω")
+    if n > 1:
+        texto = f"Cabo entre as hastes: (n − 1) · s = ({n} − 1) × {br(s, 1)} = {br(r['cabo_entre_hastes'], 1)} m"
+        if condutores:
+            texto += f"; desenhado na planta: {br(sum(condutores.values()), 1)} m"
+        blocos.append(("paragrafo", texto + "."))
+    if not padrao and hastes_planta and hastes_planta < n:
+        avisos.append(f"Aterramento: a planta tem {hastes_planta} haste(s) e o cálculo usa {n}")
+        blocos.append(("aviso", avisos[-1] + "."))
+    return "Aterramento", blocos, avisos
+
+
 def _secao_quadro(q, parametros, icc_quadro):
     """Blocos de um quadro: dados, quadro de cargas, demanda, circuitos, DR, componentes."""
     dados, circuitos = q["dados"], q["circuitos"]
@@ -533,8 +704,8 @@ def montar(dados):
 
     Args:
         dados: de ``services.memorial.coletar``: ``projeto``, ``contagem``, ``parametros``,
-            ``rotulos_parametros``, ``ambientes``, ``quadros``, ``curto``, ``gerador``,
-            ``centro_medicao``, ``ocupacao``, ``avisos``.
+            ``rotulos_parametros``, ``ambientes``, ``luminotecnico``, ``quadros``, ``curto``,
+            ``aterramento``, ``gerador``, ``centro_medicao``, ``ocupacao``, ``avisos``.
     """
     parametros = dados.get("parametros", {})
     secoes = [_secao_identificacao(dados), _secao_normas(dados), _secao_parametros(dados)]
@@ -542,6 +713,10 @@ def montar(dados):
     ambientes = _secao_ambientes(dados)
     if ambientes:
         secoes.append(ambientes)
+    titulo, blocos, avisos_lum = _secao_luminotecnico(dados)
+    if titulo:
+        secoes.append((titulo, blocos))
+        avisos += avisos_lum
     curto = dados.get("curto") or {}
     for q in dados.get("quadros", []):
         identificacao = q["dados"].get("indentificacao_painel") or q["nome"]
@@ -553,6 +728,10 @@ def montar(dados):
     if titulo:
         secoes.append((titulo, blocos))
         avisos += avisos_curto
+    titulo, blocos, avisos_terra = _secao_aterramento(dados, parametros)
+    if titulo:
+        secoes.append((titulo, blocos))
+        avisos += avisos_terra
     for funcao in (_secao_gerador, _secao_centro, _secao_ocupacao):
         secao = funcao(dados)
         if secao:

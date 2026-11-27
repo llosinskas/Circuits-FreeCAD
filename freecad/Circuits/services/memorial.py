@@ -153,6 +153,16 @@ def _ocupacao(doc, avisos):
     return {"tabela": regras_ocupacao.tabela(dados["eletrodutos"], dados["bandejas"]), "avisos": dados["avisos"]}
 
 
+def _luminotecnico(doc, avisos):
+    from freecad.Circuits.services import luminotecnico
+    return luminotecnico.calculos(doc) or None
+
+
+def _aterramento(doc, avisos):
+    from freecad.Circuits.services import aterramento
+    return {"levantamento": aterramento.levantamento(doc), "calculo": aterramento.ler_calculo(doc)}
+
+
 def coletar(doc):
     """Dados do documento para ``core.memorial.montar``."""
     avisos = []
@@ -162,8 +172,8 @@ def coletar(doc):
         "parametros": servico_parametros.ler(doc),
         "rotulos_parametros": {chave: valor[1] for chave, valor in regras_parametros.CAMPOS.items()},
     }
-    for chave, funcao in (("ambientes", _ambientes), ("quadros", _quadros), ("curto", _curto),
-                          ("gerador", _gerador), ("centro_medicao", _centro), ("ocupacao", _ocupacao)):
+    for chave, funcao in (("ambientes", _ambientes), ("luminotecnico", _luminotecnico), ("quadros", _quadros),
+                          ("curto", _curto), ("aterramento", _aterramento), ("gerador", _gerador), ("centro_medicao", _centro), ("ocupacao", _ocupacao)):
         try:
             dados[chave] = funcao(doc, avisos)
         except Exception as erro:

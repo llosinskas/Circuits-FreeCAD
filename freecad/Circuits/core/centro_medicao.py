@@ -193,6 +193,10 @@ def andar(nome, cota, unidades, demanda_a=63.0, fases=2):
             "fases": fases}
 
 
+SEM_UNIDADES = ("Nenhum andar com unidades: preencha na planilha \"Centro de medição\" a coluna C (unidades) "
+                "dos andares, com a cota do piso (B) e a demanda de cada unidade (D).")
+
+
 def _com_unidades(andares):
     return sorted((a for a in andares if a["unidades"] > 0), key=lambda a: a["cota"])
 
@@ -635,7 +639,7 @@ def convencional(andares, tensao=220.0, distancia_horizontal=15.0, demanda_total
     """
     lista = _com_unidades(andares)
     if not lista:
-        raise ValueError("Nenhum andar com unidades.")
+        raise ValueError(SEM_UNIDADES)
     total = sum(corrente_dos_andares(lista, demanda_total_a))
     grupos, modelo, disjuntor, avisos = _conjuntos(lista, total, tensao)
     alimentadores, cabo, eletroduto, mais = _alimentadores(lista, 0.0, distancia_horizontal, tensao,
@@ -655,9 +659,23 @@ CHAVES_VERTICAIS = [160, 250, 400, 630]  # chaves seccionadoras verticais com fu
 MAX_PARALELOS_RAMAL = 4
 
 
+def andares_por_grupo(quantidade, andares_por_centro=ANDARES_POR_CENTRO):
+    """Andares por centro usados de fato: se todos cabem num centro só, divide em dois (pelo menos 2 centros).
+
+    Devolve 0 quando não há descentralizada: ``andares_por_centro`` 0 ou menos de 2 andares com unidades.
+    """
+    n = int(andares_por_centro or 0)
+    if n <= 0 or quantidade < 2:
+        return 0
+    return n if quantidade > n else math.ceil(quantidade / 2)
+
+
 def grupos_de_andares(lista, andares_por_centro=ANDARES_POR_CENTRO):
-    """Andares com unidades, de baixo para cima, em grupos seguidos de até ``andares_por_centro``."""
-    n = max(1, int(andares_por_centro))
+    """Andares com unidades, de baixo para cima, em grupos seguidos de até ``andares_por_centro``.
+
+    Se todos caberiam num grupo só, divide em dois (``andares_por_grupo``).
+    """
+    n = max(1, andares_por_grupo(len(lista), andares_por_centro) or int(andares_por_centro or 1))
     ordenados = sorted(lista, key=lambda a: a["cota"])
     return [ordenados[i:i + n] for i in range(0, len(ordenados), n)]
 
@@ -680,10 +698,14 @@ def descentralizado(andares, tensao=220.0, distancia_horizontal=15.0, demanda_to
     """
     lista = _com_unidades(andares)
     if not lista:
-        raise ValueError("Nenhum andar com unidades.")
+        raise ValueError(SEM_UNIDADES)
     correntes = dict(zip((id(a) for a in lista), corrente_dos_andares(lista, demanda_total_a)))
     total = sum(correntes.values())
     avisos, centros = [], []
+    usado = andares_por_grupo(len(lista), andares_por_centro)
+    if usado and usado < int(andares_por_centro):
+        avisos.append(f"os {len(lista)} andares com unidades caberiam num centro só ({int(andares_por_centro)} "
+                      f"andares por centro): foram divididos em centros de até {usado} andares")
     cabo = eletroduto = ramais = 0.0
     for numero, grupo in enumerate(grupos_de_andares(lista, andares_por_centro), start=1):
         base = grupo[0]
@@ -768,7 +790,7 @@ def plano_de_geracao(andares, solucao="convencional", tensao=220.0, distancia_ho
                          "pelo botão Busway, a partir do caminho do QDC ao shaft.")
     lista = _com_unidades(andares)
     if not lista:
-        raise ValueError("Nenhum andar com unidades.")
+        raise ValueError(SEM_UNIDADES)
     correntes = dict(zip((id(a) for a in lista), corrente_dos_andares(lista, demanda_total_a)))
     if solucao == "convencional":
         grupos, ramais = [sorted(lista, key=lambda a: a["cota"])], [None]
@@ -896,7 +918,7 @@ def busway(andares, tensao=220.0, uso=2.0, distancia_horizontal=15.0, compriment
     """
     lista = _com_unidades(andares)
     if not lista:
-        raise ValueError("Nenhum andar com unidades.")
+        raise ValueError(SEM_UNIDADES)
     avisos = []
     correntes = corrente_dos_andares(lista, demanda_total_a)
     total = sum(correntes)
@@ -1039,7 +1061,8 @@ def comparar(andares, tensao=220.0, uso=2.0, distancia_horizontal=15.0, comprime
              demanda_total_a=0.0, altura_ultimo_pavimento=3.0, precos=None, andares_por_centro=ANDARES_POR_CENTRO):
     """As três soluções com o orçamento de cada uma e a recomendação pelo menor custo.
 
-    ``andares_por_centro`` 0 deixa a medição descentralizada de fora.
+    ``andares_por_centro`` 0 (ou um andar só com unidades) deixa a medição descentralizada de fora; se
+    todos os andares cabem num centro, ela os divide em dois (``andares_por_grupo``).
 
     Returns:
         {'convencional', 'descentralizado' e 'busway': resultado ou None, 'erro_busway',
@@ -1048,7 +1071,7 @@ def comparar(andares, tensao=220.0, uso=2.0, distancia_horizontal=15.0, comprime
     conv = convencional(andares, tensao, distancia_horizontal, demanda_total_a)
     custos = {"convencional": orcamento(conv, precos)}
     desc = None
-    if andares_por_centro and len(_com_unidades(andares)) > int(andares_por_centro):
+    if andares_por_grupo(len(_com_unidades(andares)), andares_por_centro):
         desc = descentralizado(andares, tensao, distancia_horizontal, demanda_total_a, andares_por_centro)
         custos["descentralizado"] = orcamento(desc, precos)
     bus, erro = None, ""
@@ -1193,12 +1216,16 @@ def andar_da_linha(celulas):
 
 
 def linhas_dos_pavimentos(pavimentos, cota_base=None):
-    """Linhas iniciais da planilha a partir de [(nome, cota do piso [m])]: o mais baixo fica sem unidades."""
+    """Linhas iniciais da planilha a partir de [(nome, cota do piso [m])]: o mais baixo fica sem unidades.
+
+    Com um pavimento só (projeto que ainda não tem os andares), as unidades ficam nele.
+    """
     if not pavimentos:
         return [{"nome": f"{i}º pavimento", "cota": 3.0 * i, "unidades": UNIDADES_PADRAO} for i in range(1, 5)]
     ordenados = sorted(pavimentos, key=lambda p: p[1])
     base = ordenados[0][1] if cota_base is None else cota_base
-    return [{"nome": nome, "cota": round(cota - base, 2), "unidades": 0 if i == 0 else UNIDADES_PADRAO}
+    sem_unidades = 0 if len(ordenados) > 1 else None  # com um pavimento só, as unidades ficam nele
+    return [{"nome": nome, "cota": round(cota - base, 2), "unidades": 0 if i == sem_unidades else UNIDADES_PADRAO}
             for i, (nome, cota) in enumerate(ordenados)]
 
 

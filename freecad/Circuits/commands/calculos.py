@@ -202,9 +202,16 @@ class DistribuirLuminarias:
         if not dialog.exec_() or not dialog.resultado:
             return
         dados = dialog.get_dados()
+        calculo = {
+            "comprimento": comprimento, "largura": largura, "ambiente": dados["ambiente"],
+            "lampada": dados.get("lampada", ""), "potencia": dados["potencia"],
+            "iluminancia": luminotecnico.ILUMINANCIAS[dados["ambiente"]] or dados["iluminancia"],
+            **{chave: dados[chave] for chave in ("fluxo_luminaria", "pe_direito", "plano_trabalho", "suspensao",
+                                                 "fator_utilizacao_informado")},
+        }
         servico_luminotecnico.distribuir(
             doc, ambiente, x_min, y_min, dialog.resultado["posicoes"],
-            self.SIMBOLOS[dados["simbolo"]], dados["potencia"], dados["circuito"],
+            self.SIMBOLOS[dados["simbolo"]], dados["potencia"], dados["circuito"], calculo,
         )
 
     def IsActive(self):

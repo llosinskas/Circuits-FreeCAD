@@ -54,7 +54,16 @@ class CalcAterramento:
         return resultado, calculo.relatorio(resultado)
 
     def Activated(self):
-        CalculoDialog("Resistência de aterramento", formularios.ATERRAMENTO, self._calcular, "", "aterramento").exec_()
+        doc = App.ActiveDocument
+        texto = "Gravar no projeto" if doc is not None else ""
+        dialogo = CalculoDialog("Resistência de aterramento", formularios.ATERRAMENTO, self._calcular, texto,
+                                "aterramento")
+        if dialogo.exec_() and doc is not None and dialogo.resultado:
+            dados = dict(dialogo.get_dados())
+            dados.pop("solo", None)
+            folha = aterramento.gravar_calculo(doc, dados)
+            App.Console.PrintMessage(f"Cálculo de aterramento gravado em \"{folha.Label}\": entra no memorial do "
+                                     "relatório.\n")
 
     def IsActive(self):
         return True
@@ -63,7 +72,8 @@ class CalcAterramento:
         return recursos(
             "calc_aterramento.svg",
             "Resistência de terra",
-            "Calcula a resistência das hastes de aterramento em linha e quantas hastes atingem o valor desejado",
+            "Calcula a resistência das hastes de aterramento em linha e quantas hastes atingem o valor desejado; "
+            "gravado no projeto, entra no memorial do relatório",
         )
 
 

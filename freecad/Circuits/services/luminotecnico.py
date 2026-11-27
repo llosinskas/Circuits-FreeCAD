@@ -1,4 +1,6 @@
 """Distribuição de luminárias dentro de um retângulo desenhado na planta."""
+import json
+
 import FreeCAD as App
 
 from freecad.Circuits.objects.ponto import create_ponto
@@ -36,7 +38,53 @@ def luminarias_do_ambiente(doc, ambiente):
     return [obj for obj in doc.Objects if getattr(obj, "Ambiente", "") == ambiente.Name]
 
 
-def distribuir(doc, ambiente, x_min, y_min, posicoes, simbolo, potencia_va, circuito):
+MARCA_CALCULO = "Luminotecnico"
+
+
+def gravar_calculo(ambiente, calculo):
+    """Guarda no objeto do ambiente (JSON em ``Luminotecnico``) as entradas do cálculo, para o memorial."""
+    if not hasattr(ambiente, MARCA_CALCULO):
+        ambiente.addProperty("App::PropertyString", MARCA_CALCULO, "Luminotécnico",
+                             "Entradas do cálculo luminotécnico (refeito no memorial do relatório)")
+    setattr(ambiente, MARCA_CALCULO, json.dumps(calculo, ensure_ascii=False))
+
+
+def ler_calculo(ambiente):
+    """Entradas gravadas por ``gravar_calculo``, ou None."""
+    try:
+        dados = json.loads(getattr(ambiente, MARCA_CALCULO, "") or "null")
+    except ValueError:
+        return None
+    return dados if isinstance(dados, dict) else None
+
+
+def calculos(doc):
+    """Ambientes do luminotécnico para o memorial: um por objeto com cálculo gravado ou com luminárias.
+
+    Returns:
+        [{'nome', 'calculo' (entradas, ou None nos projetos antigos), 'luminarias', 'potencia_va'}].
+    """
+    pontos = {}
+    for obj in doc.Objects:
+        nome = getattr(obj, "Ambiente", "")
+        if nome and getattr(getattr(obj, "Proxy", None), "Type", "") == "Ponto":
+            pontos.setdefault(nome, []).append(obj)
+    nomes = [obj.Name for obj in doc.Objects if ler_calculo(obj)]
+    nomes += [n for n in pontos if n not in nomes]
+    lista = []
+    for nome in nomes:
+        obj = doc.getObject(nome)
+        lum = pontos.get(nome, [])
+        lista.append({
+            "nome": obj.Label if obj is not None else nome,
+            "calculo": ler_calculo(obj) if obj is not None else None,
+            "luminarias": len(lum),
+            "potencia_va": sum(float(getattr(p, "Potencia", 0) or 0) for p in lum),
+        })
+    return lista
+
+
+def distribuir(doc, ambiente, x_min, y_min, posicoes, simbolo, potencia_va, circuito, calculo=None):
     """Cria uma luminária em cada posição, substituindo as que o ambiente já tinha.
 
     As luminárias entram no pavimento ativo e ficam na cota dele.
@@ -49,6 +97,7 @@ def distribuir(doc, ambiente, x_min, y_min, posicoes, simbolo, potencia_va, circ
         simbolo: chave de ``core.simbolos.CATALOGO``.
         potencia_va: potência de cada luminária [VA].
         circuito: número do circuito das luminárias.
+        calculo: entradas do cálculo, guardadas no ambiente para o memorial (``gravar_calculo``).
     Returns:
         Lista dos pontos criados.
     """
@@ -69,6 +118,8 @@ def distribuir(doc, ambiente, x_min, y_min, posicoes, simbolo, potencia_va, circ
             ponto.Ambiente = ambiente.Name
             pavimentos.arquivar(doc, ponto, pavimento)
             criados.append(ponto)
+        if calculo:
+            gravar_calculo(ambiente, calculo)
         doc.commitTransaction()
     except Exception:
         doc.abortTransaction()

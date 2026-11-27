@@ -23,7 +23,12 @@ def _planilha_ou_criar(doc):
     folha, quantidade = servico.criar(doc)
     Gui.Selection.clearSelection()
     Gui.Selection.addSelection(folha)
-    origem = f"com os {quantidade} pavimentos do projeto" if quantidade else "com 4 andares de exemplo"
+    if quantidade == 1:
+        origem = "com o pavimento do projeto (as unidades ficam nele; acrescente os andares, se houver)"
+    elif quantidade:
+        origem = f"com os {quantidade} pavimentos do projeto (o mais baixo sem unidades)"
+    else:
+        origem = "com 4 andares de exemplo"
     QtWidgets.QMessageBox.information(
         None, TITULO,
         f"Criei a planilha \"{folha.Label}\" {origem}.\n\n"
@@ -40,6 +45,29 @@ def _andares(folha):
     except ValueError as erro:
         QtWidgets.QMessageBox.warning(None, TITULO, str(erro))
         return None
+
+
+def _mostrar(objetos):
+    """Seleciona e enquadra os objetos criados (ficam visíveis mesmo se a pasta estava escondida)."""
+    try:
+        Gui.Selection.clearSelection()
+        for obj in objetos:
+            vobj = getattr(obj, "ViewObject", None)
+            if vobj is not None:
+                vobj.Visibility = True
+            pais, vistos = list(obj.InList), set()
+            while pais:
+                pai = pais.pop()
+                if pai.Name in vistos or not pai.isDerivedFrom("App::DocumentObjectGroup"):
+                    continue
+                vistos.add(pai.Name)
+                if pai.ViewObject is not None:
+                    pai.ViewObject.Visibility = True
+                pais += pai.InList
+            Gui.Selection.addSelection(obj)
+        Gui.SendMsgToActiveView("ViewSelection")
+    except Exception:
+        pass
 
 
 class PlanejarMedicao:
@@ -172,6 +200,9 @@ class GerarCentroMedicao:
         dica = ""
         if recomendada == "busway":
             dica = ("\nA mais barata é o busway: para ele, desenhe o caminho do QDC ao shaft e use o botão Busway.\n")
+        if "descentralizado" not in opcoes:
+            dica += ("\nA descentralizada precisa de pelo menos 2 andares com unidades na planilha e de "
+                     "\"Andares por centro\" maior que 0 no Centro de medição.\n")
         escolha, ok = QtWidgets.QInputDialog.getItem(
             None, TITULO, "Solução para desenhar (os objetos gerados antes são recriados no mesmo lugar):" + dica,
             rotulos, 0, False)
@@ -191,8 +222,11 @@ class GerarCentroMedicao:
             raise
         centros = "; ".join(f"centro {c['numero']} ({', '.join(c['andares'])}), {c['abrigo']['area']:.1f} m²"
                             for c in plano).replace(".", ",")
-        App.Console.PrintMessage(f"{regras.NOMES[solucao]}: {centros}. {len(criados)} objetos na pasta Busway e "
-                                 "medição; mova à vontade, que o próximo Gerar mantém a posição.\n")
+        mensagem = (f"{regras.NOMES[solucao]}: {centros}. {len(criados)} objetos na pasta Busway e medição; mova "
+                    "à vontade, que o próximo Gerar mantém a posição.")
+        App.Console.PrintMessage(mensagem + "\n")
+        _mostrar(criados)
+        QtWidgets.QMessageBox.information(None, TITULO, mensagem)
 
     def IsActive(self):
         return True
