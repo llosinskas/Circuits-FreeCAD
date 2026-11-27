@@ -246,7 +246,7 @@ O luminotécnico fica em **Iluminação ▾ > Luminotécnico** (com o retângulo
 7. **Folhas ▾ > Atualizar folhas** depois de qualquer mudança no projeto.
 
 **Carimbo:** preencha uma vez, em **Projeto ▾ > Parâmetros**, as linhas *Carimbo: projeto, obra, cliente, desenho, responsável técnico e CREA/CFT*: elas aparecem em todas as folhas e mudam em todas quando você as muda. O conteúdo, a data e a revisão de cada folha ficam nas propriedades dela (grupo *Carimbo*). A numeração (01/03...) e a escala são automáticas. Também dá para editar o campo com dois cliques na própria folha: o texto vai para o parâmetro e para as outras folhas.
-8. **Documentos ▾ > Relatório PDF:** memorial com os quadros, as demandas, os materiais e os diagramas.
+8. **Documentos ▾ > Relatório PDF:** o memorial descritivo e de cálculo completo, com capa, sumário, parâmetros e normas, previsão de cargas e luminotécnico por ambiente, quadro de cargas, demanda, cada circuito verificado passo a passo (fórmula e valores), DR, curto-circuito, gerador, centro de medição, ocupação dos eletrodutos, avisos, materiais, diagramas e a vista 3D. Gere antes os diagramas e, se quiser essas seções, o estudo de curto e o gerador. O que não atende sai em vermelho e é listado em *Avisos e limitações*.
 
 Para imprimir, use os botões de exportação do TechDraw com a folha aberta.
 

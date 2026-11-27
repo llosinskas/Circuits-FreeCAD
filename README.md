@@ -433,7 +433,15 @@ O quantitativo por pavimento soma em cada um os pontos, caixas, eletrodutos, ver
 - **Legenda:** desenha ao lado da planta os símbolos usados, inclusive os tipos de interruptor.
 - **Planilha de notas** e **Notas:** escreva as notas numa planilha, uma por linha; o botão as desenha numeradas embaixo da legenda.
 - **Sketches em preto:** os Sketches da bancada já nascem pretos, com a cor gravada no arquivo (o FreeCAD 1.0 voltava os Sketches para o branco ao abrir o projeto, porque a cor automática deles fica ligada; a bancada a desliga). O botão repinta os de projetos antigos; o relatório PDF repinta sozinho os dos diagramas.
-- **Relatório PDF:** quadros, demandas, materiais e os diagramas. Cada diagrama gerado (unifilar e multifilar de cada quadro e a transferência rede/gerador) sai numa página: na hora de capturar, a bancada mostra só aquele diagrama, vira a vista para o topo e enquadra nele, grava a imagem com fundo branco na proporção do desenho e depois devolve a vista e a visibilidade como estavam. Gere os diagramas antes do relatório. A captura desliga por um instante a animação da câmera do FreeCAD, para a imagem não sair no meio do giro para o topo.
+- **Relatório PDF:** um **memorial descritivo e de cálculo** completo, com capa (dados do carimbo dos Parâmetros do projeto), sumário, seções numeradas, cabeçalho e rodapé com a página:
+  1. identificação do projeto e contagem dos elementos; objetivo e normas; parâmetros e premissas de cálculo;
+  2. previsão de cargas por ambiente (NBR 5410, 9.5.2) e o luminotécnico de cada um (K = 2A/(Hu·P), N = E·A/(Φ·Fu·Fm));
+  3. por quadro: dados, quadro de cargas com o desequilíbrio, demanda (fatores, Id e disjuntor geral), a tabela resumo dos circuitos e a **memória de cálculo de cada circuito** com a fórmula e os valores substituídos: Ib, Ib ≤ In, Iz = Iz0·FCT·FCA ≥ In (com o agrupamento do trajeto na rede), ΔV pelo anexo G (com o comprimento da rede de eletrodutos), seção mínima, curto (S ≥ I·√t/k), condutor de proteção (tabela 58) e contatos indiretos (DR ou Lmáx no TN); DRs, IDR e componentes;
+  4. curto-circuito (IEC 60909: R, X, |Z|, I″k3, κ, ip, I″k1 mín e Icu, com aviso quando o disjuntor do quadro não aguenta), grupo gerador, centro de medição e ocupação dos eletrodutos, quando existem no projeto;
+  5. avisos (o que não atende aparece em vermelho e é listado no fim) e limitações dos cálculos;
+  6. quantitativo de materiais, diagramas e vista 3D.
+
+  Os circuitos são **verificados** com o cabo e o disjuntor da planilha (o que você adotou), não redimensionados. As fórmulas usam a fonte DejaVu (ou Arial) para os símbolos ≤, √, Δ, Φ; sem ela, aparecem por extenso. Cada diagrama gerado (unifilar e multifilar de cada quadro e a transferência rede/gerador) sai numa página: na hora de capturar, a bancada mostra só aquele diagrama, vira a vista para o topo e enquadra nele, grava a imagem com fundo branco na proporção do desenho e depois devolve a vista e a visibilidade como estavam. Gere os diagramas antes do relatório. A captura desliga por um instante a animação da câmera do FreeCAD, para a imagem não sair no meio do giro para o topo.
 
 ## Aterramento
 

@@ -116,6 +116,16 @@ def idr_geral(quadro):
             "especificacao": f"{polos}P {corrente} A, {sensibilidade}"}
 
 
+def dr_do_circuito(circuito):
+    """DR próprio de um circuito (sem grupo): bipolar até duas fases, tetrapolar no trifásico, corrente
+    comercial igual ou acima do disjuntor. Devolve o mesmo dicionário de ``dr_do_grupo``."""
+    polos = 4 if fases_do_circuito(circuito) == 3 else 2
+    corrente = dr_comercial(max(numero(circuito.get("Disjuntor")), CORRENTES_DR[0]))
+    sensibilidade = sensibilidade_texto(circuito.get("Corrente_DR", ""))
+    return {"polos": polos, "corrente": corrente, "sensibilidade": sensibilidade,
+            "especificacao": f"{polos}P {corrente} A, {sensibilidade}"}
+
+
 def grupo_dr(circuito):
     """Nome do grupo do DR do circuito (coluna ``Grupo_DR``); '' se não tem grupo."""
     return str(circuito.get("Grupo_DR", "")).strip()
@@ -263,10 +273,9 @@ def componentes(quadro, circuitos):
             disjuntores.append(f"{polos}P {_formatar(corrente)} A curva {str(circuito.get('Curva', '')).strip()}")
             modulos += polos
         if verdadeiro(circuito.get("DR", "")) and not grupo_dr(circuito):
-            polos_dr = 4 if polos == 3 else 2
-            sensibilidade = sensibilidade_texto(circuito.get("Corrente_DR", ""))
-            drs.append(f"{polos_dr}P {dr_comercial(max(corrente, CORRENTES_DR[0]))} A, {sensibilidade}")
-            modulos += polos_dr
+            dr = dr_do_circuito(circuito)
+            drs.append(dr["especificacao"])
+            modulos += dr["polos"]
     for membros in grupos.values():
         dr = dr_do_grupo(membros)
         drs.append(dr["especificacao"])

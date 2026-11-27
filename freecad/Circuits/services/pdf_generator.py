@@ -144,100 +144,275 @@ def _capturar(doc, view, grupo, caminho):
     view.saveImage(caminho, LARGURA_IMAGEM, altura, "White")
 
 
+# --- fonte com os símbolos das fórmulas ------------------------------------------------------------
+
+FONTES = (  # (normal, negrito): a primeira que existir; precisam de ≤ ≥ √ Δ Φ κ Σ π →
+    ("DejaVuSans.ttf", "DejaVuSans-Bold.ttf"),
+    ("arial.ttf", "arialbd.ttf"),
+    ("Arial.ttf", "Arial Bold.ttf"),
+    ("segoeui.ttf", "segoeuib.ttf"),
+)
+SUBSTITUTOS = {"≤": "<=", "≥": ">=", "→": "->", "√": "raiz", "Δ": "Delta ", "Φ": "Fi", "κ": "kappa", "Σ": "soma ",
+               "π": "pi", "·": "x", "″": "''", "λ": "lambda", "ρ": "rho", "φ": "fi", "—": "-", "−": "-", "×": "x",
+               "²": "2", "Ω": "ohm", "°": " graus"}
+_FONTE = None
+
+
+def _pastas_de_fontes():
+    pastas = [os.path.join(os.environ.get("WINDIR", "C:/Windows"), "Fonts"),
+              "/usr/share/fonts/truetype/dejavu", "/usr/share/fonts/TTF", "/usr/share/fonts/dejavu",
+              "/Library/Fonts", "/System/Library/Fonts/Supplemental"]
+    try:
+        pastas.insert(0, os.path.join(App.getHomePath(), "fonts"))
+    except Exception:
+        pass
+    try:
+        import matplotlib
+        pastas.append(os.path.join(os.path.dirname(matplotlib.__file__), "mpl-data", "fonts", "ttf"))
+    except Exception:
+        pass
+    return pastas
+
+
+def fonte_do_relatorio():
+    """(fonte normal, negrito, com_simbolos): a primeira TrueType de ``FONTES`` registrada no reportlab;
+    sem nenhuma, Helvetica, e as fórmulas trocam os símbolos por ``SUBSTITUTOS``."""
+    global _FONTE
+    if _FONTE is not None:
+        return _FONTE
+    from reportlab.pdfbase import pdfmetrics
+    from reportlab.pdfbase.ttfonts import TTFont
+    for normal, negrito in FONTES:
+        for pasta in _pastas_de_fontes():
+            caminho_n, caminho_b = os.path.join(pasta, normal), os.path.join(pasta, negrito)
+            if not os.path.isfile(caminho_n):
+                continue
+            try:
+                pdfmetrics.registerFont(TTFont("CircuitsNormal", caminho_n))
+                pdfmetrics.registerFont(TTFont("CircuitsNegrito",
+                                               caminho_b if os.path.isfile(caminho_b) else caminho_n))
+                _FONTE = ("CircuitsNormal", "CircuitsNegrito", True)
+                return _FONTE
+            except Exception:
+                continue
+    _FONTE = ("Helvetica", "Helvetica-Bold", False)
+    return _FONTE
+
+
+def _escapar(texto, com_simbolos=True):
+    texto = str(texto).replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
+    if not com_simbolos:
+        for simbolo, troca in SUBSTITUTOS.items():
+            texto = texto.replace(simbolo, troca)
+    return texto
+
+
+# --- documento ---------------------------------------------------------------------------------------
+
 class PDFGenerator:
+    """Relatório técnico: memorial descritivo e de cálculo (``core.memorial``), quantitativo de materiais,
+    diagramas e vista 3D, com capa, sumário, seções numeradas e cabeçalho/rodapé."""
+
+    COR = "#1f4e79"
+
     def __init__(self, doc, file_path, opcoes):
         self.doc = doc
         self.file_path = file_path
         self.opcoes = opcoes
+        self.fonte, self.negrito, self.com_simbolos = fonte_do_relatorio()
         self.styles = getSampleStyleSheet()
-        self.styles.add(ParagraphStyle(name='SubTitle', parent=self.styles['Heading2'], spaceAfter=10))
+        base = dict(fontName=self.fonte)
+        self.styles.add(ParagraphStyle(name='SubTitle', parent=self.styles['Heading2'], spaceAfter=10,
+                                       fontName=self.negrito))
+        self.estilos = {
+            "titulo": ParagraphStyle("CTitulo", parent=self.styles["Heading1"], fontName=self.negrito, fontSize=15,
+                                     textColor=colors.HexColor(self.COR), spaceBefore=6, spaceAfter=8,
+                                     keepWithNext=1),
+            "subtitulo": ParagraphStyle("CSubtitulo", parent=self.styles["Heading3"], fontName=self.negrito,
+                                        fontSize=10.5, spaceBefore=8, spaceAfter=4, keepWithNext=1),
+            "paragrafo": ParagraphStyle("CParagrafo", parent=self.styles["BodyText"], fontSize=9.5, leading=13,
+                                        alignment=4, **base),
+            "formula": ParagraphStyle("CFormula", parent=self.styles["BodyText"], fontSize=8.8, leading=12,
+                                      leftIndent=10, backColor=colors.HexColor("#f2f5f9"), borderPadding=3,
+                                      spaceBefore=1, spaceAfter=3, **base),
+            "formula_ruim": ParagraphStyle("CFormulaRuim", parent=self.styles["BodyText"], fontSize=8.8, leading=12,
+                                           leftIndent=10, backColor=colors.HexColor("#fdecee"), borderPadding=3,
+                                           spaceBefore=1, spaceAfter=3, textColor=colors.HexColor("#b00020"),
+                                           **base),
+            "aviso": ParagraphStyle("CAviso", parent=self.styles["BodyText"], fontSize=8.8, leading=12,
+                                    backColor=colors.HexColor("#fff4e0"), borderPadding=3, spaceAfter=4, **base),
+            "lista": ParagraphStyle("CLista", parent=self.styles["BodyText"], fontSize=9.2, leading=12.5,
+                                    leftIndent=12, bulletIndent=2, **base),
+            "celula": ParagraphStyle("CCelula", fontName=self.fonte, fontSize=7.4, leading=9),
+            "celula_ruim": ParagraphStyle("CCelulaRuim", fontName=self.negrito, fontSize=7.4, leading=9,
+                                          textColor=colors.HexColor("#b00020")),
+            "cabecalho": ParagraphStyle("CCabecalho", fontName=self.negrito, fontSize=7.4, leading=9,
+                                        textColor=colors.white),
+            "capa": ParagraphStyle("CCapa", fontName=self.negrito, fontSize=24, leading=30, alignment=1,
+                                   textColor=colors.HexColor(self.COR)),
+            "capa2": ParagraphStyle("CCapa2", fontName=self.fonte, fontSize=13, leading=18, alignment=1),
+        }
+        self.largura_util = A4[0] - 4 * cm
+        self.numero_secao = 0
+
+    # -- blocos do memorial ---------------------------------------------------------------------------
+
+    def _p(self, texto, estilo):
+        return Paragraph(_escapar(texto, self.com_simbolos), self.estilos[estilo])
+
+    def _titulo(self, texto):
+        self.numero_secao += 1
+        paragrafo = self._p(f"{self.numero_secao} {texto}", "titulo")
+        paragrafo.secao_do_sumario = True
+        return paragrafo
+
+    def _tabela(self, cabecalho, linhas, larguras=None):
+        colunas = len(cabecalho)
+        pesos = larguras or [1] * colunas
+        total = float(sum(pesos))
+        largura = [self.largura_util * p / total for p in pesos]
+        dados = [[self._p(c, "cabecalho") for c in cabecalho]]
+        for linha in linhas:
+            estilo_celula = "celula_ruim" if "NÃO ATENDE" in " ".join(str(v) for v in linha) else "celula"
+            dados.append([self._p(v, estilo_celula) for v in linha] + [""] * (colunas - len(linha)))
+        tabela = Table(dados, colWidths=largura, repeatRows=1)
+        estilo = [
+            ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor(self.COR)),
+            ("GRID", (0, 0), (-1, -1), 0.4, colors.HexColor("#9aa7b4")),
+            ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
+            ("TOPPADDING", (0, 0), (-1, -1), 2), ("BOTTOMPADDING", (0, 0), (-1, -1), 2),
+        ]
+        for i in range(1, len(dados)):
+            if i % 2 == 0:
+                estilo.append(("BACKGROUND", (0, i), (-1, i), colors.HexColor("#f3f6fa")))
+            if "NÃO ATENDE" in " ".join(str(v) for v in linhas[i - 1]):
+                estilo.append(("BACKGROUND", (0, i), (-1, i), colors.HexColor("#fdecee")))
+        tabela.setStyle(TableStyle(estilo))
+        return tabela
+
+    def _blocos(self, blocos):
+        story = []
+        for bloco in blocos:
+            tipo = bloco[0]
+            if tipo == "tabela":
+                if bloco[2]:
+                    story += [self._tabela(bloco[1], bloco[2], bloco[3] if len(bloco) > 3 else None), Spacer(1, 5)]
+            elif tipo == "lista":
+                story += [Paragraph(_escapar(item, self.com_simbolos), self.estilos["lista"], bulletText="•")
+                          for item in bloco[1]]
+            elif tipo == "formula" and "NÃO ATENDE" in str(bloco[1]):
+                story.append(self._p(bloco[1], "formula_ruim"))
+            elif tipo in self.estilos:
+                story.append(self._p(bloco[1], tipo))
+        return story
+
+    # -- capa, sumário, cabeçalho e rodapé ------------------------------------------------------------
+
+    def _capa(self, projeto):
+        story = [Spacer(1, 5 * cm), self._p("Memorial descritivo e de cálculo", "capa"), Spacer(1, 0.4 * cm),
+                 self._p("Instalações elétricas", "capa2"), Spacer(1, 1.6 * cm),
+                 self._p(projeto.get("projeto", ""), "capa2")]
+        for chave, rotulo in (("obra", "Obra"), ("cliente", "Cliente"), ("responsavel", "Responsável técnico"),
+                              ("registro", "CREA / CFT"), ("data", "Data")):
+            if projeto.get(chave):
+                story.append(self._p(f"{rotulo}: {projeto[chave]}", "capa2"))
+        return story + [PageBreak()]
+
+    def _pagina(self, canvas, documento):
+        canvas.saveState()
+        canvas.setFont(self.fonte, 7.5)
+        canvas.setFillColor(colors.HexColor("#5b6670"))
+        largura, altura = A4
+        if documento.page > 1:
+            canvas.drawString(2 * cm, altura - 1.25 * cm, _escapar(self._cabecalho, self.com_simbolos)
+                              .replace("&amp;", "&"))
+            canvas.line(2 * cm, altura - 1.35 * cm, largura - 2 * cm, altura - 1.35 * cm)
+            canvas.drawRightString(largura - 2 * cm, 1.2 * cm, f"Página {documento.page}")
+            canvas.drawString(2 * cm, 1.2 * cm, "Memorial descritivo e de cálculo — gerado pela bancada Circuits"
+                              if self.com_simbolos else "Memorial descritivo e de calculo - bancada Circuits")
+        canvas.restoreState()
+
+    # -- documento ------------------------------------------------------------------------------------
 
     def generate(self):
-        doc_pdf = SimpleDocTemplate(
-            self.file_path,
-            pagesize=A4,
-            rightMargin=2*cm, leftMargin=2*cm,
-            topMargin=2*cm, bottomMargin=2*cm
-        )
-        
-        story = []
-        
-        # Capa
-        projeto = self.opcoes.get("projeto", "Projeto Elétrico")
-        autor = self.opcoes.get("autor", "Não especificado")
-        if not projeto: projeto = "Projeto Elétrico"
-        
-        story.append(Paragraph(f"<b>{projeto}</b>", self.styles['Title']))
-        story.append(Spacer(1, 1*cm))
-        story.append(Paragraph(f"Autor: {autor}", self.styles['Normal']))
-        story.append(Spacer(1, 2*cm))
-        
-        # 1. Quantitativo de Materiais
+        from reportlab.platypus import BaseDocTemplate, Frame, PageTemplate
+        from reportlab.platypus.tableofcontents import TableOfContents
+
+        gerador = self
+
+        class Documento(BaseDocTemplate):
+            def afterFlowable(self, flowable):
+                if getattr(flowable, "secao_do_sumario", False):
+                    self.notify("TOCEntry", (0, flowable.getPlainText(), self.page))
+
+        doc_pdf = Documento(self.file_path, pagesize=A4, rightMargin=2 * cm, leftMargin=2 * cm,
+                            topMargin=2 * cm, bottomMargin=2 * cm, title="Memorial descritivo e de cálculo")
+        quadro = Frame(doc_pdf.leftMargin, doc_pdf.bottomMargin, doc_pdf.width, doc_pdf.height, id="corpo")
+        doc_pdf.addPageTemplates([PageTemplate(id="pagina", frames=[quadro], onPage=gerador._pagina)])
+
+        from freecad.Circuits.core import memorial as regras_memorial
+        from freecad.Circuits.services import memorial as servico_memorial
+        dados = servico_memorial.coletar(self.doc)
+        projeto = dados["projeto"]
+        if self.opcoes.get("projeto"):
+            projeto["projeto"] = self.opcoes["projeto"]
+        if self.opcoes.get("autor") and not projeto.get("responsavel"):
+            projeto["responsavel"] = self.opcoes["autor"]
+        self._cabecalho = " · ".join(t for t in (projeto.get("projeto"), projeto.get("obra")) if t)
+
+        story = self._capa(projeto)
+        sumario = TableOfContents()
+        sumario.levelStyles = [ParagraphStyle("CSumario", fontName=self.fonte, fontSize=10, leading=15,
+                                              leftIndent=10)]
+        story += [self._p("Sumário", "titulo"), sumario, PageBreak()]
+
+        if self.opcoes.get("calculos", True):
+            for titulo, blocos in regras_memorial.montar(dados):
+                story.append(self._titulo(titulo))
+                story += self._blocos(blocos)
+                story.append(Spacer(1, 6))
+
         if self.opcoes.get("materiais"):
-            story.append(Paragraph("Quantitativo de Materiais", self.styles['Heading1']))
-            table_data = self._get_materiais_table()
-            
-            if len(table_data) > 1:
-                t = Table(table_data, colWidths=[10*cm, 3*cm, 3*cm])
-                t.setStyle(TableStyle([
-                    ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor("#4a86e8")),
-                    ('TEXTCOLOR', (0, 0), (-1, 0), colors.whitesmoke),
-                    ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
-                    ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
-                    ('BOTTOMPADDING', (0, 0), (-1, 0), 12),
-                    ('BACKGROUND', (0, 1), (-1, -1), colors.beige),
-                    ('GRID', (0, 0), (-1, -1), 1, colors.black)
-                ]))
-                story.append(t)
-            else:
-                story.append(Paragraph("Nenhum material encontrado no projeto.", self.styles['Normal']))
-            story.append(Spacer(1, 1*cm))
-        
-        # 2. Cálculos / Planilhas
-        if self.opcoes.get("calculos"):
             story.append(PageBreak())
-            story.append(Paragraph("Cálculos e Demandas", self.styles['Heading1']))
-            calc_data = self._get_calculos_table()
-            if len(calc_data) > 1:
-                t2 = Table(calc_data)
-                t2.setStyle(TableStyle([
-                    ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor("#38761d")),
-                    ('TEXTCOLOR', (0, 0), (-1, 0), colors.whitesmoke),
-                    ('ALIGN', (0, 0), (-1, -1), 'LEFT'),
-                    ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
-                    ('GRID', (0, 0), (-1, -1), 1, colors.black)
-                ]))
-                story.append(t2)
+            story.append(self._titulo("Quantitativo de materiais"))
+            linhas = self._get_materiais_table()
+            if len(linhas) > 1:
+                story.append(self._tabela(linhas[0], linhas[1:], [6, 1, 1.2]))
             else:
-                story.append(Paragraph("Nenhum quadro de cálculo encontrado.", self.styles['Normal']))
-            story.append(Spacer(1, 1*cm))
-            
-        # Para capturar imagens, precisamos manipular a interface gráfica
+                story.append(self._p("Nenhum material encontrado no projeto.", "paragrafo"))
+
+        temporarios = self._imagens(story)
+        try:
+            doc_pdf.multiBuild(story)  # duas passadas: o sumário recebe as páginas
+        finally:
+            for caminho in temporarios:
+                try:
+                    os.remove(caminho)
+                except OSError:
+                    pass
+
+    def _imagens(self, story):
+        """Diagramas (um por página) e vista 3D; devolve os arquivos temporários."""
         view = Gui.ActiveDocument.ActiveView if Gui.ActiveDocument else None
         temporarios = []
-
-        if view and (self.opcoes.get("diagramas") or self.opcoes.get("cortes")):
-            # Estado da vista para restaurar no fim
-            vis_state = {}
-            for obj in self.doc.Objects:
-                if hasattr(obj, "ViewObject") and obj.ViewObject:
-                    vis_state[obj.Name] = obj.ViewObject.Visibility
-            try:
-                camera = view.getCamera()
-            except Exception:
-                camera = None
-
-            temp_dir = os.path.dirname(self.file_path)
-            diagramas = listar_diagramas(self.doc)
-            dos_diagramas = {o.Name for _, grupo in diagramas for o in [grupo] + descendentes(grupo)}
-
-            # 3. Diagramas: um por página, com a vista enquadrada só nele
+        if not view or not (self.opcoes.get("diagramas") or self.opcoes.get("cortes")):
+            return temporarios
+        vis_state = {obj.Name: obj.ViewObject.Visibility for obj in self.doc.Objects
+                     if hasattr(obj, "ViewObject") and obj.ViewObject}
+        try:
+            camera = view.getCamera()
+        except Exception:
+            camera = None
+        temp_dir = os.path.dirname(os.path.abspath(self.file_path))
+        diagramas = listar_diagramas(self.doc)
+        dos_diagramas = {o.Name for _, grupo in diagramas for o in [grupo] + descendentes(grupo)}
+        try:
             if self.opcoes.get("diagramas"):
                 story.append(PageBreak())
-                story.append(Paragraph("Diagramas", self.styles['Heading1']))
+                story.append(self._titulo("Diagramas"))
                 if not diagramas:
-                    story.append(Paragraph("Nenhum diagrama gerado: use Quadros e documentos > Diagramas.",
-                                           self.styles['Normal']))
+                    story.append(self._p("Nenhum diagrama gerado: use Quadros e documentos > Diagramas.",
+                                         "paragrafo"))
                 for indice, (titulo, grupo) in enumerate(diagramas):
                     img_path = os.path.join(temp_dir, f"temp_diagrama_{indice}.png")
                     temporarios.append(img_path)
@@ -248,34 +423,27 @@ class PDFGenerator:
                         continue
                     if indice:
                         story.append(PageBreak())
-                    story.append(Paragraph(titulo, self.styles['SubTitle']))
-                    story.append(Image(img_path, width=17 * cm, height=23 * cm, kind='proportional'))
-
-            # 4. Cortes (Modelo 3D)
+                    story.append(self._p(titulo, "subtitulo"))
+                    story.append(Image(img_path, width=17 * cm, height=22 * cm, kind='proportional'))
             if self.opcoes.get("cortes"):
                 story.append(PageBreak())
-                story.append(Paragraph("Vistas 3D e Cortes", self.styles['Heading1']))
-
+                story.append(self._titulo("Vista 3D"))
                 try:
-                    # Mostrar o modelo, sem os diagramas e sem os Sketches
                     for obj in self.doc.Objects:
                         if hasattr(obj, "ViewObject") and obj.ViewObject:
                             obj.ViewObject.Visibility = visivel_no_corte(obj, dos_diagramas)
-
                     Gui.updateGui()
                     view.viewIsometric()
                     view.fitAll()
                     Gui.updateGui()
-
                     img_path = os.path.join(temp_dir, "temp_corte.png")
                     temporarios.append(img_path)
-                    view.saveImage(img_path, 1024, 768, "White")
-                    story.append(Image(img_path, width=15*cm, height=10*cm, kind='proportional'))
+                    view.saveImage(img_path, 1600, 1100, "White")
+                    story.append(Image(img_path, width=17 * cm, height=12 * cm, kind='proportional'))
                 except Exception as erro:  # a vista 3D não impede o resto do relatório
                     App.Console.PrintWarning(f"Relatório: não foi possível capturar a vista 3D: {erro}\n")
-                    story.append(Paragraph("Não foi possível capturar a vista 3D.", self.styles['Normal']))
-
-            # Restaurar a visibilidade e a câmera
+                    story.append(self._p("Não foi possível capturar a vista 3D.", "paragrafo"))
+        finally:
             for obj in self.doc.Objects:
                 if obj.Name in vis_state and hasattr(obj, "ViewObject") and obj.ViewObject:
                     obj.ViewObject.Visibility = vis_state[obj.Name]
@@ -286,17 +454,7 @@ class PDFGenerator:
                     view.viewTop()
                     view.fitAll()
             Gui.updateGui()
-
-        # Constrói o PDF
-        doc_pdf.build(story)
-        
-        # Limpar temporários
-        for p in temporarios:
-            if os.path.exists(p):
-                try:
-                    os.remove(p)
-                except OSError:
-                    pass
+        return temporarios
 
     def _get_materiais_table(self):
         """Quantitativo de materiais, o mesmo do comando Quantitativos."""
