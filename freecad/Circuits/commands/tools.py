@@ -71,6 +71,26 @@ class ReiniciarBancada:
         )
 
 
+class ApoiarProjeto:
+    """Abre a janela com o QR code do LivePix para apoiar o desenvolvimento da bancada."""
+
+    def Activated(self):
+        from freecad.Circuits.UI.dialogs.apoiar_dialog import ApoiarDialog
+        ApoiarDialog().exec_()
+
+    def IsActive(self):
+        return True
+
+    def GetResources(self):
+        return recursos(
+            "apoiar.svg",
+            "Apoiar",
+            "Apoie o desenvolvimento da bancada Circuits com um Pix pelo LivePix: abre o QR code para escanear "
+            "com o celular e o link para o navegador",
+        )
+
+
 Gui.addCommand("GetSpaces", GetSpaces())
+Gui.addCommand("ApoiarProjeto", ApoiarProjeto())
 Gui.addCommand("PintarSketches", PintarSketches())
 Gui.addCommand("ReiniciarBancada", ReiniciarBancada())

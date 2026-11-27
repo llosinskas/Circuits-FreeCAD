@@ -148,6 +148,7 @@ Regras gerais:
 | `GenerateReport` | `reports` | `services/pdf_generator`, `memorial`; `core/memorial`; `UI/dialogs/report_dialog` |
 | `GerarQuantitativos` | `reports` | `services/quantitativos`; `core/quantitativos`, `exportar` |
 | `GetSpaces`, `ReiniciarBancada` | `tools` | no próprio módulo |
+| `ApoiarProjeto` | `tools` | `UI/dialogs/apoiar_dialog` (QR code `Resources/Icons/apoiar_qrcode.png` e `URL_APOIO` de `freecad/Circuits/__init__.py`) |
 
 ## Barras e legendas
 
@@ -157,7 +158,7 @@ As barras ficam em `init_gui.py`. As três barras próprias são enxutas: os com
 |---|---|
 | Planta elétrica | Projeto ▾, Tomadas ▾, Energia ▾, Iluminação ▾, Comandos ▾, Circuitos ▾, Infraestrutura ▾, Aterramento ▾ |
 | Quadros e documentos | Quadros ▾, Dados do quadro ▾, `MontarCircuitos`, `ComponentesQuadro`, Diagramas ▾ (nesta ordem de uso), Cálculos ▾, Documentos ▾, Folhas ▾ |
-| Modelo e biblioteca | Modelo 3D ▾, Biblioteca ▾ |
+| Modelo e biblioteca | Modelo 3D ▾, Biblioteca ▾, `ApoiarProjeto` (Apoiar) |
 | Desenho, Modificador, Snap, Arquitetura | só os comandos nativos de uso frequente em planta; *Desenho* começa com `Draft_SelectPlane` (plano de trabalho); *Modificador* termina com `AlinharPontos`, `DistribuirPontos` e `EscalaSimbolos` |
 
 | Grupo | Comandos |
@@ -179,6 +180,7 @@ As barras ficam em `init_gui.py`. As três barras próprias são enxutas: os com
 | `Grupo_3D` | `Gerar3DCompleto`, `Quadro3D`, `Generate3DSwitches`, `Generate3DConduits`, `Gerar3D`, `PropriedadesBIM`, `ExportarIFC` |
 | `Grupo_Biblioteca` | `InsertEquipaments`, `InsertComponent`, `CreateModel`, `ListElements` |
 
+- **Apoiar:** `ApoiarProjeto` abre `ApoiarDialog` com o QR code do LivePix (`Resources/Icons/apoiar_qrcode.png`, gerado com o segno a partir de `URL_APOIO`; se o endereço mudar, gere a imagem de novo e confira a leitura) e os botões *Abrir no navegador* e *Copiar link*; fica direto no menu **Elétrica** e na barra *Modelo e biblioteca*. O README mostra o botão `apoiar_botao.svg` e o QR code com caminhos relativos, que o Gerenciador de Addons também carrega.
 - **Menus:** todo comando da bancada está no menu **Elétrica**, e todo comando nativo, inclusive os que saíram das barras, no menu **Desenho 2D**.
 - Só no menu **Elétrica > Outros**: `InsertTugs` (a tomada TUG em Sketch, substituída pelas tomadas novas), `InsertOutlet` e `InsertLighting` (substituídos pelos pontos novos), `ComponentEletric`, `InsertWire`, `AddSpreadsheet`, `NewQuadro`, `GetSpaces`, `ReiniciarBancada`.
 - **Legenda:** o `MenuText` de cada comando aparece embaixo do ícone nas barras próprias. Mantenha-o curto (até 24 caracteres) e único; a explicação vai no `ToolTip`. A preferência booleana `LegendaBotoes` em `BaseApp/Preferences/Mod/Circuits` desliga as legendas.

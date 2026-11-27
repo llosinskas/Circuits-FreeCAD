@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64">
+  <!-- Apoiar o projeto: coração com o símbolo do Pix -->
+  <path d="M32 56C14 42 6 33 6 22C6 13 13 7 21 7C26 7 30 10 32 14C34 10 38 7 43 7C51 7 58 13 58 22C58 33 50 42 32 56Z"
+        fill="#e8453c" stroke="#a52714" stroke-width="2.5" stroke-linejoin="round"/>
+  <path d="M32 20L42 30L32 40L22 30Z" fill="none" stroke="#ffffff" stroke-width="4" stroke-linejoin="round"/>
+</svg>

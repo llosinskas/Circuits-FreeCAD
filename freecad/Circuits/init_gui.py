@@ -224,7 +224,7 @@ ELECTRIC_TOOLBARS = [
             "Grupo_Folhas",
         ],
     ),
-    (_tr("Workbench", "Modelo e biblioteca"), ["Grupo_3D", "Grupo_Biblioteca"]),
+    (_tr("Workbench", "Modelo e biblioteca"), ["Grupo_3D", "Grupo_Biblioteca", "ApoiarProjeto"]),
 ]
 TOOLBARS = ELECTRIC_TOOLBARS + [
     (_tr("Workbench", "Desenho"), DRAWING_TOOLS),
@@ -252,6 +252,7 @@ MENUS = [
     ([MENU, "Modelo 3D"], MODEL_3D_TOOLS),
     ([MENU, "Biblioteca"], LIBRARY_TOOLS),
     ([MENU, "Outros"], EXTRA_TOOLS),
+    ([MENU], ["ApoiarProjeto"]),
     ([MENU_DESENHO, "Desenhar e anotar"], DRAWING_TOOLS + DRAWING_EXTRA_TOOLS),
     ([MENU_DESENHO, "Modificar"], MODIFY_TOOLS + MODIFY_EXTRA_TOOLS),
     ([MENU_DESENHO, "Snap"], SNAP_TOOLS + SNAP_EXTRA_TOOLS),

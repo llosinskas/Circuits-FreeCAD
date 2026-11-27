@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="236" height="48" viewBox="0 0 236 48">
+  <!-- Botão "Apoiar com Pix" do README (abre o LivePix) -->
+  <rect x="1" y="1" width="234" height="46" rx="23" fill="#e8453c" stroke="#a52714" stroke-width="2"/>
+  <path d="M30 37C19 29 14 23 14 17C14 12 18 9 22.5 9C25.5 9 28 11 30 13.5C32 11 34.5 9 37.5 9C42 9 46 12 46 17C46 23 41 29 30 37Z"
+        fill="#ffffff"/>
+  <path d="M30 15.5L36 21.5L30 27.5L24 21.5Z" fill="none" stroke="#e8453c" stroke-width="2.6" stroke-linejoin="round"/>
+  <text x="58" y="31" font-family="Segoe UI, Helvetica, Arial, sans-serif" font-size="19" font-weight="bold"
+        fill="#ffffff">Apoiar com Pix</text>
+</svg>
