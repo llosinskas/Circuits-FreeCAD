@@ -236,7 +236,7 @@ class TestDimensionarColunas(unittest.TestCase):
     def test_medidores_por_coluna_mudam_a_capacidade(self):
         self.assertEqual([c.capacidade_agrupamento(v) for v in (1, 2, 3)], [12, 24, 30])
         d = c.dimensionar_colunas(30, 63.0, 2, por_coluna=2, demanda_total_a=250.0)
-        self.assertEqual([g["caixas"] for g in d["conjuntos"]], [15, 15])
+        self.assertEqual([g["caixas"] for g in d["conjuntos"]], [24, 6])  # enche o primeiro antes de abrir outro
         self.assertTrue(any("abrigado" in a for a in d["avisos"]))
         g = c.coluna_de_medicao(12, "Coluna simples", 2)
         self.assertEqual(g["altura"], 2 * 520)
@@ -621,6 +621,35 @@ class TestCaixaPEMural(unittest.TestCase):
         self.assertLess(ymin, 0.0)  # notas abaixo do piso
         self.assertGreater(ymax, 1880.0)
         self.assertTrue(m["circulos"])  # travas das janelas
+
+    def test_ate_30_caixas_na_mesma_coluna_sem_a_demanda(self):
+        # sem a demanda do edifício (soma sem diversidade), não divide de 4 em 4: enche até 30
+        d = c.dimensionar_colunas(12, 63.0, 2)
+        self.assertEqual([g["caixas"] for g in d["conjuntos"]], [12])
+        self.assertEqual(d["conjuntos"][0]["corrente"], 300.0)  # dimensionado no limite do agrupamento
+        self.assertEqual(d["conjuntos"][0]["disjuntor_geral"], 300)
+        self.assertTrue(any("sem diversidade" in a and "756 A" in a for a in d["avisos"]))
+        d = c.dimensionar_colunas(32, 63.0, 2)
+        self.assertEqual([g["caixas"] for g in d["conjuntos"]], [30, 2])
+        # com a demanda, a corrente manda (300 A por agrupamento), mas enchendo o primeiro
+        d = c.dimensionar_colunas(12, 63.0, 2, demanda_total_a=200.0)
+        self.assertEqual([g["caixas"] for g in d["conjuntos"]], [12])
+        d = c.dimensionar_colunas(30, 63.0, 2, demanda_total_a=400.0)
+        self.assertEqual([g["caixas"] for g in d["conjuntos"]], [22, 8])
+        self.assertFalse(any("sem diversidade" in a for a in d["avisos"]))
+
+    def test_centro_gerado_sem_a_demanda_tambem_enche(self):
+        andares = [c.andar(f"{i}º", 3.0 * i, 4, 63, 2) for i in range(1, 4)]
+        plano = c.plano_de_geracao(andares)
+        self.assertEqual([o["valores"]["DemandaTotal"] for o in plano[0]["objetos"]], [0.0])
+        plano = c.plano_de_geracao(andares, demanda_total_a=200.0)
+        self.assertEqual([o["valores"]["DemandaTotal"] for o in plano[0]["objetos"]], [200.0])
+
+    def test_mural_numera_os_agrupamentos_em_sequencia(self):
+        d = c.dimensionar_colunas(32, 63.0, 2)
+        m = c.mural(c.pecas_do_centro(d, representacao=c.REPRESENTACOES[1]))
+        numeros = sorted(t[2] for t in m["textos"] if t[2].startswith("MEDIDOR"))
+        self.assertEqual(numeros, [f"MEDIDOR {i:02d}" for i in range(1, 33)])
 
     def test_mural_vazio(self):
         self.assertEqual(c.mural([])["linhas"], [])

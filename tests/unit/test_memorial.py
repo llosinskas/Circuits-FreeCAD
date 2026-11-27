@@ -262,5 +262,22 @@ class TestCentroEBusway(unittest.TestCase):
         self.assertNotIn("Busway", secoes)
 
 
+class TestMuralNoMemorial(unittest.TestCase):
+    def test_secao_com_o_desenho_de_cada_coluna(self):
+        from freecad.Circuits.core import centro_medicao as cm
+        d = cm.dimensionar_colunas(12, 63.0, 2)
+        desenho = cm.mural(cm.pecas_do_centro(d, representacao=cm.REPRESENTACOES[1]), "MURAL", cm.notas_do_mural(d))
+        secoes = dict(m.montar({"parametros": PARAMETROS, "projeto": {}, "contagem": {},
+                                "murais": [{"nome": "Colunas de medição", "desenho": desenho,
+                                            "avisos": ["soma sem diversidade"]}]}))
+        blocos = secoes["Mural de medição"]
+        self.assertIn(("subtitulo", "Colunas de medição"), blocos)
+        figura = next(b[1] for b in blocos if b[0] == "desenho")
+        self.assertEqual(figura["limites"], desenho["limites"])
+        self.assertIn(("aviso", "soma sem diversidade"), blocos)
+        self.assertIn("Colunas de medição: soma sem diversidade", str(secoes["Avisos e limitações"]))
+        self.assertNotIn("Mural de medição", dict(m.montar({"parametros": PARAMETROS, "projeto": {}, "contagem": {}})))
+
+
 if __name__ == "__main__":
     unittest.main()

@@ -169,6 +169,21 @@ def _desenho_do_centro(doc):
     return {"colunas": colunas, "busways": busways, "solucoes": sorted(solucoes)}
 
 
+def _murais(doc, avisos):
+    """Mural (elevação frontal cotada) de cada objeto de colunas de medição do projeto."""
+    from freecad.Circuits.services import centro_medicao
+    murais = []
+    for obj in doc.Objects:
+        if not centro_medicao.eh_coluna(obj):
+            continue
+        try:
+            murais.append({"nome": obj.Label, "desenho": centro_medicao.desenho_do_mural(obj),
+                           "avisos": list(getattr(obj, "Avisos", []) or [])})
+        except Exception as erro:
+            avisos.append(f"Mural de {obj.Label} fora do memorial: {erro}")
+    return murais or None
+
+
 def _ocupacao(doc, avisos):
     from freecad.Circuits.services import rede, roteamento
     if not rede.listar_eletrodutos(doc):
@@ -203,7 +218,8 @@ def coletar(doc):
         "rotulos_parametros": {chave: valor[1] for chave, valor in regras_parametros.CAMPOS.items()},
     }
     for chave, funcao in (("ambientes", _ambientes), ("luminotecnico", _luminotecnico), ("quadros", _quadros),
-                          ("curto", _curto), ("aterramento", _aterramento), ("gerador", _gerador), ("centro_medicao", _centro), ("ocupacao", _ocupacao)):
+                          ("curto", _curto), ("aterramento", _aterramento), ("gerador", _gerador),
+                          ("centro_medicao", _centro), ("murais", _murais), ("ocupacao", _ocupacao)):
         try:
             dados[chave] = funcao(doc, avisos)
         except Exception as erro:

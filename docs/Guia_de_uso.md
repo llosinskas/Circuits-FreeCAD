@@ -240,7 +240,7 @@ Fica em **Quadros ▾**, nesta ordem:
 1. **Centro de medição** (primeiro clique): cria a planilha *Centro de medição* com os pavimentos do projeto. Num projeto só com o Térreo, as unidades ficam nele; com andares, o mais baixo fica sem unidades. Preencha por andar a cota do piso (B), as unidades (C), a demanda de cada unidade em A (D) e as fases (E).
 2. **Centro de medição** (segundo clique): compara medição agrupada, descentralizada e busway, com o custo de cada uma. **Gravar na planilha** guarda os valores do formulário.
 3. **Gerar centro de medição:** escolha *agrupada* ou *descentralizada*. As colunas de medição, o abrigo e, na descentralizada, o ramal de cada centro são criados na pasta *Busway e medição* do pavimento, ficam selecionados e a vista enquadra neles. Ponha antes um símbolo de **Medição agrupada** na planta para eles nascerem ali.
-4. **Mural de medição:** com as colunas selecionadas (ou todas), desenha a elevação frontal cotada, como na norma: caixas numeradas com medidor, disjuntor e suporte L, CDPM com os barramentos, disjuntor geral e DPS, eletroduto de entrada, piso, cotas e notas. Leve-o para a prancha com **Inserir na folha**.
+4. **Mural de medição:** com as colunas selecionadas (ou todas), desenha a elevação frontal cotada, como na norma: caixas numeradas com medidor, disjuntor e suporte L, CDPM com os barramentos, disjuntor geral e DPS, eletroduto de entrada, piso, cotas e notas. Leve-o para a prancha com **Inserir na folha**; ele também sai no relatório PDF.
 5. **Coluna de medição:** insere uma coluna avulsa (clique na planta para posicionar) ou, com uma coluna selecionada, edita a quantidade de medidores, o modelo e o desenho 3D.
 6. **Busway:** com o caminho do QDC ao shaft desenhado e selecionado.
 
@@ -280,6 +280,7 @@ Para imprimir, use os botões de exportação do TechDraw com a folha aberta.
 | O centro de medição diz "Nenhum andar com unidades" | Preencha a coluna C (unidades) da planilha *Centro de medição*. |
 | A medição descentralizada não aparece na lista | Precisa de 2 andares com unidades e *Andares por centro* maior que 0 (opções avançadas do Centro de medição). |
 | A coluna de medição é criada mas não aparece (FreeCAD 1.1) | Corrigido nesta versão: o 1.1 lê a cor das peças de outro jeito e a coluna ficava transparente. Atualize a bancada e reabra o projeto: a cor é refeita ao abrir. |
+| A coluna de medição se dividia em grupos de 4 caixas | Era a soma das unidades sem diversidade passando de 300 A. Agora cada agrupamento recebe até 30 caixas; informe a *Demanda total* do cálculo de demanda para o disjuntor geral e o ramal saírem certos. |
 | Não acho o centro de medição gerado | Ele fica na pasta *Busway e medição* do pavimento, sobre o símbolo de medição agrupada (ou na origem). Depois de gerar, os objetos ficam selecionados: use **Ver seleção**. |
 | O PDF não é gerado | Falta a biblioteca `reportlab`: aceite a instalação que o botão oferece. |
 

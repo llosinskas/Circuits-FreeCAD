@@ -279,30 +279,41 @@ def largura_agrupamento(caixas, cdpm, por_coluna=MAX_VERTICAL):
     return colunas * CAIXA_P_MM[0] + CDPM[cdpm][2]
 
 
-def agrupamentos(caixas, corrente_por_caixa, por_coluna=MAX_VERTICAL, cdpm=None):
+CORRENTE_MAX_AGRUPAMENTO = max(v[1] for v in CDPM.values())  # 300 A: disjuntor geral e ramal de 185 mm² (7.20.1)
+
+
+def agrupamentos(caixas, corrente_por_caixa, por_coluna=MAX_VERTICAL, cdpm=None, limitar_corrente=True):
     """Agrupamentos de caixas P: [{'modelo': 'P', 'caixas', 'corrente', 'cdpm', 'largura_mm'}].
 
-    Reparte as caixas igualmente no menor número de agrupamentos em que todos cabem
-    (``capacidade_agrupamento`` e a corrente da CDPM). ``cdpm`` força o tipo, se couber.
+    Enche cada agrupamento até ``capacidade_agrupamento`` (30 caixas com 3 por coluna) antes de
+    abrir o próximo. Com ``limitar_corrente`` (a corrente é a demanda, com a diversidade), um
+    agrupamento também não passa da corrente da CDPM (300 A, 7.20.1): leva só as caixas que cabem.
+    Sem ele (a corrente é a soma das unidades, sem diversidade), a corrente fica no limite de
+    300 A e ``soma`` guarda a soma, para o aviso. ``cdpm`` força o tipo, se couber.
     """
     if caixas <= 0:
         return []
     capacidade = capacidade_agrupamento(por_coluna)
-    for quantidade in range(max(1, math.ceil(caixas / capacidade)), caixas + 1):
-        divisao = [caixas // quantidade + (1 if i < caixas % quantidade else 0) for i in range(quantidade)]
-        grupos = []
-        for n in divisao:
-            corrente = n * corrente_por_caixa
-            tipo = tipo_cdpm(n, corrente)
-            if cdpm in CDPM and tipo is not None and n <= CDPM[cdpm][0] and corrente <= CDPM[cdpm][1] + 1e-9:
-                tipo = cdpm
-            if tipo is None:
-                break
-            grupos.append({"modelo": "P", "caixas": n, "corrente": corrente, "cdpm": tipo,
-                           "largura_mm": largura_agrupamento(n, tipo, por_coluna)})
+    grupos, restantes = [], int(caixas)
+    while restantes > 0:
+        n = min(restantes, capacidade)
+        soma = n * corrente_por_caixa
+        if limitar_corrente:
+            while n > 0 and tipo_cdpm(n, n * corrente_por_caixa) is None:
+                n -= 1
+            if n == 0:
+                raise ValueError(f"Caixa P com {corrente_por_caixa:.0f} A não cabe em nenhuma CDPM (máximo 300 A).")
+            soma = n * corrente_por_caixa
+            corrente = soma
         else:
-            return grupos
-    raise ValueError(f"Caixa P com {corrente_por_caixa:.0f} A não cabe em nenhuma CDPM (máximo 300 A).")
+            corrente = min(soma, CORRENTE_MAX_AGRUPAMENTO)
+        tipo = tipo_cdpm(n, corrente)
+        if cdpm in CDPM and tipo is not None and n <= CDPM[cdpm][0] and corrente <= CDPM[cdpm][1] + 1e-9:
+            tipo = cdpm
+        grupos.append({"modelo": "P", "caixas": n, "corrente": corrente, "soma": soma, "cdpm": tipo,
+                       "largura_mm": largura_agrupamento(n, tipo, por_coluna)})
+        restantes -= n
+    return grupos
 
 
 # --- caixas metálicas coletivas da Enel SP (Tabela 22, Desenhos 24 a 29) -------------------------------
@@ -473,7 +484,7 @@ def escolher_modelo(demanda_a, fases, modelo="Automático", medidores=1):
 
 def dimensionar_colunas(medidores, demanda_a=63.0, fases=2, por_coluna=MAX_VERTICAL, modelo="Automático",
                         cdpm=None, demanda_total_a=0.0, tensao=220.0,
-                        comprimento_ramal=COMPRIMENTO_RAMAL_DISTRIBUICAO_M):
+                        comprimento_ramal=COMPRIMENTO_RAMAL_DISTRIBUICAO_M, com_diversidade=None):
     """Dimensiona o centro de medição convencional de medição direta.
 
     Escolhe a caixa (P em agrupamento modular para mono e bifásicas até 100 A; caixas
@@ -488,6 +499,9 @@ def dimensionar_colunas(medidores, demanda_a=63.0, fases=2, por_coluna=MAX_VERTI
         por_coluna: caixas P sobrepostas (1 a 3; Tabela 29).
         modelo: de ``MODELOS``. cdpm: força o tipo de CDPM (Tabela 28).
         demanda_total_a: demanda do conjunto todo [A] (0 = soma das unidades).
+        com_diversidade: a corrente é a demanda calculada (padrão: quando há ``demanda_total_a``).
+            Só então o limite de 300 A divide as caixas P em mais agrupamentos; sem ela, cada
+            agrupamento leva até 30 caixas e é dimensionado no limite de 300 A, com aviso.
     Returns:
         {'modelo' ('P', 'metalica' ou None), 'conjuntos', 'corrente', 'disjuntor_unidade', 'por_coluna', 'avisos'}.
     """
@@ -514,8 +528,16 @@ def dimensionar_colunas(medidores, demanda_a=63.0, fases=2, por_coluna=MAX_VERTI
         return resultado
     por_medidor = total / medidores
     if escolhido == "P":
-        conjuntos = agrupamentos(medidores, por_medidor, por_coluna, cdpm)
+        if com_diversidade is None:
+            com_diversidade = bool(demanda_total_a)
+        conjuntos = agrupamentos(medidores, por_medidor, por_coluna, cdpm, limitar_corrente=com_diversidade)
         resultado["modelo"], limite = "P", 185
+        for c in conjuntos:
+            if c["soma"] > c["corrente"] + 1e-6:
+                avisos.append(f"agrupamento de {c['caixas']} caixas: a soma das unidades ({c['soma']:.0f} A, sem "
+                              f"diversidade) passa dos {CORRENTE_MAX_AGRUPAMENTO:.0f} A do agrupamento (7.20.1); "
+                              "dimensionado no limite. Informe a demanda total do cálculo de demanda (com a "
+                              "diversidade) para conferir o disjuntor geral e o ramal")
     elif escolhido == "E":
         conjuntos = grupos_e(medidores, por_medidor)
         resultado["modelo"], limite = "E", SECAO_MAX_RAMAL_E
@@ -562,7 +584,7 @@ PORTA_E_FUNDO = {"P": (CAIXA_P_MM[1], CAIXA_P_MM[0]), "E": (CAIXA_E_MM[1], CAIXA
                  "IND300": (240.0, 560.0), "IND600": (250.0, 600.0)}
 
 
-def _conjuntos(lista, total, tensao):
+def _conjuntos(lista, total, tensao, com_diversidade=True):
     """Conjuntos de medição das unidades da ``lista`` com a corrente ``total`` repartida pelo peso delas.
 
     As diretas (até 100 A) vão juntas para ``dimensionar_colunas``; cada andar com unidades acima
@@ -579,7 +601,7 @@ def _conjuntos(lista, total, tensao):
         corrente_diretas = total * sum(a["unidades"] * a["demanda_a"] for a in diretas) / soma
         colunas = dimensionar_colunas(sum(a["unidades"] for a in diretas), max(a["demanda_a"] for a in diretas),
                                       max(a["fases"] for a in diretas), demanda_total_a=corrente_diretas,
-                                      tensao=tensao)
+                                      tensao=tensao, com_diversidade=com_diversidade)
         conjuntos += colunas["conjuntos"]
         avisos += colunas["avisos"]
         modelo, disjuntor = colunas["modelo"], colunas["disjuntor_unidade"]
@@ -641,7 +663,7 @@ def convencional(andares, tensao=220.0, distancia_horizontal=15.0, demanda_total
     if not lista:
         raise ValueError(SEM_UNIDADES)
     total = sum(corrente_dos_andares(lista, demanda_total_a))
-    grupos, modelo, disjuntor, avisos = _conjuntos(lista, total, tensao)
+    grupos, modelo, disjuntor, avisos = _conjuntos(lista, total, tensao, bool(demanda_total_a))
     alimentadores, cabo, eletroduto, mais = _alimentadores(lista, 0.0, distancia_horizontal, tensao,
                                                            comprimento_no_andar)
     qdc, circuitos, _ = entrada(total)
@@ -710,7 +732,7 @@ def descentralizado(andares, tensao=220.0, distancia_horizontal=15.0, demanda_to
     for numero, grupo in enumerate(grupos_de_andares(lista, andares_por_centro), start=1):
         base = grupo[0]
         corrente = sum(correntes[id(a)] for a in grupo)
-        conjuntos, _, _, mais = _conjuntos(grupo, corrente, tensao)
+        conjuntos, _, _, mais = _conjuntos(grupo, corrente, tensao, bool(demanda_total_a))
         avisos += [f"Centro {numero}: {texto}" for texto in mais]
         alimentadores, c, e, mais = _alimentadores(grupo, base["cota"], 0.0, tensao, comprimento_no_andar)
         avisos += [f"Centro {numero}: {texto}" for texto in mais]
@@ -752,7 +774,7 @@ def descentralizado(andares, tensao=220.0, distancia_horizontal=15.0, demanda_to
 SOLUCOES_DESENHAVEIS = ("convencional", "descentralizado")
 
 
-def _valores_das_colunas(grupo, correntes, tensao):
+def _valores_das_colunas(grupo, correntes, tensao, com_diversidade=True):
     """Entradas dos objetos de colunas de medição de um grupo de andares: as diretas juntas e um
     objeto indireto por andar com unidades acima de 100 A."""
     objetos = []
@@ -761,7 +783,9 @@ def _valores_das_colunas(grupo, correntes, tensao):
         objetos.append(("diretas", {"Medidores": sum(a["unidades"] for a in diretas),
                                     "DemandaPorMedidor": max(a["demanda_a"] for a in diretas),
                                     "Fases": max(a["fases"] for a in diretas),
-                                    "DemandaTotal": round(sum(correntes[id(a)] for a in diretas), 1),
+                                    # sem a demanda do edifício, as colunas enchem até 30 caixas (DemandaTotal 0)
+                                    "DemandaTotal": round(sum(correntes[id(a)] for a in diretas), 1)
+                                    if com_diversidade else 0.0,
                                     "Tensao": float(tensao)}))
     for a in grupo:
         if a["demanda_a"] > CORRENTE_MAX_P:
@@ -804,7 +828,7 @@ def plano_de_geracao(andares, solucao="convencional", tensao=220.0, distancia_ho
     centros = []
     for numero, (grupo, ramal, cota) in enumerate(zip(grupos, ramais, cotas), start=1):
         objetos, todos = [], []
-        for chave, valores in _valores_das_colunas(grupo, correntes, tensao):
+        for chave, valores in _valores_das_colunas(grupo, correntes, tensao, bool(demanda_total_a)):
             dados = dimensionar_colunas(valores["Medidores"], valores["DemandaPorMedidor"], valores["Fases"],
                                         modelo=valores.get("Modelo", "Automático"),
                                         demanda_total_a=valores.get("DemandaTotal", 0.0), tensao=tensao)
@@ -2058,6 +2082,15 @@ def mural(pecas, titulo="", notas=()):
     if not caixas:
         return dict(desenho, limites=(0.0, 0.0, 0.0, 0.0))
     z_caixas = min(c[2] for c in caixas)
+    # numeração contínua entre os agrupamentos: o 2º começa depois do último medidor do 1º
+    por_conjunto = {}
+    for p in pecas:
+        if p["tipo"] == "medidor":
+            por_conjunto[p.get("conjunto")] = por_conjunto.get(p.get("conjunto"), 0) + 1
+    deslocamento, acumulado = {}, 0
+    for conjunto in sorted(por_conjunto, key=lambda k: (k is None, k or 0)):
+        deslocamento[conjunto] = acumulado
+        acumulado += por_conjunto[conjunto]
     for p in pecas:
         rotulo = p["rotulo"]
         if p["forma"] == "cilindro":
@@ -2092,6 +2125,8 @@ def mural(pecas, titulo="", notas=()):
             _retangulo(linhas, x, z, dx, dz)
         if p["tipo"] == "medidor":
             numero = next((t[1:] for t in rotulo.split() if t.startswith("M") and t[1:].isdigit()), "")
+            if numero:
+                numero = f"{int(numero) + deslocamento.get(p.get('conjunto'), 0):02d}"
             conteudo = f"MEDIDOR {numero}".strip()
             textos.append((x + dx / 2.0 - len(conteudo) * ALTURA_ROTULO_MURAL * 0.3, z + dz * 0.2, conteudo,
                            ALTURA_ROTULO_MURAL, 0.0))

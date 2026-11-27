@@ -300,11 +300,50 @@ class PDFGenerator:
             elif tipo == "lista":
                 story += [Paragraph(_escapar(item, self.com_simbolos), self.estilos["lista"], bulletText="•")
                           for item in bloco[1]]
+            elif tipo == "desenho":
+                story += [self._desenho(bloco[1]), Spacer(1, 6)]
             elif tipo == "formula" and "NÃO ATENDE" in str(bloco[1]):
                 story.append(self._p(bloco[1], "formula_ruim"))
             elif tipo in self.estilos:
                 story.append(self._p(bloco[1], tipo))
         return story
+
+    LARGURA_DESENHO = 17.0 * cm
+    ALTURA_MAX_DESENHO = 21.0 * cm
+
+    def _desenho(self, desenho):
+        """Desenho vetorial (``core.centro_medicao.mural``: mm, y para cima) ajustado à largura da página."""
+        from reportlab.graphics.shapes import Circle, Drawing, Group, Line, String
+        xmin, ymin, xmax, ymax = desenho["limites"]
+        largura, altura = max(1.0, xmax - xmin), max(1.0, ymax - ymin)
+        escala = min(self.LARGURA_DESENHO / largura, self.ALTURA_MAX_DESENHO / altura)
+        figura = Drawing(largura * escala, altura * escala)
+        traco = colors.HexColor("#202124")
+
+        def ponto(x, y):
+            return (x - xmin) * escala, (y - ymin) * escala
+
+        for x1, y1, x2, y2 in desenho["linhas"]:
+            a, b = ponto(x1, y1)
+            c, d = ponto(x2, y2)
+            figura.add(Line(a, b, c, d, strokeColor=traco, strokeWidth=0.35))
+        for cx, cy, raio in desenho["circulos"]:
+            a, b = ponto(cx, cy)
+            figura.add(Circle(a, b, raio * escala, strokeColor=traco, strokeWidth=0.35, fillColor=None))
+        for x, y, conteudo, altura_texto, angulo in desenho["textos"]:
+            a, b = ponto(x, y)
+            conteudo = str(conteudo)
+            if not self.com_simbolos:
+                for simbolo, troca in SUBSTITUTOS.items():
+                    conteudo = conteudo.replace(simbolo, troca)
+            texto = String(0, 0, conteudo, fontName=self.fonte, fontSize=max(2.0, altura_texto * escala),
+                           fillColor=colors.HexColor("#1a3c6e"))
+            grupo = Group(texto)
+            grupo.translate(a, b)
+            if angulo:
+                grupo.rotate(angulo)
+            figura.add(grupo)
+        return figura
 
     # -- capa, sumário, cabeçalho e rodapé ------------------------------------------------------------
 

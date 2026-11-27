@@ -214,6 +214,13 @@ def _apagar_grupo(doc, grupo):
         doc.removeObject(grupo.Name)
 
 
+def desenho_do_mural(coluna):
+    """Geometria do mural das colunas (``core.centro_medicao.mural``), com o título e as notas."""
+    dados, pecas = coluna.Proxy.pecas(coluna, representacao=regras.REPRESENTACOES[1])
+    titulo = f"MURAL DE MEDIÇÃO - {coluna.Label} ({int(getattr(coluna, 'Medidores', 0))} medições)"
+    return regras.mural(pecas, titulo, regras.notas_do_mural(dados, getattr(coluna, "MedidoresPorColuna", 3)))
+
+
 def desenhar_mural(doc, coluna):
     """Recria o mural (elevação frontal cotada, ``core.centro_medicao.mural``) das colunas de medição.
 
@@ -225,9 +232,7 @@ def desenhar_mural(doc, coluna):
     Returns:
         O grupo do mural.
     """
-    dados, pecas = coluna.Proxy.pecas(coluna, representacao=regras.REPRESENTACOES[1])
-    titulo = f"MURAL DE MEDIÇÃO - {coluna.Label} ({int(getattr(coluna, 'Medidores', 0))} medições)"
-    desenho = regras.mural(pecas, titulo, regras.notas_do_mural(dados, getattr(coluna, "MedidoresPorColuna", 3)))
+    desenho = desenho_do_mural(coluna)
     origem = None
     for antigo in murais_da_coluna(doc, coluna):
         if origem is None:

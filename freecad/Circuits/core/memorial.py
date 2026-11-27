@@ -904,6 +904,24 @@ def _secao_busway(dados):
     return "Busway", blocos, avisos
 
 
+def _secao_murais(dados):
+    """Mural de cada objeto de colunas de medição: o desenho cotado (bloco ``desenho``) e os avisos das colunas.
+
+    Returns: (título, blocos, avisos); título None sem colunas no projeto."""
+    murais = dados.get("murais") or []
+    if not murais:
+        return None, [], []
+    blocos = [("paragrafo", "Elevação frontal das colunas de medição como montadas no projeto (ET 0018 Enel SP, "
+                            "Desenhos 23, 55 e 8.24 a 8.33): caixas tipo P numeradas, CDPM com os barramentos, "
+                            "disjuntor geral e DPS, eletroduto de entrada, altura ao piso e cotas em milímetros.")]
+    avisos = []
+    for mural in murais:
+        blocos += [("subtitulo", mural["nome"]), ("desenho", mural["desenho"])]
+        blocos += [("aviso", aviso) for aviso in mural.get("avisos", [])]
+        avisos += [f"{mural['nome']}: {aviso}" for aviso in mural.get("avisos", [])]
+    return "Mural de medição", blocos, avisos
+
+
 def _secao_ocupacao(dados):
     o = dados.get("ocupacao")
     if not o or not o.get("tabela"):
@@ -923,7 +941,9 @@ def montar(dados):
     Args:
         dados: de ``services.memorial.coletar``: ``projeto``, ``contagem``, ``parametros``,
             ``rotulos_parametros``, ``ambientes``, ``luminotecnico``, ``quadros``, ``curto``,
-            ``aterramento``, ``gerador``, ``centro_medicao``, ``ocupacao``, ``avisos``.
+            ``aterramento``, ``gerador``, ``centro_medicao``, ``murais``, ``ocupacao``, ``avisos``.
+        Blocos: ``paragrafo``, ``formula``, ``lista``, ``aviso``, ``subtitulo``, ``tabela`` e ``desenho``
+        (geometria em mm de ``core.centro_medicao.mural``: linhas, círculos, textos e limites).
     """
     parametros = dados.get("parametros", {})
     secoes = [_secao_identificacao(dados), _secao_normas(dados), _secao_parametros(dados)]
@@ -958,6 +978,10 @@ def montar(dados):
         if titulo:
             secoes.append((titulo, blocos))
             avisos += mais
+    titulo, blocos, avisos_murais = _secao_murais(dados)
+    if titulo:
+        secoes.append((titulo, blocos))
+        avisos += avisos_murais
     secao = _secao_ocupacao(dados)
     if secao:
         secoes.append(secao)
