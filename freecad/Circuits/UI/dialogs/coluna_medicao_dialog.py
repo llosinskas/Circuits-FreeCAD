@@ -24,6 +24,37 @@ class ColunaMedicaoDialog(QtWidgets.QDialog):
         self.medidores.setValue(int(atual.get("Medidores", 12) or 12))
         form_dim.addRow("Medidores (unidades):", self.medidores)
 
+        # Demanda total do edifício (com a diversidade): é ela que define o disjuntor geral, o ramal e
+        # quando o agrupamento passa dos 300 A (7.20.1). Sem ela, a soma das unidades não tem diversidade.
+        self.demanda_total = QtWidgets.QDoubleSpinBox()
+        self.demanda_total.setRange(0.0, 5000.0)
+        self.demanda_total.setDecimals(1)
+        self.demanda_total.setSuffix(" A")
+        self.demanda_total.setSpecialValueText("Não informada")
+        self.demanda_total.setValue(float(atual.get("DemandaTotal", 0.0) or 0.0))
+        self.demanda_total.setToolTip(
+            "Corrente de demanda do conjunto, do cálculo de demanda do edifício (com a diversidade entre as "
+            "unidades). Define o disjuntor geral e o ramal; acima de 300 A, divide em outro agrupamento. "
+            "Não informada: cada agrupamento leva até 30 caixas, dimensionado no limite de 300 A.")
+        form_dim.addRow("Demanda total (diversificada):", self.demanda_total)
+
+        self.demanda_media = QtWidgets.QDoubleSpinBox()
+        self.demanda_media.setRange(0.0, 300.0)
+        self.demanda_media.setDecimals(1)
+        self.demanda_media.setSuffix(" A por unidade")
+        self.demanda_media.setSpecialValueText("—")
+        self.demanda_media.setToolTip("Atalho: a demanda diversificada média de cada unidade; a demanda total "
+                                      "vira esta × o número de medidores.")
+        form_dim.addRow("ou demanda média por unidade:", self.demanda_media)
+        self.demanda_media.valueChanged.connect(self._demanda_pela_media)
+        self.medidores.valueChanged.connect(self._demanda_pela_media)
+        explicacao = QtWidgets.QLabel(
+            "A demanda total vem do cálculo de demanda do edifício (com a diversidade). Sem ela, a bancada "
+            "soma as unidades sem diversidade e dimensiona cada agrupamento no limite de 300 A.")
+        explicacao.setWordWrap(True)
+        explicacao.setStyleSheet("color: #5f6368;")
+        form_dim.addRow(explicacao)
+
         self.por_coluna = QtWidgets.QSpinBox()
         self.por_coluna.setRange(1, 3)
         self.por_coluna.setValue(int(atual.get("MedidoresPorColuna", 3) or 3))
@@ -37,14 +68,6 @@ class ColunaMedicaoDialog(QtWidgets.QDialog):
         self.demanda_unidade.setValue(float(atual.get("DemandaPorMedidor", 63.0) or 63.0))
         form_dim.addRow("Demanda por medidor:", self.demanda_unidade)
 
-        self.demanda_total = QtWidgets.QDoubleSpinBox()
-        self.demanda_total.setRange(0.0, 5000.0)
-        self.demanda_total.setDecimals(1)
-        self.demanda_total.setSuffix(" A")
-        self.demanda_total.setSpecialValueText("Automático (soma unidades)")
-        self.demanda_total.setValue(float(atual.get("DemandaTotal", 0.0) or 0.0))
-        self.demanda_total.setToolTip("Demanda total diversificada [A]; 0 soma todas as unidades")
-        form_dim.addRow("Demanda total:", self.demanda_total)
 
         self.fases = QtWidgets.QComboBox()
         self.fases.addItems(["1", "2", "3"])
@@ -181,6 +204,11 @@ class ColunaMedicaoDialog(QtWidgets.QDialog):
         self.representacao.currentIndexChanged.connect(self.atualizar_previa)
 
         self.atualizar_previa()
+
+    def _demanda_pela_media(self, *_):
+        media = float(self.demanda_media.value())
+        if media > 0:
+            self.demanda_total.setValue(round(media * int(self.medidores.value()), 1))
 
     def get_dados(self):
         """Retorna dict com os nomes exatos das propriedades de ``ColunaMedicao``."""

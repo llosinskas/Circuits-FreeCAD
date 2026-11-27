@@ -186,6 +186,15 @@ def _busway(doc):
         return []
 
 
+def _prumadas_verticais(doc):
+    """(pavimento, itens) das prumadas de energia, dados, interfone e emergência (``services.prumadas``)."""
+    try:
+        from freecad.Circuits.services import prumadas as servico_prumadas
+        return servico_prumadas.materiais_por_pavimento(doc)
+    except Exception:
+        return []
+
+
 def _pecas_eletrodutos(doc):
     """(pavimento, itens) das curvas, luvas, buchas, conduletes e abraçadeiras (``services.eletrodutos_planta``)."""
     try:
@@ -231,7 +240,7 @@ def levantar_por_pavimento(doc, fiacao=None):
         de(pavimento)["eletrodutos"].append((diametro, comprimento))
     prumadas_eletroduto, prumadas_eletrocalha = _prumadas(doc)
     for pavimento, itens in (_componentes_por_quadro(doc) + _bandejas(doc) + _pecas_eletrodutos(doc)
-                             + prumadas_eletrocalha + _busway(doc)):
+                             + prumadas_eletrocalha + _busway(doc) + _prumadas_verticais(doc)):
         de(pavimento)["componentes"].extend(itens)
     condutores, conectores = _aterramento(doc)
     for pavimento, secao, comprimento in condutores:
@@ -268,7 +277,8 @@ def levantar(doc):
         componentes = componentes + [_conector(conectores)]
     prumadas_eletroduto, prumadas_eletrocalha = _prumadas(doc)
     componentes = componentes + [item for _, itens in (_bandejas(doc) + _pecas_eletrodutos(doc) + prumadas_eletrocalha
-                                                       + _busway(doc)) for item in itens]
+                                                       + _busway(doc) + _prumadas_verticais(doc))
+                                for item in itens]
     linhas = regras.montar(
         coletar_pontos(doc), coletar_eletrodutos(doc), componentes,
         fios=fiacao["fios"],

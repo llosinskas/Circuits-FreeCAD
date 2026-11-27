@@ -26,6 +26,7 @@ PASTAS = {
     "ambientes": "Ambientes",
     "equipamentos": "Equipamentos",
     "busway": "Busway e medição",
+    "prumadas": "Prumadas",
 }
 
 _PASTA_DA_CATEGORIA = {
@@ -48,6 +49,7 @@ _PASTA_DO_TIPO = {
     "bandeja": "bandejas",
     "ambiente": "ambientes",
     "busway": "busway",
+    "Prumada": "prumadas",
 }
 
 

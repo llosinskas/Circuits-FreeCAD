@@ -922,6 +922,39 @@ def _secao_murais(dados):
     return "Mural de medição", blocos, avisos
 
 
+def _secao_prumadas(dados):
+    """Prumadas verticais: trechos de cada sistema (cabos, eletrodutos e taxa), materiais e o esquema vertical."""
+    lista = dados.get("prumadas") or []
+    if not lista:
+        return None, [], []
+    from freecad.Circuits.core import prumadas as regras_prumadas
+    blocos = [("paragrafo", "Prumadas verticais pelo shaft, do pavimento mais baixo (origem de cada sistema) aos "
+                            "andares, com uma caixa de passagem em cada andar atendido. Os eletrodutos de cada "
+                            "trecho atendem à taxa máxima de ocupação da NBR 5410, 6.2.11.1.6 (53 % com um cabo, "
+                            "31 % com dois, 40 % com três ou mais); a eletrocalha, a 40 % da seção útil."),
+              ("formula", "Taxa = Σ (π · d²/4) dos cabos / (π · Di²/4) ≤ 40 %")]
+    avisos = []
+    for item in lista:
+        resultado = item["resultado"]
+        if len(lista) > 1:
+            blocos.append(("subtitulo", item["nome"]))
+        for s in resultado["sistemas"].values():
+            linhas = [[f"{t['de']} → {t['ate']}", br(t["comprimento"]), str(t["cabos"]),
+                       regras_prumadas.descricao_trecho(t).split(" (")[0], br(100.0 * t["taxa"], 1)]
+                      for t in s["trechos"]]
+            blocos += [("subtitulo", f"{s['sigla']} - {s['nome']} (origem: {s['origem']})"),
+                       ("tabela", ["Trecho", "L [m]", "Cabos", "Eletroduto ou eletrocalha", "Taxa [%]"], linhas,
+                        [2.6, 0.8, 0.8, 2.0, 0.9])]
+            blocos += [("aviso", a) for a in s["avisos"]]
+            avisos += [f"Prumada {s['sigla']}: {a}" for a in s["avisos"]]
+        blocos += [("subtitulo", "Materiais das prumadas"),
+                   ("tabela", ["Sistema", "Item", "Especificação", "Qtd.", "Un."],
+                    [[m[0], m[1], m[2], br_g(m[3]), m[4]] for m in item["materiais"]], [2.2, 2.2, 2.0, 0.8, 0.5]),
+                   ("subtitulo", "Esquema vertical"), ("desenho", item["esquema"])]
+        avisos += list(resultado["avisos"])
+    return "Prumadas verticais", blocos, avisos
+
+
 def _secao_ocupacao(dados):
     o = dados.get("ocupacao")
     if not o or not o.get("tabela"):
@@ -978,10 +1011,11 @@ def montar(dados):
         if titulo:
             secoes.append((titulo, blocos))
             avisos += mais
-    titulo, blocos, avisos_murais = _secao_murais(dados)
-    if titulo:
-        secoes.append((titulo, blocos))
-        avisos += avisos_murais
+    for funcao in (_secao_murais, _secao_prumadas):
+        titulo, blocos, mais = funcao(dados)
+        if titulo:
+            secoes.append((titulo, blocos))
+            avisos += mais
     secao = _secao_ocupacao(dados)
     if secao:
         secoes.append(secao)

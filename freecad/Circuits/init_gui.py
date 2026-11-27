@@ -123,7 +123,7 @@ CIRCUIT_TOOLS = ["DefinirCircuito", "LigarInterruptor", "IdentificarPontos", "Id
 INFRA_TOOLS = [
     "InsertConduit", "Ponto_caixa_passagem", "ConectarEletrodutos", "RotaCircuito", "OcupacaoEletrodutos",
     "Add_Node", "MudarAltura", "ListaVerticais", "SimbolosVerticais", "EditarDescidas", "DetalharVerticais", "Cabo",
-    "InsertCableTray", "GerarSuportes",
+    "InsertCableTray", "GerarSuportes", "ProjetoPrumadas",
 ]
 BOARD_DATA_TOOLS = ["GerarPlanilha", "CircuitosQuadro", "AddCircuito", "BalancearFases", "QuadroCargas"]
 BOARD_TOOLS = [
@@ -326,6 +326,7 @@ class CircuitsWorkbench(gui.Workbench):
             pontos,
             projeto_eletrico,
             projeto_quadro,
+            prumadas,
             reports,
             tools,
         )

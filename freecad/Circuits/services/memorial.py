@@ -184,6 +184,11 @@ def _murais(doc, avisos):
     return murais or None
 
 
+def _prumadas(doc, avisos):
+    from freecad.Circuits.services import prumadas
+    return prumadas.dados_do_memorial(doc) or None
+
+
 def _ocupacao(doc, avisos):
     from freecad.Circuits.services import rede, roteamento
     if not rede.listar_eletrodutos(doc):
@@ -219,7 +224,8 @@ def coletar(doc):
     }
     for chave, funcao in (("ambientes", _ambientes), ("luminotecnico", _luminotecnico), ("quadros", _quadros),
                           ("curto", _curto), ("aterramento", _aterramento), ("gerador", _gerador),
-                          ("centro_medicao", _centro), ("murais", _murais), ("ocupacao", _ocupacao)):
+                          ("centro_medicao", _centro), ("murais", _murais), ("prumadas", _prumadas),
+                          ("ocupacao", _ocupacao)):
         try:
             dados[chave] = funcao(doc, avisos)
         except Exception as erro:

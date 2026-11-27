@@ -279,5 +279,22 @@ class TestMuralNoMemorial(unittest.TestCase):
         self.assertNotIn("Mural de medição", dict(m.montar({"parametros": PARAMETROS, "projeto": {}, "contagem": {}})))
 
 
+class TestPrumadasNoMemorial(unittest.TestCase):
+    def test_secao_das_prumadas(self):
+        from freecad.Circuits.core import prumadas as pr
+        andares = [pr.andar("Térreo", 0, 0)] + [pr.andar(f"{i}º", 3000 * i, 4) for i in range(1, 4)]
+        resultado = pr.dimensionar(andares)
+        dados = {"parametros": PARAMETROS, "projeto": {}, "contagem": {},
+                 "prumadas": [{"nome": "Prumadas verticais", "resultado": resultado,
+                               "materiais": pr.materiais(resultado), "esquema": pr.esquema(resultado)}]}
+        blocos = dict(m.montar(dados))["Prumadas verticais"]
+        subtitulos = [b[1] for b in blocos if b[0] == "subtitulo"]
+        self.assertIn("E - Energia (alimentadores das unidades) (origem: Centro de medição)", subtitulos)
+        self.assertIn("Esquema vertical", subtitulos)
+        energia = next(b for b in blocos if b[0] == "tabela" and b[2] and b[2][0][0] == "Térreo → 1º")
+        self.assertEqual(energia[2][0][2], "48")  # 12 unidades × 4 condutores
+        self.assertTrue(any(b[0] == "desenho" for b in blocos))
+
+
 if __name__ == "__main__":
     unittest.main()

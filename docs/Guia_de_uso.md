@@ -248,6 +248,17 @@ No relatório, a seção *Centro de medição* mostra a solução que está dese
 
 A **descentralizada** precisa de pelo menos 2 andares com unidades. Se todos caberiam num centro só (até 4 andares, o padrão de *Andares por centro*), eles são divididos em dois centros. Com *Andares por centro* = 0, ela fica de fora.
 
+### Prumadas verticais
+
+**Infraestrutura ▾ > Prumadas verticais** projeta as prumadas de energia, dados e telefonia, interfone e iluminação de emergência pelo shaft:
+
+1. Crie antes os pavimentos (e, se quiser, a planilha do centro de medição: as unidades de cada andar vêm dela).
+2. Clique no botão, marque os sistemas, confira a tabela de andares e as quantidades por unidade e veja a prévia de cada trecho.
+3. Confirme e clique na planta, no ponto do shaft. Cada pavimento recebe o símbolo das prumadas, e o esquema vertical fica ao lado.
+4. Para mudar, selecione as prumadas e clique de novo no botão: o 3D, os símbolos e o esquema são refeitos.
+
+O 3D mostra os eletrodutos e as caixas de passagem de cada andar; os materiais entram nos quantitativos e o relatório traz uma seção própria.
+
 O luminotécnico fica em **Iluminação ▾ > Luminotécnico** (com o retângulo do ambiente selecionado), e a resistência de terra em **Aterramento ▾ > Resistência de terra**. Os dois entram no memorial do relatório: o luminotécnico guarda o cálculo no retângulo do ambiente, e a resistência de terra, ao clicar em **Gravar no projeto**, na planilha *Cálculo de aterramento*.
 
 ## 11. Documentos e folhas finais
@@ -281,6 +292,7 @@ Para imprimir, use os botões de exportação do TechDraw com a folha aberta.
 | A medição descentralizada não aparece na lista | Precisa de 2 andares com unidades e *Andares por centro* maior que 0 (opções avançadas do Centro de medição). |
 | A coluna de medição é criada mas não aparece (FreeCAD 1.1) | Corrigido nesta versão: o 1.1 lê a cor das peças de outro jeito e a coluna ficava transparente. Atualize a bancada e reabra o projeto: a cor é refeita ao abrir. |
 | A coluna de medição se dividia em grupos de 4 caixas | Era a soma das unidades sem diversidade passando de 300 A. Agora cada agrupamento recebe até 30 caixas; informe a *Demanda total* do cálculo de demanda para o disjuntor geral e o ramal saírem certos. |
+| Onde informo a demanda das colunas de medição? | No formulário da coluna, logo abaixo de *Medidores*: **Demanda total (diversificada)**, ou a **demanda média por unidade**, que calcula a total. |
 | Não acho o centro de medição gerado | Ele fica na pasta *Busway e medição* do pavimento, sobre o símbolo de medição agrupada (ou na origem). Depois de gerar, os objetos ficam selecionados: use **Ver seleção**. |
 | O PDF não é gerado | Falta a biblioteca `reportlab`: aceite a instalação que o botão oferece. |
 
