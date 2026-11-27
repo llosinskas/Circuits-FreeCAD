@@ -109,6 +109,8 @@ class ColunaMedicao:
                     "Altura da caixa P [mm]; 0 usa 520 mm (Enel)", 0.0)
         propriedade("App::PropertyFloat", "FolgaConjuntos", layout,
                     "Espaço entre agrupamentos [mm]; 0 usa 100 mm", 0.0)
+        propriedade("App::PropertyBool", "ComSuporte", layout,
+                    "Desenha estrutura metálica de sustentação/pedestal até o piso", True)
 
         saida = "Dimensionamento"
         propriedade("App::PropertyString", "Solucao", saida, "Caixas escolhidas", "", True)
@@ -141,19 +143,26 @@ class ColunaMedicao:
             float(getattr(obj, "ProfundidadeCaixaP", 0.0) or 0.0),
             float(getattr(obj, "AlturaCaixaP", 0.0) or 0.0),
         )
+        posicao_cdpm = str(getattr(obj, "PosicaoCDPM", "Centro") or "Centro")
+        altura_base = float(getattr(obj, "AlturaBase", 0.0) or 0.0)
+        com_suporte = bool(getattr(obj, "ComSuporte", True))
         try:
             dados = self.dimensionar(obj)
             pecas = regras.pecas_do_centro(
                 dados,
-                posicao_cdpm=str(getattr(obj, "PosicaoCDPM", "Centro") or "Centro"),
-                altura_base_mm=float(getattr(obj, "AlturaBase", 0.0) or 0.0),
+                posicao_cdpm=posicao_cdpm,
+                altura_base_mm=altura_base,
                 caixa_p_mm=caixa_p if any(v > 0 for v in caixa_p) else None,
                 saida_eletroduto=str(getattr(obj, "SaidaEletroduto", "Fundo") or "Fundo"),
                 folga_conjuntos_mm=float(getattr(obj, "FolgaConjuntos", 0.0) or 0.0),
+                com_suporte=com_suporte,
             )
+            avisos_layout = regras.avisos_layout_enel(dados, pecas, posicao_cdpm=posicao_cdpm,
+                                                      altura_base_mm=altura_base)
         except ValueError as erro:
-            dados, pecas = {"modelo": None, "conjuntos": [], "corrente": 0.0, "disjuntor_unidade": None,
-                            "avisos": [str(erro)]}, []
+            dados, pecas, avisos_layout = {
+                "modelo": None, "conjuntos": [], "corrente": 0.0, "disjuntor_unidade": None, "avisos": [str(erro)],
+            }, [], []
         dims = regras.dimensoes_das_pecas(pecas)
         conjuntos = dados["conjuntos"]
         p = [c for c in conjuntos if c.get("modelo", "P") == "P"]
@@ -164,7 +173,7 @@ class ColunaMedicao:
         obj.Conjuntos = [_descricao(c) for c in conjuntos]
         obj.DisjuntorUnidade = int(dados["disjuntor_unidade"] or 0)
         obj.CorrenteTotal = round(float(dados["corrente"]), 1)
-        obj.Avisos = list(dados["avisos"])
+        obj.Avisos = list(dados["avisos"]) + avisos_layout
         obj.coluna_medicao = sum(c["caixas"] for c in p)
         obj.CDPMs = [c["cdpm"] for c in p]
         obj.CaixasMetalicas = [c["modelo"] for c in metalicas]
@@ -175,7 +184,7 @@ class ColunaMedicao:
         obj.LarguraTotal = dims["largura_mm"]
         obj.ProfundidadeTotal = dims["profundidade_mm"]
         obj.AlturaTotal = dims["altura_mm"]
-        obj.TiposDasPecas = [peca["tipo"] for peca in pecas]
+        obj.TiposDasPecas = [peca.get("cor_tipo", peca["tipo"]) for peca in pecas]
         posicao = obj.Placement
         obj.Shape = Part.makeCompound([_solido(peca) for peca in pecas]) if pecas else Part.Shape()
         obj.Placement = posicao

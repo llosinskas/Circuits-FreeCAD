@@ -1268,8 +1268,9 @@ def coluna_de_medicao(caixas, cdpm=None, por_coluna=MAX_VERTICAL, posicao_cdpm="
             "cdpm": cdpm}
 
 
-# Detalhes da coluna (Desenhos 23 a 26 e 55): medidas aproximadas [mm]
+# Detalhes da coluna (Desenhos 23 a 26 e 55, ABNT NBR 15820, CT-68/CT-72): medidas [mm]
 TAMPA_MM = 4.0  # tampa de policarbonato transparente
+PAREDE_CAIXA_MM = 10.0  # espessura da carcaça oca (para ver o interior pela tampa transparente)
 DIVISORIA = 0.62  # fração da altura da caixa P acima da divisória (medição em cima, proteção embaixo)
 MEDIDOR_MM = (130.0, 60.0, 190.0)  # largura, profundidade, altura
 DISJUNTOR_UNIDADE_MM = (36.0, 70.0, 90.0)  # bipolar DIN até 100 A
@@ -1280,22 +1281,114 @@ COMPRIMENTO_BARRA_MM = {"Coluna simples": 600.0, "Coluna dupla": 600.0, "Coluna 
 DIAMETRO_SAIDA_MM = 40.0  # eletroduto do ramal alimentador de cada unidade, pelo fundo da caixa
 DIAMETRO_ENTRADA_MM = 100.0  # eletroduto do ramal de entrada, por baixo da CDPM
 DPS_POR_CDPM = 4  # 3 fases e neutro
+ALTURA_MIN_BASE_ENEL_MM = 300.0
+ALTURA_MAX_TOPO_ENEL_MM = 1900.0
 
 # Tipo de peça -> (cor RGB, transparência %)
 CORES_DAS_PECAS = {
-    "corpo": ((0.82, 0.84, 0.86), 0), "tampa": ((0.75, 0.88, 1.0), 70), "cdpm": ((0.70, 0.71, 0.74), 0),
-    "medidor": ((0.25, 0.27, 0.30), 0), "disjuntor": ((0.12, 0.12, 0.12), 0), "barra": ((0.85, 0.5, 0.25), 0),
-    "dps": ((0.15, 0.35, 0.65), 0), "eletroduto": ((0.55, 0.55, 0.55), 0), "etiqueta": ((1.0, 1.0, 1.0), 0),
+    "corpo": ((0.82, 0.84, 0.86), 0),
+    "tampa": ((0.82, 0.92, 1.0), 70),
+    "janelinha": ((0.72, 0.86, 0.98), 55),
+    "cdpm": ((0.70, 0.72, 0.75), 0),
+    "medidor": ((0.24, 0.26, 0.29), 0),
+    "visor": ((0.62, 0.72, 0.64), 0),
+    "borne": ((0.18, 0.19, 0.21), 0),
+    "disjuntor": ((0.12, 0.12, 0.12), 0),
+    "alavanca": ((0.78, 0.14, 0.14), 0),
+    "barra": ((0.85, 0.5, 0.25), 0),
+    "barra_r": ((0.08, 0.24, 0.58), 0),   # Enel SP: Fase R azul escuro
+    "barra_s": ((0.95, 0.95, 0.95), 0),   # Enel SP: Fase S branco
+    "barra_t": ((0.48, 0.20, 0.64), 0),   # Enel SP: Fase T violeta
+    "barra_n": ((0.35, 0.68, 0.95), 0),   # Enel SP: Neutro azul claro
+    "barra_pe": ((0.12, 0.58, 0.22), 0),  # Equipotencialização PE verde
+    "isolador": ((0.68, 0.16, 0.14), 0),
+    "dps": ((0.15, 0.35, 0.65), 0),
+    "eletroduto": ((0.55, 0.55, 0.55), 0),
+    "suporte": ((0.45, 0.48, 0.52), 0),
+    "aviso": ((0.96, 0.80, 0.12), 0),
+    "etiqueta": ((1.0, 1.0, 1.0), 0),
 }
+COR_DA_FASE = {"R": "barra_r", "S": "barra_s", "T": "barra_t", "N": "barra_n", "PE": "barra_pe"}
 
 
-def _peca(pecas, tipo, rotulo, origem, dims):
-    pecas.append({"tipo": tipo, "rotulo": rotulo, "forma": "caixa", "origem": origem, "dims": dims})
+def _peca(pecas, tipo, rotulo, origem, dims, cor_tipo=None):
+    pecas.append({
+        "tipo": tipo,
+        "cor_tipo": cor_tipo or tipo,
+        "rotulo": rotulo,
+        "forma": "caixa",
+        "origem": origem,
+        "dims": dims,
+    })
+
+
+def _caixa_oca(pecas, tipo, rotulo, origem, dims, espessura=PAREDE_CAIXA_MM, prefixo_paredes=None):
+    """Invólucro oco (fundo, laterais, base e topo) sem sobreposição, aberto na frente (-y)."""
+    x, y, z = origem
+    dx, dy, dz = dims
+    esp = min(float(espessura), dx / 4.0, dy / 4.0, dz / 4.0)
+    if esp <= 0:
+        _peca(pecas, tipo, rotulo, origem, dims)
+        return
+    pref = prefixo_paredes or rotulo
+    _peca(pecas, tipo, rotulo, (x, y + dy - esp, z), (dx, esp, dz))
+    _peca(pecas, tipo, f"{pref} lateral esquerda", (x, y, z), (esp, dy - esp, dz))
+    _peca(pecas, tipo, f"{pref} lateral direita", (x + dx - esp, y, z), (esp, dy - esp, dz))
+    _peca(pecas, tipo, f"{pref} fundo inferior", (x + esp, y, z), (dx - 2 * esp, dy - esp, esp))
+    _peca(pecas, tipo, f"{pref} topo", (x + esp, y, z + dz - esp), (dx - 2 * esp, dy - esp, esp))
+
+
+def _medidor_eletronico(pecas, rotulo, meio_x, y_fundo, z_base, largura=None, prof=None, altura=None):
+    """Medidor eletrônico com placa de fundo, corpo, visor LCD e bloco de bornes inferior."""
+    mx = largura or MEDIDOR_MM[0]
+    my = prof or MEDIDOR_MM[1]
+    mz = altura or MEDIDOR_MM[2]
+    altura_bloco = min(22.0, mz * 0.14)
+    altura_corpo = mz - altura_bloco
+    _peca(pecas, "medidor", f"{rotulo} medidor", (meio_x - mx / 2.0, y_fundo - my, z_base + altura_bloco),
+          (mx, my, altura_corpo))
+    _peca(pecas, "visor", f"{rotulo} visor",
+          (meio_x - mx * 0.34, y_fundo - my - 2.0, z_base + altura_bloco + altura_corpo * 0.55),
+          (mx * 0.68, 2.0, altura_corpo * 0.28))
+    _peca(pecas, "borne", f"{rotulo} bornes",
+          (meio_x - mx * 0.42, y_fundo - my * 0.88, z_base),
+          (mx * 0.84, my * 0.88, altura_bloco))
+
+
+def _disjuntor_com_alavanca(pecas, rotulo, cx, y_fundo, z_base, dims, espessura_trilho=6.0):
+    """Disjuntor montado sobre trilho DIN com alavanca frontal vermelha."""
+    jx, jy, jz = dims
+    _peca(pecas, "borne", f"{rotulo} trilho",
+          (cx - jx * 0.75, y_fundo - espessura_trilho, z_base + jz * 0.3),
+          (jx * 1.5, espessura_trilho, jz * 0.4))
+    y_corpo = y_fundo - espessura_trilho - jy
+    _peca(pecas, "disjuntor", rotulo, (cx - jx / 2.0, y_corpo, z_base), (jx, jy, jz))
+    _peca(pecas, "alavanca", f"{rotulo} alavanca",
+          (cx - jx * 0.32, y_corpo - 8.0, z_base + jz * 0.42),
+          (jx * 0.64, 8.0, min(14.0, jz * 0.18)))
+
+
+def _suporte_estrutural(pecas, x_min, x_max, y_fundo, z_base, z_topo):
+    """Longarinas traseiras e montantes até o piso (pedestal/suporte de fixação Enel SP)."""
+    largura = x_max - x_min
+    if largura <= 0 or z_topo <= z_base:
+        return
+    y_trilho = y_fundo
+    if z_topo - z_base > 240.0:
+        for z_trilho, nome in ((z_base + 70.0, "Trilho suporte inferior"), (z_topo - 110.0, "Trilho suporte superior")):
+            _peca(pecas, "suporte", nome, (x_min, y_trilho, z_trilho), (largura, 25.0, 40.0))
+    z_col_topo = max(z_topo - 70.0, z_base + 60.0)
+    pos_x = [x_min + 20.0, x_max - 60.0]
+    if largura >= 1400.0:
+        pos_x.append((x_min + x_max) / 2.0 - 20.0)
+    for idx, px in enumerate(sorted(set(round(v, 1) for v in pos_x)), start=1):
+        _peca(pecas, "suporte", f"Montante suporte {idx}", (px, y_trilho + 25.0, 0.0), (40.0, 40.0, z_col_topo))
+        _peca(pecas, "suporte", f"Sapata suporte {idx}", (px - 40.0, y_trilho - 15.0, 0.0), (120.0, 120.0, 8.0))
 
 
 def _tubo(pecas, rotulo, centro, raio, comprimento, eixo):
-    pecas.append({"tipo": "eletroduto", "rotulo": rotulo, "forma": "cilindro", "origem": centro, "raio": raio,
-                  "comprimento": comprimento, "eixo": eixo})
+    pecas.append({"tipo": "eletroduto", "cor_tipo": "eletroduto", "rotulo": rotulo, "forma": "cilindro",
+                  "origem": centro, "raio": raio, "comprimento": comprimento, "eixo": eixo})
 
 
 def _tubo_saida(pecas, rotulo, x_tubo, y, dy, z, dz, z_inferior, saida_eletroduto):
@@ -1312,78 +1405,114 @@ def _tubo_saida(pecas, rotulo, x_tubo, y, dy, z, dz, z_inferior, saida_eletrodut
 
 
 def pecas_da_coluna(caixas, cdpm=None, por_coluna=MAX_VERTICAL, posicao_cdpm="Centro",
-                    altura_base_mm=0.0, caixa_p_mm=None, saida_eletroduto="Fundo"):
-    """Coluna detalhada: cada caixa P com corpo, tampa transparente, divisória, medidor, disjuntor,
-    etiqueta e eletroduto de saída (fundo, topo ou base); a CDPM com corpo, tampa, barramentos
-    R, S, T, N e PE, disjuntor geral, DPS e o eletroduto de entrada até o piso.
+                    altura_base_mm=0.0, caixa_p_mm=None, saida_eletroduto="Fundo", com_suporte=False):
+    """Coluna detalhada no padrão Enel SP / ABNT NBR 15820:
 
-    Mesma origem e orientação de ``coluna_de_medicao`` (frente em y = 0, fundo na parede, em +y).
-
-    Returns:
-        [{'tipo' (chave de ``CORES_DAS_PECAS``), 'rotulo', 'forma': 'caixa' com 'origem' e 'dims',
-          ou 'cilindro' com 'origem' (centro da base), 'raio', 'comprimento' e 'eixo'}] em mm.
+    Cada caixa P tem carcaça oca, tampa transparente, janelinha de acesso ao disjuntor,
+    divisória interna, medidor com visor LCD e bornes, disjuntor em trilho DIN com alavanca,
+    etiqueta e eletroduto de saída. A CDPM tem carcaça oca, tampa transparente, aviso de
+    segurança, barramentos R/S/T/N/PE nas cores da Enel sobre isoladores epóxi, disjuntor
+    geral com alavanca, 4 módulos DPS, flange e eletroduto de entrada até o piso.
     """
     geral = coluna_de_medicao(caixas, cdpm, por_coluna, posicao_cdpm=posicao_cdpm,
                               altura_base_mm=altura_base_mm, caixa_p_mm=caixa_p_mm)
     pecas = []
+    esp = PAREDE_CAIXA_MM
     for rotulo, (x, y, z), (dx, dy, dz) in geral["caixas"]:
-        _peca(pecas, "cdpm" if rotulo == "CDPM" else "corpo", rotulo, (x, y + TAMPA_MM, z), (dx, dy - TAMPA_MM, dz))
+        tipo_caixa = "cdpm" if rotulo == "CDPM" else "corpo"
+        _caixa_oca(pecas, tipo_caixa, rotulo, (x, y + TAMPA_MM, z), (dx, dy - TAMPA_MM, dz), espessura=esp)
         _peca(pecas, "tampa", f"{rotulo} tampa", (x, y, z), (dx, TAMPA_MM, dz))
         meio = x + dx / 2.0
+        y_fundo = y + dy - esp
         if rotulo == "CDPM":
             largura_barra, espessura = BARRA_CDPM[geral["cdpm"]]
-            comprimento = min(COMPRIMENTO_BARRA_MM[geral["cdpm"]], dz * 0.45)
-            topo = z + dz - 60.0
+            passo_b = min(largura_barra + 22.0, (dx - 2 * esp - 30.0) / 5.0)
+            comprimento = min(COMPRIMENTO_BARRA_MM[geral["cdpm"]], dz * 0.36)
+            topo = z + dz - esp - 35.0
+            base_barras = topo - comprimento
+            larg_isol = 4.2 * passo_b + largura_barra
+            for k, zi in enumerate((base_barras + 25.0, topo - 35.0), start=1):
+                _peca(pecas, "isolador", f"CDPM isolador {k}",
+                      (meio - larg_isol / 2.0, y_fundo - 28.0, zi),
+                      (larg_isol, 28.0, 22.0))
             for i, fase in enumerate(("R", "S", "T", "N", "PE")):
-                bx = meio - 2 * (largura_barra + 25.0) + i * (largura_barra + 25.0) - largura_barra / 2.0
-                _peca(pecas, "barra", f"Barra {fase}", (bx, y + dy - 40.0, topo - comprimento),
-                      (largura_barra, espessura, comprimento))
+                bx = meio - 2 * passo_b + i * passo_b - largura_barra / 2.0
+                _peca(pecas, "barra", f"Barra {fase}", (bx, y_fundo - 36.0, base_barras),
+                      (largura_barra, espessura, comprimento), cor_tipo=COR_DA_FASE[fase])
+            if dz >= 800.0:
+                _peca(pecas, "cdpm", "CDPM divisória", (x + esp, y + TAMPA_MM + 8.0, base_barras - 20.0),
+                      (dx - 2 * esp, dy - TAMPA_MM - esp - 8.0, 3.0))
             lx, ly, lz = DISJUNTOR_GERAL_MM
-            base_disjuntor = z + dz * 0.25
-            _peca(pecas, "disjuntor", "Disjuntor geral", (meio - lx / 2.0, y + dy - 15.0 - ly, base_disjuntor),
-                  (lx, ly, lz))
+            lx = min(lx, dx - 2 * esp - 24.0)
+            lz = min(lz, dz * 0.24)
+            ly = min(ly, dy - TAMPA_MM - esp - 22.0)
+            base_disjuntor = max(z + esp + 110.0, z + dz * 0.23) if dz >= 600.0 else z + esp + 65.0
+            _disjuntor_com_alavanca(pecas, "Disjuntor geral", meio, y_fundo, base_disjuntor, (lx, ly, lz))
             px, py, pz = DPS_MM
+            pz = min(pz, max(40.0, base_disjuntor - z - esp - 15.0))
             inicio = meio - DPS_POR_CDPM * px / 2.0
+            _peca(pecas, "borne", "CDPM trilho DPS",
+                  (inicio - 10.0, y_fundo - 6.0, z + esp + 18.0 + pz * 0.3),
+                  (DPS_POR_CDPM * px + 20.0, 6.0, min(30.0, pz * 0.4)))
             for i in range(DPS_POR_CDPM):
-                _peca(pecas, "dps", f"DPS {i + 1}", (inicio + i * px, y + dy - 15.0 - py, z + 60.0), (px, py, pz))
+                _peca(pecas, "dps", f"DPS {i + 1}", (inicio + i * px, y_fundo - 6.0 - py, z + esp + 18.0),
+                      (px, py, pz))
+            _peca(pecas, "borne", "CDPM flange entrada", (meio - 55.0, y + dy / 2.0 - 55.0, z + esp),
+                  (110.0, 110.0, 6.0))
+            _peca(pecas, "etiqueta", "CDPM aviso", (meio - 55.0, y - 1.0, z + dz - 45.0),
+                  (110.0, 1.0, 28.0), cor_tipo="aviso")
             if z > 0:
                 _tubo(pecas, "Eletroduto de entrada", (meio, y + dy / 2.0, 0.0), DIAMETRO_ENTRADA_MM / 2.0, z,
                       (0.0, 0.0, 1.0))
             continue
         divisoria = z + dz * (1 - DIVISORIA)
-        _peca(pecas, "corpo", f"{rotulo} divisória", (x + 5.0, y + TAMPA_MM, divisoria), (dx - 10.0, dy - 20.0, 3.0))
-        mx, my, mz = MEDIDOR_MM
-        _peca(pecas, "medidor", f"{rotulo} medidor", (meio - mx / 2.0, y + dy - 15.0 - my,
-                                                      divisoria + (z + dz - divisoria - mz) / 2.0), (mx, my, mz))
+        _peca(pecas, "corpo", f"{rotulo} divisória", (x + esp, y + TAMPA_MM + 6.0, divisoria),
+              (dx - 2 * esp, dy - TAMPA_MM - esp - 6.0, 3.0))
+        altura_sup = z + dz - esp - (divisoria + 3.0)
+        mz = min(MEDIDOR_MM[2], max(80.0, altura_sup - 36.0))
+        mx = min(MEDIDOR_MM[0], dx - 2 * esp - 20.0)
+        my = min(MEDIDOR_MM[1], dy - TAMPA_MM - esp - 20.0)
+        z_med = divisoria + 3.0 + max(10.0, (altura_sup - mz) / 2.0)
+        _peca(pecas, "borne", f"{rotulo} suporte medidor",
+              (meio - mx * 0.55, y_fundo - 5.0, z_med + 10.0), (mx * 1.1, 5.0, mz * 0.85))
+        _medidor_eletronico(pecas, rotulo, meio, y_fundo - 5.0, z_med, mx, my, mz)
+
         jx, jy, jz = DISJUNTOR_UNIDADE_MM
-        _peca(pecas, "disjuntor", f"{rotulo} disjuntor", (meio - jx / 2.0, y + dy - 15.0 - jy,
-                                                          z + (divisoria - z - jz) / 2.0), (jx, jy, jz))
-        _peca(pecas, "etiqueta", f"{rotulo} identificação", (meio - 40.0, y - 1.0, z + dz - 45.0), (80.0, 1.0, 30.0))
+        jz = min(jz, max(45.0, divisoria - z - esp - 20.0))
+        jy = min(jy, dy - TAMPA_MM - esp - 20.0)
+        z_disj = z + esp + max(8.0, (divisoria - z - esp - jz) / 2.0)
+        _disjuntor_com_alavanca(pecas, f"{rotulo} disjuntor", meio, y_fundo, z_disj, (jx, jy, jz))
+        if divisoria - z - esp > 30.0:
+            _peca(pecas, "janelinha", f"{rotulo} janelinha",
+                  (x + 22.0, y + TAMPA_MM + 1.0, z + esp + 12.0),
+                  (max(20.0, dx - 44.0), 3.0, divisoria - z - esp - 24.0))
+        _peca(pecas, "etiqueta", f"{rotulo} identificação", (meio - 40.0, y - 1.0, z + dz - 45.0), (80.0, 1.0, 28.0))
         _tubo_saida(pecas, f"{rotulo} eletroduto", x + dx * 0.3, y, dy, z, dz,
                     z + (divisoria - z) / 2.0, saida_eletroduto)
+
+    if com_suporte and geral["caixas"]:
+        xs = [p[1][0] for p in geral["caixas"]] + [p[1][0] + p[2][0] for p in geral["caixas"]]
+        ys = [p[1][1] + p[2][1] for p in geral["caixas"]]
+        zs = [p[1][2] for p in geral["caixas"]] + [p[1][2] + p[2][2] for p in geral["caixas"]]
+        _suporte_estrutural(pecas, min(xs), max(xs), max(ys), min(zs), max(zs))
     return pecas
 
 
-def pecas_da_caixa_metalica(modelo, medicoes=None, altura_base_mm=0.0):
-    """Caixa coletiva metálica detalhada (Desenhos 24 a 29), com a frente em y = 0 e o meio em x = 0.
-
-    Corpo de aço, porta com visores de policarbonato, um medidor por posição ocupada
-    (colunas × linhas do modelo), a CDPI com os disjuntores das unidades em cima e a
-    caixa de barramentos (R, S, T, N) embaixo, com o eletroduto de entrada até o piso;
-    na caixa O, a CDPI e os barramentos são compartimentos da própria caixa.
-    """
+def pecas_da_caixa_metalica(modelo, medicoes=None, altura_base_mm=0.0, com_suporte=False):
+    """Caixa coletiva metálica detalhada (Desenhos 24 a 29), com a frente em y = 0 e o meio em x = 0."""
     quantidade, largura, altura, colunas, linhas, base = CAIXAS_METALICAS[modelo]
     if altura_base_mm and float(altura_base_mm) > 0:
         base = float(altura_base_mm)
     medicoes = quantidade if medicoes is None else min(int(medicoes), quantidade)
     prof = PROFUNDIDADE_METALICA_MM
+    esp = PAREDE_CAIXA_MM
     pecas = []
     x0 = -largura / 2.0
     interna = modelo == "O"
     z_medicao, h_medicao = base, altura
     if interna:  # O: barramentos embaixo (500 mm) e CDPI em cima (325 mm)
         z_medicao, h_medicao = base + 500.0, altura - 500.0 - 325.0
-    _peca(pecas, "corpo", f"Caixa {modelo}", (x0, TAMPA_MM, base), (largura, prof - TAMPA_MM, altura))
+    _caixa_oca(pecas, "corpo", f"Caixa {modelo}", (x0, TAMPA_MM, base), (largura, prof - TAMPA_MM, altura), espessura=esp)
     _peca(pecas, "tampa", f"Caixa {modelo} porta", (x0, 0.0, base), (largura, TAMPA_MM, altura))
     passo_x, passo_z = largura / colunas, h_medicao / linhas
     mx, my, mz = MEDIDOR_MM
@@ -1391,56 +1520,59 @@ def pecas_da_caixa_metalica(modelo, medicoes=None, altura_base_mm=0.0):
         coluna, linha = i % colunas, i // colunas
         cx = x0 + passo_x * (coluna + 0.5)
         cz = z_medicao + h_medicao - passo_z * (linha + 0.5)
-        _peca(pecas, "medidor", f"Caixa {modelo} medidor {i + 1}", (cx - mx / 2.0, prof - 30.0 - my, cz - mz / 2.0),
-              (mx, my, mz))
+        _medidor_eletronico(pecas, f"Caixa {modelo} {i + 1}", cx, prof - esp - 10.0, cz - mz / 2.0, mx, my, mz)
+        # Mantém rótulo 'Caixa {modelo} medidor {i+1}' compatível com os testes de contagem
+        for p in reversed(pecas):
+            if p["tipo"] == "medidor":
+                p["rotulo"] = f"Caixa {modelo} medidor {i + 1}"
+                break
         _peca(pecas, "etiqueta", f"Caixa {modelo} identificação {i + 1}", (cx - 40.0, -1.0, cz + mz / 2.0 + 10.0),
               (80.0, 1.0, 25.0))
     # CDPI (disjuntores das unidades)
     z_cdpi = base + altura - 325.0 if interna else base + altura
+    h_cdpi = 325.0 if interna else ALTURA_CDPI_MM
     if not interna:
-        _peca(pecas, "corpo", f"CDPI {modelo}", (x0, TAMPA_MM, z_cdpi), (largura, prof - TAMPA_MM, ALTURA_CDPI_MM))
-        _peca(pecas, "tampa", f"CDPI {modelo} porta", (x0, 0.0, z_cdpi), (largura, TAMPA_MM, ALTURA_CDPI_MM))
+        _caixa_oca(pecas, "corpo", f"CDPI {modelo}", (x0, TAMPA_MM, z_cdpi), (largura, prof - TAMPA_MM, h_cdpi), espessura=esp)
+        _peca(pecas, "tampa", f"CDPI {modelo} porta", (x0, 0.0, z_cdpi), (largura, TAMPA_MM, h_cdpi))
     jx, jy, jz = DISJUNTOR_UNIDADE_MM
     passo = min(largura / max(1, medicoes), jx + 20.0)
     inicio = -passo * medicoes / 2.0
     for i in range(medicoes):
-        _peca(pecas, "disjuntor", f"CDPI {modelo} disjuntor {i + 1}",
-              (inicio + i * passo + (passo - jx) / 2.0, prof - 15.0 - jy, z_cdpi + 80.0), (jx, jy, jz))
-        _tubo(pecas, f"CDPI {modelo} eletroduto {i + 1}", (inicio + (i + 0.5) * passo, prof / 2.0,
-                                                           z_cdpi + (325.0 if interna else ALTURA_CDPI_MM)),
+        _disjuntor_com_alavanca(
+            pecas, f"CDPI {modelo} disjuntor {i + 1}",
+            inicio + (i + 0.5) * passo, prof - esp - 5.0, z_cdpi + 80.0, (jx, jy, jz),
+        )
+        _tubo(pecas, f"CDPI {modelo} eletroduto {i + 1}", (inicio + (i + 0.5) * passo, prof / 2.0, z_cdpi + h_cdpi),
               DIAMETRO_SAIDA_MM / 2.0 * 0.8, 150.0, (0.0, 0.0, 1.0))
     # barramentos
     z_barra = base if interna else base - ALTURA_CAIXA_BARRAMENTOS_MM
     h_barra = 500.0 if interna else ALTURA_CAIXA_BARRAMENTOS_MM
     if not interna:
-        _peca(pecas, "cdpm", f"Barramentos {modelo}", (x0, TAMPA_MM, z_barra), (largura, prof - TAMPA_MM, h_barra))
+        _caixa_oca(pecas, "cdpm", f"Barramentos {modelo}", (x0, TAMPA_MM, z_barra),
+                   (largura, prof - TAMPA_MM, h_barra), espessura=esp)
         _peca(pecas, "tampa", f"Barramentos {modelo} tampa", (x0, 0.0, z_barra), (largura, TAMPA_MM, h_barra))
     for j, fase in enumerate(("R", "S", "T", "N")):  # de cima para baixo (7.19.4)
         _peca(pecas, "barra", f"Barra {fase} {modelo}",
               (x0 + 60.0, prof - 60.0, z_barra + h_barra - 60.0 - j * (h_barra - 80.0) / 4.0),
-              (largura - 120.0, 5.0, 25.0))
+              (largura - 120.0, 5.0, 25.0), cor_tipo=COR_DA_FASE[fase])
     if z_barra > 0:
         _tubo(pecas, f"Eletroduto de entrada {modelo}", (0.0, prof / 2.0, 0.0), DIAMETRO_ENTRADA_MM / 2.0, z_barra,
               (0.0, 0.0, 1.0))
+    if com_suporte:
+        _suporte_estrutural(pecas, x0, x0 + largura, prof, z_barra, z_cdpi + h_cdpi)
     return pecas
 
 
 def _medidor_e_disjuntor(pecas, rotulo, meio, prof, z_medidor, z_disjuntor):
     mx, my, mz = MEDIDOR_MM
-    _peca(pecas, "medidor", f"{rotulo} medidor", (meio - mx / 2.0, prof - 15.0 - my, z_medidor - mz / 2.0), (mx, my, mz))
+    _medidor_eletronico(pecas, rotulo, meio, prof - PAREDE_CAIXA_MM - 5.0, z_medidor - mz / 2.0, mx, my, mz)
     jx, jy, jz = DISJUNTOR_UNIDADE_MM
-    _peca(pecas, "disjuntor", f"{rotulo} disjuntor", (meio - jx * 1.5, prof - 15.0 - jy, z_disjuntor - jz / 2.0),
-          (jx * 1.5, jy, jz))
+    _disjuntor_com_alavanca(pecas, f"{rotulo} disjuntor", meio - jx * 0.75, prof - PAREDE_CAIXA_MM - 5.0,
+                            z_disjuntor - jz / 2.0, (jx * 1.5, jy, jz))
 
 
-def pecas_do_grupo_e(caixas, posicao_cdpm="Centro", altura_base_mm=0.0, saida_eletroduto="Base"):
-    """Caixas E (Desenho 22) lado a lado, com a CDPM de 300 × 500 mm (centro, esquerda ou direita)
-    quando são duas ou mais.
-
-    Cada caixa: corpo, porta transparente, medidor no compartimento de cima (390 mm), disjuntor
-    tripolar e DPS no de baixo, identificação e eletroduto de saída. A CDPM: barras R, S,
-    T, N, disjuntor geral, DPS e o eletroduto de entrada até o piso. Frente em y = 0, meio em x = 0.
-    """
+def pecas_do_grupo_e(caixas, posicao_cdpm="Centro", altura_base_mm=0.0, saida_eletroduto="Base", com_suporte=False):
+    """Caixas E (Desenho 22) lado a lado, com a CDPM de 300 × 500 mm (centro, esquerda ou direita)."""
     posicao_cdpm = posicao_cdpm or "Centro"
     if posicao_cdpm not in POSICOES_CDPM:
         raise ValueError(f"Posição da CDPM inválida: {posicao_cdpm}. Use {', '.join(POSICOES_CDPM)}.")
@@ -1451,6 +1583,7 @@ def pecas_do_grupo_e(caixas, posicao_cdpm="Centro", altura_base_mm=0.0, saida_el
     esquerda = math.ceil(caixas / 2) if com_cdpm else caixas
     largura_total = caixas * largura + lc
     x0_total = -largura_total / 2.0
+    esp = PAREDE_CAIXA_MM
     pecas = []
     for i in range(caixas):
         if posicao_cdpm == "Centro":
@@ -1463,15 +1596,16 @@ def pecas_do_grupo_e(caixas, posicao_cdpm="Centro", altura_base_mm=0.0, saida_el
         else:
             x = x0_total + i * largura
         rotulo = f"E{i + 1:02d}"
-        _peca(pecas, "corpo", rotulo, (x, TAMPA_MM, base), (largura, prof - TAMPA_MM, altura))
+        _caixa_oca(pecas, "corpo", rotulo, (x, TAMPA_MM, base), (largura, prof - TAMPA_MM, altura), espessura=esp)
         _peca(pecas, "tampa", f"{rotulo} porta", (x, 0.0, base), (largura, TAMPA_MM, altura))
         divisoria = base + altura - COMPARTIMENTO_MEDIDOR_E_MM
-        _peca(pecas, "corpo", f"{rotulo} divisória", (x + 5.0, TAMPA_MM, divisoria), (largura - 10.0, prof - 20.0, 3.0))
+        _peca(pecas, "corpo", f"{rotulo} divisória", (x + esp, TAMPA_MM + 6.0, divisoria),
+              (largura - 2 * esp, prof - TAMPA_MM - esp - 6.0, 3.0))
         meio = x + largura / 2.0
         _medidor_e_disjuntor(pecas, rotulo, meio, prof, divisoria + COMPARTIMENTO_MEDIDOR_E_MM / 2.0,
                              base + (divisoria - base) / 2.0)
         px, py, pz = DPS_MM
-        _peca(pecas, "dps", f"{rotulo} DPS", (meio + 20.0, prof - 15.0 - py, base + 40.0), (px * 3, py, pz))
+        _peca(pecas, "dps", f"{rotulo} DPS", (meio + 25.0, prof - esp - 5.0 - py, base + 40.0), (px * 3, py, pz))
         _peca(pecas, "etiqueta", f"{rotulo} identificação", (meio - 40.0, -1.0, base + altura - 40.0),
               (80.0, 1.0, 25.0))
         _tubo_saida(pecas, f"{rotulo} eletroduto", meio - 80.0, 0.0, prof, base, altura,
@@ -1485,31 +1619,28 @@ def pecas_do_grupo_e(caixas, posicao_cdpm="Centro", altura_base_mm=0.0, saida_el
         else:
             x_cdpm = x0_total + caixas * largura
         z = base + altura - hc
-        _peca(pecas, "cdpm", "CDPM", (x_cdpm, TAMPA_MM, z), (lc, pc - TAMPA_MM, hc))
+        _caixa_oca(pecas, "cdpm", "CDPM", (x_cdpm, TAMPA_MM, z), (lc, pc - TAMPA_MM, hc), espessura=esp)
         _peca(pecas, "tampa", "CDPM tampa", (x_cdpm, 0.0, z), (lc, TAMPA_MM, hc))
         for j, fase in enumerate(("R", "S", "T", "N")):
             _peca(pecas, "barra", f"Barra {fase}", (x_cdpm + 40.0 + j * 50.0, pc - 40.0, z + hc - 220.0),
-                  (15.0, 3.0, 200.0))
+                  (15.0, 5.0, 200.0), cor_tipo=COR_DA_FASE[fase])
         lx, ly, lz = DISJUNTOR_GERAL_MM
-        _peca(pecas, "disjuntor", "Disjuntor geral", (x_cdpm + lc / 2.0 - lx / 2.0, pc - 15.0 - ly, z + 60.0),
-              (lx, ly, lz * 0.8))
+        _disjuntor_com_alavanca(pecas, "Disjuntor geral", x_cdpm + lc / 2.0, pc - esp - 5.0, z + 60.0,
+                                (lx, ly, lz * 0.8))
         if z > 0:
             _tubo(pecas, "Eletroduto de entrada", (x_cdpm + lc / 2.0, pc / 2.0, 0.0),
                   DIAMETRO_ENTRADA_MM / 2.0 * 0.6, z, (0.0, 0.0, 1.0))
+    if com_suporte:
+        _suporte_estrutural(pecas, x0_total, x0_total + largura_total, prof, base, base + altura)
     return pecas
 
 
-def pecas_da_indireta(modelo, altura_base_mm=0.0):
-    """Conjunto de medição indireta (7.17.2), frente em y = 0 e meio em x = 0.
-
-    IND300 (8.34): três módulos de policarbonato embaixo (chave seccionadora, caixa dos TCs e
-    proteção geral) e o do meio em cima (medidor e bloco de aferição). IND600 (caixa M): uma caixa
-    com a chave seca, os três TCs, a proteção geral, o medidor e o bloco. Mais os eletrodutos de
-    entrada (até o piso) e de saída (para cima).
-    """
+def pecas_da_indireta(modelo, altura_base_mm=0.0, com_suporte=False):
+    """Conjunto de medição indireta (7.17.2), frente em y = 0 e meio em x = 0."""
     _, _, largura, altura, prof, base = INDIRETAS[modelo]
     if altura_base_mm and float(altura_base_mm) > 0:
         base = float(altura_base_mm)
+    esp = PAREDE_CAIXA_MM
     pecas = []
     mx, my, mz = MEDIDOR_MM
     if modelo == "IND300":
@@ -1519,15 +1650,23 @@ def pecas_da_indireta(modelo, altura_base_mm=0.0):
         modulos = [("Módulo da chave", x, l1, base), ("Módulo dos TCs", x + l1, l2, base),
                    ("Módulo da proteção", x + l1 + l2, l3, base), ("Módulo do medidor", x + l1, l2, base + h)]
         for rotulo, mx0, ml, mz0 in modulos:
-            _peca(pecas, "corpo", rotulo, (mx0, TAMPA_MM, mz0), (ml, prof - TAMPA_MM, h))
+            _caixa_oca(pecas, "corpo", rotulo, (mx0, TAMPA_MM, mz0), (ml, prof - TAMPA_MM, h),
+                       espessura=esp, prefixo_paredes=f"Carcaça {rotulo}")
             _peca(pecas, "tampa", f"{rotulo} tampa", (mx0, 0.0, mz0), (ml, TAMPA_MM, h))
-        _peca(pecas, "disjuntor", "Chave seccionadora sob carga", (x + l1 / 2.0 - 75.0, prof - 140.0, base + 150.0),
-              (150.0, 120.0, 260.0))
-        _peca(pecas, "barra", "Caixa dos TCs", (x + l1 + l2 / 2.0 - 110.0, prof - 140.0, base + 70.0),
+        _disjuntor_com_alavanca(pecas, "Chave seccionadora sob carga", x + l1 / 2.0, prof - esp - 10.0,
+                                base + 150.0, (150.0, 120.0, 260.0))
+        _peca(pecas, "isolador", "Caixa dos TCs", (x + l1 + l2 / 2.0 - 110.0, prof - 140.0, base + 70.0),
               (220.0, 120.0, 420.0))
-        _peca(pecas, "disjuntor", "Proteção geral", (x + l1 + l2 + l3 / 2.0 - 70.0, prof - 140.0, base + 160.0),
-              (140.0, 120.0, 240.0))
-        _peca(pecas, "medidor", "Medidor", (-mx / 2.0 + 120.0, prof - 15.0 - my, base + h + 300.0), (mx, my, mz))
+        for j, fase in enumerate(("R", "S", "T")):
+            _peca(pecas, "barra", f"TC {fase}", (x + l1 + 110.0 + j * 130.0, prof - 150.0, base + 210.0),
+                  (80.0, 90.0, 120.0), cor_tipo=COR_DA_FASE[fase])
+        _disjuntor_com_alavanca(pecas, "Proteção geral", x + l1 + l2 + l3 / 2.0, prof - esp - 10.0,
+                                base + 160.0, (140.0, 120.0, 240.0))
+        _medidor_eletronico(pecas, "Medidor", 120.0, prof - esp - 10.0, base + h + 280.0, mx, my, mz)
+        for p in reversed(pecas):
+            if p["tipo"] == "medidor":
+                p["rotulo"] = "Medidor"
+                break
         _peca(pecas, "dps", "Bloco de aferição", (-mx / 2.0 - 120.0, prof - 55.0, base + h + 140.0),
               (190.0, 40.0, 70.0))
         if base > 0:
@@ -1537,16 +1676,20 @@ def pecas_da_indireta(modelo, altura_base_mm=0.0):
               300.0, (0.0, 0.0, 1.0))
     else:
         x = -largura / 2.0
-        _peca(pecas, "corpo", "Caixa M", (x, TAMPA_MM, base), (largura, prof - TAMPA_MM, altura))
+        _caixa_oca(pecas, "corpo", "Caixa M", (x, TAMPA_MM, base), (largura, prof - TAMPA_MM, altura), espessura=esp)
         _peca(pecas, "tampa", "Caixa M porta", (x, 0.0, base), (largura, TAMPA_MM, altura))
-        _peca(pecas, "disjuntor", "Chave seca", (x + 80.0, prof - 140.0, base + 120.0), (200.0, 120.0, 320.0))
+        _disjuntor_com_alavanca(pecas, "Chave seca", x + 180.0, prof - esp - 10.0, base + 120.0, (200.0, 120.0, 320.0))
         for j in range(3):
-            _peca(pecas, "barra", f"TC {('R', 'S', 'T')[j]}", (x + 380.0 + j * 140.0, prof - 120.0, base + 200.0),
-                  (100.0, 100.0, 140.0))
-        _peca(pecas, "disjuntor", "Proteção geral", (x + largura - 320.0, prof - 150.0, base + 120.0),
-              (220.0, 130.0, 340.0))
-        _peca(pecas, "medidor", "Medidor", (x + largura / 2.0 - mx / 2.0, prof - 15.0 - my, base + altura - mz - 80.0),
-              (mx, my, mz))
+            fase = ("R", "S", "T")[j]
+            _peca(pecas, "barra", f"TC {fase}", (x + 380.0 + j * 140.0, prof - 120.0, base + 200.0),
+                  (100.0, 100.0, 140.0), cor_tipo=COR_DA_FASE[fase])
+        _disjuntor_com_alavanca(pecas, "Proteção geral", x + largura - 210.0, prof - esp - 10.0, base + 120.0,
+                                (220.0, 130.0, 340.0))
+        _medidor_eletronico(pecas, "Medidor", x + largura / 2.0, prof - esp - 10.0, base + altura - mz - 80.0, mx, my, mz)
+        for p in reversed(pecas):
+            if p["tipo"] == "medidor":
+                p["rotulo"] = "Medidor"
+                break
         _peca(pecas, "dps", "Bloco de aferição", (x + largura / 2.0 + 120.0, prof - 55.0, base + altura - 200.0),
               (190.0, 40.0, 70.0))
         if base > 0:
@@ -1556,11 +1699,13 @@ def pecas_da_indireta(modelo, altura_base_mm=0.0):
         _tubo(pecas, "Eletroduto de saída", (x + largura - 210.0, prof / 2.0, base + altura),
               DIAMETRO_ENTRADA_MM / 2.0, 300.0, (0.0, 0.0, 1.0))
     _peca(pecas, "etiqueta", "Identificação", (-40.0, -1.0, base + altura - 40.0), (80.0, 1.0, 25.0))
+    if com_suporte:
+        _suporte_estrutural(pecas, -largura / 2.0, largura / 2.0, prof, base, base + altura)
     return pecas
 
 
 def pecas_do_centro(dimensionamento, posicao_cdpm="Centro", altura_base_mm=0.0, caixa_p_mm=None,
-                    saida_eletroduto=None, folga_conjuntos_mm=None):
+                    saida_eletroduto=None, folga_conjuntos_mm=None, com_suporte=False):
     """Todas as peças dos conjuntos de ``dimensionar_colunas``, lado a lado e centrados em x = 0."""
     conjuntos = dimensionamento["conjuntos"]
     if not conjuntos:
@@ -1575,16 +1720,18 @@ def pecas_do_centro(dimensionamento, posicao_cdpm="Centro", altura_base_mm=0.0, 
                 c["caixas"], c["cdpm"], por_coluna,
                 posicao_cdpm=posicao_cdpm, altura_base_mm=altura_base_mm,
                 caixa_p_mm=caixa_p_mm, saida_eletroduto=saida_eletroduto or "Fundo",
+                com_suporte=com_suporte,
             )
         elif modelo == "E":
             pecas = pecas_do_grupo_e(
                 c["medicoes"], posicao_cdpm=posicao_cdpm,
                 altura_base_mm=altura_base_mm, saida_eletroduto=saida_eletroduto or "Base",
+                com_suporte=com_suporte,
             )
         elif modelo in INDIRETAS:
-            pecas = pecas_da_indireta(modelo, altura_base_mm=altura_base_mm)
+            pecas = pecas_da_indireta(modelo, altura_base_mm=altura_base_mm, com_suporte=com_suporte)
         else:
-            pecas = pecas_da_caixa_metalica(modelo, c["medicoes"], altura_base_mm=altura_base_mm)
+            pecas = pecas_da_caixa_metalica(modelo, c["medicoes"], altura_base_mm=altura_base_mm, com_suporte=com_suporte)
         xs = [p["origem"][0] for p in pecas if p["forma"] == "caixa"] + \
              [p["origem"][0] + p["dims"][0] for p in pecas if p["forma"] == "caixa"]
         blocos.append((pecas, min(xs), max(xs) - min(xs)))
@@ -1605,7 +1752,7 @@ def pecas_do_centro(dimensionamento, posicao_cdpm="Centro", altura_base_mm=0.0, 
 
 def dimensoes_das_pecas(pecas):
     """Dimensões globais [mm] do envoltório das caixas: largura, profundidade, altura, base e topo."""
-    caixas = [p for p in pecas if p.get("forma") == "caixa" and p.get("tipo") != "etiqueta"]
+    caixas = [p for p in pecas if p.get("forma") == "caixa" and p.get("tipo") not in ("etiqueta", "suporte")]
     if not caixas:
         return {"largura_mm": 0.0, "profundidade_mm": 0.0, "altura_mm": 0.0, "base_mm": 0.0, "topo_mm": 0.0}
     xs = [p["origem"][0] for p in caixas] + [p["origem"][0] + p["dims"][0] for p in caixas]
@@ -1622,7 +1769,31 @@ def dimensoes_das_pecas(pecas):
     }
 
 
-def resumo_coluna(dimensionamento, pecas=None):
+def avisos_layout_enel(dimensionamento, pecas, posicao_cdpm="Centro", altura_base_mm=0.0):
+    """Verifica restrições ergonômicas e de montagem da Enel SP (0018 v2 / Tabela 29)."""
+    if not pecas or not dimensionamento.get("conjuntos"):
+        return []
+    avisos = []
+    dims = dimensoes_das_pecas(pecas)
+    if 0.0 < dims["base_mm"] < ALTURA_MIN_BASE_ENEL_MM:
+        avisos.append(f"Enel SP (Tabela 29): altura da base ({dims['base_mm']:g} mm) abaixo do mínimo de "
+                      f"{ALTURA_MIN_BASE_ENEL_MM:g} mm do piso acabado")
+    modelo = dimensionamento.get("modelo")
+    if modelo == "P" and dims["topo_mm"] > ALTURA_MAX_TOPO_ENEL_MM:
+        avisos.append(f"Enel SP (Tabela 29): topo das caixas P em {dims['topo_mm']:g} mm passa dos "
+                      f"{ALTURA_MAX_TOPO_ENEL_MM:g} mm ergonômicos")
+    if modelo == "P" and posicao_cdpm in ("Esquerda", "Direita"):
+        por_coluna = max(1, int(dimensionamento.get("por_coluna", MAX_VERTICAL)))
+        for c in dimensionamento["conjuntos"]:
+            colunas = math.ceil(c["caixas"] / por_coluna)
+            if colunas > MAX_COLUNAS_POR_LADO:
+                avisos.append(f"Enel SP: CDPM na {posicao_cdpm.lower()} deixa {colunas} colunas de um único lado "
+                              f"(máximo recomendado {MAX_COLUNAS_POR_LADO} por lado)")
+                break
+    return avisos
+
+
+def resumo_coluna(dimensionamento, pecas=None, avisos_extras=()):
     """Resumo textual do dimensionamento e das dimensões globais para prévia no diálogo."""
     solucoes = {
         "P": "Caixas P em agrupamento modular",
@@ -1660,7 +1831,7 @@ def resumo_coluna(dimensionamento, pecas=None):
                     f"  {i}. {nome} · {_br(c['corrente'])} A · geral {c['disjuntor_geral']} A · "
                     f"barra {c['barramento']} · ramal {c['ramal']} mm²"
                 )
-    avisos = dimensionamento.get("avisos") or []
+    avisos = list(dimensionamento.get("avisos") or []) + list(avisos_extras or ())
     if avisos:
         linhas.append("")
         linhas.append("Avisos:")

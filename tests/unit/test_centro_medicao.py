@@ -285,7 +285,7 @@ class TestDimensionarColunas(unittest.TestCase):
         pecas = c.pecas_do_grupo_e(3)
         caixas = [p for p in pecas if p["tipo"] == "corpo" and p["rotulo"] in ("E01", "E02", "E03")]
         self.assertEqual(len(caixas), 3)
-        self.assertTrue(all(p["dims"] == (350.0, 250.0 - c.TAMPA_MM, 560.0) for p in caixas))
+        self.assertTrue(all(p["dims"] == (350.0, c.PAREDE_CAIXA_MM, 560.0) for p in caixas))
         self.assertEqual(sum(1 for p in pecas if p["tipo"] == "medidor"), 3)
         self.assertTrue(any(p["rotulo"] == "CDPM" for p in pecas))
         self.assertFalse(any(p["rotulo"] == "CDPM" for p in c.pecas_do_grupo_e(1)))
@@ -407,6 +407,27 @@ class TestDimensionarColunas(unittest.TestCase):
         self.assertAlmostEqual(dims["profundidade_mm"], c.CAIXA_P_MM[1])
         texto = c.resumo_coluna(c.dimensionar_colunas(12, 63.0, 2))
         self.assertIn("Dimensões totais:", texto)
+
+    def test_construcao_enel_oca_cores_suporte_e_validacao(self):
+        pecas = c.pecas_da_coluna(12, "Coluna simples", com_suporte=True)
+        tipos = {p["tipo"] for p in pecas}
+        for esperado in ("visor", "janelinha", "isolador", "alavanca", "borne", "suporte"):
+            self.assertIn(esperado, tipos)
+        cores_barras = [p["cor_tipo"] for p in pecas if p["tipo"] == "barra"]
+        self.assertEqual(cores_barras, ["barra_r", "barra_s", "barra_t", "barra_n", "barra_pe"])
+        self.assertEqual(sum(1 for p in pecas if p["rotulo"].startswith("M01") and p["tipo"] == "corpo"
+                             and "divisória" not in p["rotulo"]), 5)
+        self.assertEqual(min(p["origem"][2] for p in pecas if p["tipo"] == "suporte"), 0.0)
+
+        dim = c.dimensionar_colunas(30, 63.0, 2, demanda_total_a=250.0)
+        pecas_baixa = c.pecas_do_centro(dim, altura_base_mm=150.0)
+        avisos_b = c.avisos_layout_enel(dim, pecas_baixa, altura_base_mm=150.0)
+        self.assertTrue(any("mínimo de 300" in a for a in avisos_b))
+
+        pecas_alta = c.pecas_do_centro(dim, posicao_cdpm="Esquerda", altura_base_mm=600.0)
+        avisos_a = c.avisos_layout_enel(dim, pecas_alta, posicao_cdpm="Esquerda", altura_base_mm=600.0)
+        self.assertTrue(any("1900" in a for a in avisos_a))
+        self.assertTrue(any("10 colunas" in a for a in avisos_a))
 
 
 

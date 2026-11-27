@@ -133,6 +133,16 @@ class TestColunaParametrica(unittest.TestCase):
         self.assertEqual(antigo.PosicaoCDPM, "Centro")
         self.assertEqual(antigo.SaidaEletroduto, "Fundo")
         self.assertEqual(antigo.AlturaBase, 0.0)
+        self.assertTrue(antigo.ComSuporte)
+
+    def test_enel_cores_suporte_e_aviso_de_altura(self):
+        self.obj.Medidores, self.obj.DemandaTotal = 12, 250.0
+        self.obj.AlturaBase = 150.0
+        self.obj.Proxy.execute(self.obj)
+        self.assertTrue(self.obj.ComSuporte)
+        for cor in ("barra_r", "barra_s", "barra_t", "barra_n", "barra_pe", "visor", "janelinha", "suporte"):
+            self.assertIn(cor, self.obj.TiposDasPecas)
+        self.assertTrue(any("300 mm" in a for a in self.obj.Avisos))
 
 
 if __name__ == "__main__":

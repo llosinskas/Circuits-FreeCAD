@@ -135,6 +135,10 @@ class ColunaMedicaoDialog(QtWidgets.QDialog):
         self.folga_conjuntos = _dim_spin("FolgaConjuntos", "Espaço entre agrupamentos em mm (0 usa 100 mm)")
         form_layout.addRow("Folga entre conjuntos:", self.folga_conjuntos)
 
+        self.com_suporte = QtWidgets.QCheckBox("Estrutura de sustentação / pedestal até o piso")
+        self.com_suporte.setChecked(bool(atual.get("ComSuporte", True)))
+        form_layout.addRow(self.com_suporte)
+
         abas.addTab(aba_layout, "Layout e Dimensões")
         raiz.addWidget(abas)
 
@@ -164,6 +168,7 @@ class ColunaMedicaoDialog(QtWidgets.QDialog):
             widget.valueChanged.connect(self.atualizar_previa)
         for combo in (self.fases, self.modelo, self.cdpm, self.posicao_cdpm, self.saida_eletroduto):
             combo.currentIndexChanged.connect(self.atualizar_previa)
+        self.com_suporte.toggled.connect(self.atualizar_previa)
 
         self.atualizar_previa()
 
@@ -186,6 +191,7 @@ class ColunaMedicaoDialog(QtWidgets.QDialog):
             "ProfundidadeCaixaP": float(self.profundidade_p.value()),
             "AlturaCaixaP": float(self.altura_p.value()),
             "FolgaConjuntos": float(self.folga_conjuntos.value()),
+            "ComSuporte": self.com_suporte.isChecked(),
         }
 
     def atualizar_previa(self):
@@ -203,7 +209,11 @@ class ColunaMedicaoDialog(QtWidgets.QDialog):
                 caixa_p_mm=caixa_p if any(v > 0 for v in caixa_p) else None,
                 saida_eletroduto=dados["SaidaEletroduto"],
                 folga_conjuntos_mm=dados["FolgaConjuntos"],
+                com_suporte=dados["ComSuporte"],
             )
-            self.previa.setPlainText(regras.resumo_coluna(dim, pecas))
+            avisos_layout = regras.avisos_layout_enel(
+                dim, pecas, posicao_cdpm=dados["PosicaoCDPM"], altura_base_mm=dados["AlturaBase"],
+            )
+            self.previa.setPlainText(regras.resumo_coluna(dim, pecas, avisos_extras=avisos_layout))
         except ValueError as erro:
             self.previa.setPlainText(f"Configuração inválida:\n{erro}")

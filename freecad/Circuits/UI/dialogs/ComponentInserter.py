@@ -433,7 +433,11 @@ class ComponentInsertionMode:
         self._ultimo_snap = None
         self._ultimo_tipo_snap = None
         self._ultimo_angulo_o = None
-        self._marcador_node = None
+        self._marcador_switch = None
+        self._marcador_mat = None
+        self._marcador_coords = None
+        self._marcador_linhas = None
+        self._coin = None
         self.is_active = False
         self.view = Gui.ActiveDocument.ActiveView
         self.cb_mouse = None
@@ -456,11 +460,18 @@ class ComponentInsertionMode:
     def _remover_filtro(self):
         if self._filtro is None:
             return
+        filtro = self._filtro
+        self._filtro = None
         try:
-            QtWidgets.QApplication.instance().removeEventFilter(self._filtro)
+            QtWidgets.QApplication.instance().removeEventFilter(filtro)
         except Exception:
             pass
-        self._filtro = None
+        try:
+            if hasattr(filtro, "deleteLater"):
+                filtro.deleteLater()
+            QtCore.QTimer.singleShot(0, lambda _f=filtro: None)
+        except Exception:
+            pass
 
     def start(self):
         if not self.view:
@@ -477,6 +488,7 @@ class ComponentInsertionMode:
         # Com algo selecionado, a tecla Espaço do FreeCAD alternaria a visibilidade.
         Gui.Selection.clearSelection()
 
+        self._criar_marcador_snap()
         self.cb_mouse = self.view.addEventCallback("SoMouseButtonEvent", self.on_mouse)
         self.cb_move = self.view.addEventCallback("SoLocation2Event", self.on_move)
         self.cb_key = self.view.addEventCallback("SoKeyboardEvent", self.on_key)
@@ -518,38 +530,77 @@ class ComponentInsertionMode:
         except Exception:
             return 0.0
 
-    def _remover_marcador_snap(self):
-        if self._marcador_node is None or not self.view:
-            self._marcador_node = None
-            return
-        try:
-            self.view.getSceneGraph().removeChild(self._marcador_node)
-        except Exception:
-            pass
-        self._marcador_node = None
-
-    def _atualizar_marcador_snap(self, pnt, tipo_snap):
-        if not tipo_snap:
-            self._remover_marcador_snap()
+    def _criar_marcador_snap(self):
+        if self._marcador_switch is not None or not self.view:
             return
         try:
             from pivy import coin
             sg = self.view.getSceneGraph()
             if sg is None:
                 return
-            if self._marcador_node is None:
-                sep = coin.SoSeparator()
-                mat = coin.SoMaterial()
-                estilo = coin.SoDrawStyle()
-                estilo.lineWidth = 2.0
-                coords = coin.SoCoordinate3()
-                linhas = coin.SoLineSet()
-                sep.addChild(mat)
-                sep.addChild(estilo)
-                sep.addChild(coords)
-                sep.addChild(linhas)
-                sg.addChild(sep)
-                self._marcador_node = sep
+            sw = coin.SoSwitch()
+            sw.whichChild = coin.SO_SWITCH_NONE
+            sep = coin.SoSeparator()
+            mat = coin.SoMaterial()
+            estilo = coin.SoDrawStyle()
+            estilo.lineWidth = 2.0
+            coords = coin.SoCoordinate3()
+            linhas = coin.SoLineSet()
+            sep.addChild(mat)
+            sep.addChild(estilo)
+            sep.addChild(coords)
+            sep.addChild(linhas)
+            sw.addChild(sep)
+            sg.addChild(sw)
+            self._coin = coin
+            self._marcador_switch = sw
+            self._marcador_mat = mat
+            self._marcador_coords = coords
+            self._marcador_linhas = linhas
+        except Exception:
+            self._marcador_switch = None
+
+    def _remover_marcador_snap(self):
+        if self._marcador_switch is None:
+            return
+        sw = self._marcador_switch
+        view = self.view
+        coin = self._coin
+        self._marcador_switch = None
+        self._marcador_mat = None
+        self._marcador_coords = None
+        self._marcador_linhas = None
+        self._coin = None
+        try:
+            if coin is not None:
+                sw.whichChild = coin.SO_SWITCH_NONE
+        except Exception:
+            pass
+
+        def _desanexar():
+            try:
+                if view:
+                    sg = view.getSceneGraph()
+                    if sg is not None:
+                        sg.removeChild(sw)
+            except Exception:
+                pass
+
+        try:
+            QtCore.QTimer.singleShot(0, _desanexar)
+        except Exception:
+            _desanexar()
+
+    def _atualizar_marcador_snap(self, pnt, tipo_snap):
+        if self._marcador_switch is None or self._coin is None:
+            return
+        if not tipo_snap:
+            try:
+                self._marcador_switch.whichChild = self._coin.SO_SWITCH_NONE
+            except Exception:
+                pass
+            return
+        try:
             cores = {
                 "vertice": (0.1, 0.8, 0.2),
                 "meio": (0.0, 0.75, 0.85),
@@ -558,7 +609,7 @@ class ComponentInsertionMode:
                 "grade": (0.5, 0.5, 0.5),
             }
             r, g, b = cores.get(tipo_snap, (0.2, 0.6, 1.0))
-            self._marcador_node.getChild(0).diffuseColor.setValue(r, g, b)
+            self._marcador_mat.diffuseColor.setValue(r, g, b)
             raio = max(self._tolerancia(*self._ultima_tela) * 0.6, 40.0) if hasattr(self, "_ultima_tela") else 60.0
             z = pnt.z + 2.0
             pts = [
@@ -568,8 +619,9 @@ class ComponentInsertionMode:
                 (pnt.x - raio * 1.4, pnt.y, z), (pnt.x + raio * 1.4, pnt.y, z),
                 (pnt.x, pnt.y - raio * 1.4, z), (pnt.x, pnt.y + raio * 1.4, z),
             ]
-            self._marcador_node.getChild(2).point.setValues(0, len(pts), pts)
-            self._marcador_node.getChild(3).numVertices.setValues(0, 3, [5, 2, 2])
+            self._marcador_coords.point.setValues(0, len(pts), pts)
+            self._marcador_linhas.numVertices.setValues(0, 3, [5, 2, 2])
+            self._marcador_switch.whichChild = self._coin.SO_SWITCH_ALL
         except Exception:
             pass
 
@@ -588,7 +640,7 @@ class ComponentInsertionMode:
         if self.trava:
             pnt.x, pnt.y = alinhamento.aplicar_trava((pnt.x, pnt.y), self.trava)
             self._ultimo_snap = None
-            self._remover_marcador_snap()
+            self._atualizar_marcador_snap(pnt, None)
         else:
             snap = alinhamento.snap_ponto(
                 (pnt.x, pnt.y),
@@ -622,7 +674,6 @@ class ComponentInsertionMode:
         self.obj.Placement = pl
         # Força a atualização da interface visual sem recomputar todo o documento
         self.obj.touch()
-        self.view.redraw()
 
     def on_move(self, info):
         """Atualiza a posição do objeto baseado no mouse."""
