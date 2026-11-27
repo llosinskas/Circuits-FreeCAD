@@ -33,8 +33,14 @@ O [README](../README.md) descreve cada ferramenta em detalhe. Aqui o foco é a o
 
 ## 2. Criar o projeto e os pavimentos
 
-1. **Projeto ▾ > Novo projeto.** Cria a estrutura do documento, a planilha *Parâmetros do projeto* e o pavimento *Térreo*. Se o arquivo já tiver níveis da bancada BIM, eles viram os pavimentos e o mais baixo fica ativo.
-2. **Projeto ▾ > Parâmetros.** Abre a planilha de parâmetros. Edite só a coluna *Valor*; em branco vale o padrão. Confira principalmente:
+1. **Projeto ▾ > Novo projeto.** Abre o formulário do projeto, em quatro abas:
+   - **Identificação:** nome do projeto, obra/endereço, cliente, responsável técnico, CREA/CFT e desenhista (vão para o carimbo das folhas) e o tipo de edificação (residencial unifamiliar, multifamiliar, comercial ou industrial). Trocar o tipo sugere os pavimentos, as tensões, o fornecimento e o curto na entrada.
+   - **Edificação e pavimentos:** quantos subsolos, quantos andares acima do térreo, se tem cobertura, o piso a piso do térreo e dos andares e a cota do térreo. A tabela embaixo mostra os pavimentos que serão criados (Subsolo 1, Térreo, 1º Pavimento... Cobertura), com a cota e o piso a piso, e deixa mudar nomes e cotas. Marque **Criar como níveis da bancada BIM** para os pavimentos virarem andares no IFC.
+   - **Fornecimento de energia:** concessionária, sistema de tensões (127/220 V, 220/380 V...), monofásico, bifásico ou trifásico, curto-circuito na entrada, esquema de aterramento e resistência de terra.
+   - **Condutores e proteção:** cobre ou alumínio, isolação, temperatura ambiente, curvas dos disjuntores e sensibilidade do DR.
+
+   Embaixo aparece o resumo do que será criado. **Criar projeto** cria a estrutura do documento (sem documento aberto, um novo com o nome do projeto), os pavimentos, com o Térreo ativo, e a planilha *Parâmetros do projeto* já preenchida. Clicar de novo no botão num projeto existente abre o formulário preenchido para editar (os pavimentos que saírem da lista não são apagados). Se o arquivo já tiver níveis da bancada BIM, eles aparecem na tabela e mantêm a cota deles.
+2. **Projeto ▾ > Parâmetros.** Abre a planilha de parâmetros, com os valores do formulário e os outros (limites de queda, tempo de curto...). Edite só a coluna *Valor*; em branco vale o padrão. Confira principalmente:
    - tensões fase-neutro e fase-fase (127/220 V ou 220/380 V);
    - esquema de aterramento (TN-S, TN-C-S ou TT);
    - isolação dos cabos e temperatura ambiente;
@@ -212,6 +218,7 @@ O IDR aparece na entrada, depois do disjuntor geral e do DPS, com a especificaç
 1. **Dados do quadro ▾ > Balancear fases:** redistribui os circuitos entre R, S e T para a carga ficar o mais igual possível. Mostra antes e depois e pergunta antes de gravar. Para prender um circuito numa fase, escreva `*` depois dela (`R*`).
 2. **Dados do quadro ▾ > Quadro de cargas:** monta a planilha *Quadro de cargas* com a carga de cada circuito por fase, o total, o desequilíbrio, os DRs (inclusive os grupos) e os circuitos sem fase. Se faltarem as reservas da NBR 5410, oferece acrescentá-las.
 3. **Componentes:** lista o que vai dentro do quadro (disjuntor geral, DPS, disjuntores, DRs, barramentos e a caixa em módulos DIN) na planilha *Componentes_<quadro>*.
+4. **Modelo 3D ▾ > Quadro 3D:** desenha o quadro em 3D com os componentes montados: a caixa no tamanho comercial (12, 18 ou 24 módulos por fileira), os trilhos DIN, o disjuntor geral, os DPS, o IDR, cada DR seguido dos disjuntores dos circuitos dele, os disjuntores com a alavanca, o barramento de fases em cima, o neutro (azul) e o terra (verde) embaixo e a porta transparente. Selecione o símbolo do quadro na planta (ou a planilha dele); sem seleção, faz todos os quadros ligados a uma planilha. O **Modelo 3D completo** também desenha os quadros assim. Cada peça tem a especificação e os circuitos nas propriedades e as propriedades IFC (disjuntor e DR como `IfcProtectiveDevice`).
 
 ## 9. Diagramas: unifilar e multifilar
 
@@ -254,7 +261,7 @@ A **descentralizada** precisa de pelo menos 2 andares com unidades. Se todos cab
 
 1. Crie antes os pavimentos (e, se quiser, a planilha do centro de medição: as unidades de cada andar vêm dela).
 2. Clique no botão, marque os sistemas, confira a tabela de andares e as quantidades por unidade e veja a prévia de cada trecho.
-3. Confirme e clique na planta, no ponto do shaft. Cada pavimento recebe o símbolo das prumadas, e o esquema vertical fica ao lado.
+3. Confirme e clique na planta, no ponto do shaft. Cada pavimento recebe o símbolo das prumadas, com uma seta para cada apartamento (AP1, AP2, AP3...), e o esquema vertical fica ao lado, também com uma seta por apartamento em cada andar. Gire o objeto (tecla R na inserção, ou mudando a rotação dele) e os símbolos giram junto, com os textos sempre legíveis. Vistos de cima com todos os pavimentos à mostra, os símbolos dos andares ficam um em cima do outro: deixe visível só o pavimento que está desenhando.
 4. Para mudar, selecione as prumadas e clique de novo no botão: o 3D, os símbolos e o esquema são refeitos.
 
 O 3D mostra os eletrodutos e as caixas de passagem de cada andar; os materiais entram nos quantitativos e o relatório traz uma seção própria.
@@ -275,6 +282,8 @@ O luminotécnico fica em **Iluminação ▾ > Luminotécnico** (com o retângulo
 8. **Documentos ▾ > Relatório PDF:** o memorial descritivo e de cálculo completo, com capa, sumário, parâmetros e normas, previsão de cargas e luminotécnico por ambiente, quadro de cargas, demanda, cada circuito verificado passo a passo (fórmula e valores), DR, curto-circuito, gerador, centro de medição e busway (comparação de custos, solução adotada, alimentadores, queda trecho a trecho e caixas MEC), luminotécnico dos ambientes, aterramento (hastes, BEP, cabo de cobre nu e a resistência de terra com as contas), ocupação dos eletrodutos, avisos, materiais, diagramas e a vista 3D. Gere antes os diagramas e, se quiser essas seções, o estudo de curto, o gerador e a resistência de terra gravada. O que não atende sai em vermelho e é listado em *Avisos e limitações*.
 
 Para imprimir, use os botões de exportação do TechDraw com a folha aberta.
+
+**BIM e IFC:** todo objeto da bancada recebe a classe IFC e as propriedades para a exportação (veja no painel de propriedades, grupos *IFC* e *IFC Attributes*): a tomada é `IfcOutlet`, a luminária `IfcLightFixture`, o interruptor `IfcSwitchingDevice`, a caixa de passagem `IfcJunctionBox`, o quadro `IfcElectricDistributionBoard`, o eletroduto e a eletrocalha `IfcCableCarrierSegment`, o busway `IfcCableSegment`. As propriedades seguem os conjuntos do IFC4 (tensão, potência, fator de potência, polos, diâmetro, largura...) e o conjunto *Circuits_Eletrica* (circuito, quadro, comando, pavimento, altura de montagem); o `Tag` é o circuito (`QD1-C3`). Elas se atualizam sozinhas quando o objeto muda. **Modelo 3D ▾ > Propriedades BIM** grava tudo de uma vez (use em projetos antigos), e **Modelo 3D ▾ > Exportar IFC** grava o arquivo `.ifc`: gere antes o **Modelo 3D completo**, porque no IFC vão os sólidos (as caixas, os tubos, as eletrocalhas, os quadros); os símbolos 2D viram anotações. Para os pavimentos virarem andares no IFC, use níveis da bancada BIM.
 
 ## 12. Problemas comuns
 

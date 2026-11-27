@@ -254,6 +254,43 @@ def _seta(linhas, x1, y, x2):
     linhas += [(x2, y, x2 - 60.0, y + 35.0), (x2, y, x2 - 60.0, y - 35.0)]
 
 
+ALTURA_LEQUE_MM = 560.0  # faixa vertical das setas dos apartamentos, em cada andar do esquema
+MAXIMO_SETAS = 24         # acima disso, uma seta só com "AP1 a APn"
+
+
+def rotulos_dos_apartamentos(unidades):
+    """['AP1', 'AP2', ...] para as unidades de um andar."""
+    return [f"AP{i}" for i in range(1, int(unidades) + 1)]
+
+
+def leque_de_setas(x, y, unidades, comprimento, altura_texto, altura_leque=ALTURA_LEQUE_MM):
+    """Uma seta para cada apartamento, saindo do ponto (x, y) em leque para a direita.
+
+    Returns:
+        (linhas, textos): textos (x, y, 'APn', altura, 0) na ponta de cada seta.
+    """
+    linhas, textos = [], []
+    rotulos = rotulos_dos_apartamentos(unidades)
+    if not rotulos:
+        return linhas, textos
+    if len(rotulos) > MAXIMO_SETAS:
+        rotulos = [f"AP1 a AP{len(rotulos)}"]
+    n = len(rotulos)
+    passo = altura_leque / (n - 1) if n > 1 else 0.0
+    passo = min(passo, altura_texto * 1.6) if n > 1 else 0.0
+    texto = min(altura_texto, passo * 0.75) if n > 1 else altura_texto
+    joelho = x + comprimento * 0.3
+    for j, rotulo in enumerate(rotulos):
+        yj = y - (j - (n - 1) / 2.0) * passo  # AP1 em cima
+        linhas.append((x, y, joelho, yj))
+        ponta = x + comprimento
+        linhas.append((joelho, yj, ponta, yj))
+        seta = min(60.0, texto * 0.6)
+        linhas += [(ponta, yj, ponta - seta, yj + seta * 0.55), (ponta, yj, ponta - seta, yj - seta * 0.55)]
+        textos.append((ponta + texto * 0.3, yj - texto * 0.4, rotulo, texto, 0.0))
+    return linhas, textos
+
+
 def esquema(resultado, titulo="ESQUEMA VERTICAL DAS PRUMADAS"):
     """Esquema vertical (fora de escala): um andar a cada ``PASSO_ANDAR_ESQUEMA``, uma coluna por sistema.
 
@@ -289,16 +326,20 @@ def esquema(resultado, titulo="ESQUEMA VERTICAL DAS PRUMADAS"):
         y_topo = y_de[topo] + 300.0
         for dx in (-20.0, 20.0):
             linhas.append((x + dx, y0 + 250.0, x + dx, y_topo))
-        for t in s["trechos"]:
-            y_meio = (y_de[t["de"]] + y_de[t["ate"]]) / 2.0
-            textos.append((x + 80.0, y_meio, descricao_trecho(t), h * 0.75, 0.0))
+        for t in s["trechos"]:  # no alto da faixa do andar de baixo, acima das setas dos apartamentos
+            y_texto = y_de[t["de"]] + PASSO_ANDAR_ESQUEMA * 0.72
+            textos.append((x + 80.0, y_texto, descricao_trecho(t), h * 0.75, 0.0))
         for nome, unidades in s["derivacoes"].items():
-            y = y_de[nome] + 300.0
+            y = y_de[nome] + 80.0 + ALTURA_LEQUE_MM / 2.0
             linhas += [(x - 80.0, y - 80.0, x + 80.0, y - 80.0), (x + 80.0, y - 80.0, x + 80.0, y + 80.0),
                        (x + 80.0, y + 80.0, x - 80.0, y + 80.0), (x - 80.0, y + 80.0, x - 80.0, y - 80.0)]
-            _seta(linhas, x + 80.0, y, x + 700.0)
-            rotulo = "circuito do andar" if chave == "emergencia" else f"{unidades} unid."
-            textos.append((x + 720.0, y - h * 0.4, rotulo, h * 0.7, 0.0))
+            if chave == "emergencia":
+                _seta(linhas, x + 80.0, y, x + 700.0)
+                textos.append((x + 720.0, y - h * 0.4, "circuito do andar", h * 0.7, 0.0))
+                continue
+            novas, rotulos = leque_de_setas(x + 80.0, y, unidades, 700.0, h * 0.6)
+            linhas += novas
+            textos += rotulos
     topo_desenho = y_de[andares[-1]["nome"]] + PASSO_ANDAR_ESQUEMA * 0.55 + 4 * h
     textos.append((0.0, topo_desenho, titulo, h * 1.4, 0.0))
     textos.append((0.0, -1300.0, "Caixa de passagem em cada andar atendido; fora de escala.", h * 0.7, 0.0))
@@ -341,13 +382,29 @@ def simbolo_planta(resultado, indice):
         circulos.append((x, 0.0, r))
         textos.append((x - len(s["sigla"]) * h * 0.3, -h * 0.4, s["sigla"], h, 0.0))
         if sentido in ("sobe", "passa"):  # seta para cima: a prumada continua
-            linhas += [(x + r * 0.7, -r * 0.7, x + r * 1.3, r * 1.3), (x + r * 1.3, r * 1.3, x + r * 0.8, r * 1.2),
-                       (x + r * 1.3, r * 1.3, x + r * 1.2, r * 0.8)]
+            borda, ponta = r * 0.7071, r * 1.45  # da borda do círculo, a 45°, para fora
+            linhas += [(x + borda, borda, x + ponta, ponta), (x + ponta, ponta, x + ponta - r * 0.35, ponta),
+                       (x + ponta, ponta, x + ponta, ponta - r * 0.35)]
         trecho = s["trechos"][min(indice, len(s["trechos"]) - 1)] if sentido != "chega" else s["trechos"][-1]
         textos.append((0.0, -r - (k + 1) * h * 1.5, f"{s['sigla']}: {descricao_trecho(trecho)} {sentido}", h, 0.0))
     largura = max(1, len(presentes)) * 2.6 * r
+    topo = r * 1.5
+    # Derivação do andar: uma seta para cada apartamento (AP1, AP2...), para cima e à direita dos círculos,
+    # longe dos textos dos trechos, que ficam embaixo.
+    nome = andares[indice]["nome"] if indice < len(andares) else None
+    unidades = max([int(s["derivacoes"].get(nome, 0)) for chave, s, _ in presentes if chave != "emergencia"] or [0])
+    if unidades and presentes:
+        n = min(unidades, MAXIMO_SETAS) if unidades <= MAXIMO_SETAS else 1
+        passo = h * 1.3
+        altura_leque = passo * (n - 1)
+        x0 = (len(presentes) - 1) * 2.6 * r + r * 1.6
+        novas, rotulos = leque_de_setas(x0, altura_leque / 2.0 + r * 0.2, unidades, 450.0, h * 0.8, altura_leque)
+        linhas += novas
+        textos += rotulos
+        largura = max(largura, x0 + 450.0 + h * 4)
+        topo = max(topo, altura_leque + r * 0.2 + h)
     return {"linhas": linhas, "circulos": circulos, "textos": textos,
-            "limites": (-r, -r - (len(presentes) + 1) * h * 1.5, largura, r * 1.5)}
+            "limites": (-r, -r - (len(presentes) + 1) * h * 1.5, largura, topo)}
 
 
 AFASTAMENTO_SIMBOLO_MM = (400.0, -300.0)  # do ponto do shaft ao símbolo em planta, no sistema do objeto

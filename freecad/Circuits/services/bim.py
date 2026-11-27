@@ -142,6 +142,11 @@ def _origem_do_3d(doc, obj):
     return origem if origem is not None and origem is not obj else None
 
 
+def _quadro_da_peca(doc, obj):
+    simbolo = doc.getObject(getattr(obj, "quadro_3d_de", "") or "")
+    return _texto(getattr(simbolo, "Descricao", "")) if simbolo is not None else ""
+
+
 def classificar(doc, obj, _profundidade=0):
     """(tipo de ``core.bim``, dados) do objeto, ou None se não for da bancada."""
     tipo = _tipo(obj)
@@ -178,8 +183,12 @@ def classificar(doc, obj, _profundidade=0):
     if hasattr(obj, "AlturaMontagem") and hasattr(obj, "Descricao") and hasattr(obj, "Potencia"):
         return "equipamento", {"descricao": _texto(obj.Descricao), "potencia_va": _mm(obj.Potencia),
                                "altura_mm": _mm(obj.AlturaMontagem), "pavimento": _pavimento(doc, obj)}
+    if hasattr(obj, "peca_quadro"):
+        return "componente_quadro", {"peca": obj.peca_quadro, "especificacao": _texto(getattr(obj, "Especificacao", "")),
+                                     "circuitos": list(getattr(obj, "Circuitos", []) or []),
+                                     "quadro": _quadro_da_peca(doc, obj), "pavimento": _pavimento(doc, obj)}
     origem = _origem_do_3d(doc, obj)
-    if origem is not None and _profundidade == 0:
+    if origem is not None and _profundidade == 0 and obj.TypeId.startswith("Part::"):
         return classificar(doc, origem, 1)
     return None
 

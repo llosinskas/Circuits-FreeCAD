@@ -143,7 +143,7 @@ DOCUMENT_TOOLS = [
     "GenerateReport",
 ]
 SHEET_TOOLS = ["NovaFolha", "InserirNaFolha", "CorteNaFolha", "DetalheNaFolha", "OrganizarFolha", "AtualizarFolhas"]
-MODEL_3D_TOOLS = ["Gerar3DCompleto", "Generate3DSwitches", "Generate3DConduits", "Gerar3D", "PropriedadesBIM",
+MODEL_3D_TOOLS = ["Gerar3DCompleto", "Quadro3D", "Generate3DSwitches", "Generate3DConduits", "Gerar3D", "PropriedadesBIM",
                   "ExportarIFC"]
 LIBRARY_TOOLS = ["InsertEquipaments", "InsertComponent", "CreateModel", "ListElements"]
 

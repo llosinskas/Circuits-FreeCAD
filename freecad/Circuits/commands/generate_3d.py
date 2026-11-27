@@ -4,7 +4,51 @@ import FreeCADGui as Gui
 
 from freecad.Circuits.commands._base import documento_ou_aviso, recursos
 from freecad.Circuits.qt import QtWidgets
-from freecad.Circuits.services import caixas_3d, eletrodutos, modelo_3d, rede
+from freecad.Circuits.services import caixas_3d, eletrodutos, modelo_3d, quadro_3d, rede
+
+
+class Quadro3D:
+    """Quadro de distribuição em 3D com os componentes da planilha nos trilhos DIN."""
+
+    def Activated(self):
+        doc = documento_ou_aviso()
+        if not doc:
+            return
+        selecionados = Gui.Selection.getSelection()
+        simbolos = [o for o in selecionados if quadro_3d.eh_quadro_com_planilha(doc, o)]
+        simbolos += [o for o in doc.Objects if getattr(o, "Planilha", None) in {s.Name for s in selecionados}
+                     and quadro_3d.eh_quadro_com_planilha(doc, o) and o not in simbolos]
+        if not simbolos:
+            simbolos = [o for o in doc.Objects if quadro_3d.eh_quadro_com_planilha(doc, o)]
+        if not simbolos:
+            QtWidgets.QMessageBox.information(
+                None, "Quadro 3D",
+                "Nenhum símbolo de quadro ligado a uma planilha. Selecione o símbolo do quadro na planta e use "
+                "Dados do quadro > Quadro (planilha) para ligá-lo, depois clique aqui de novo.")
+            return
+        doc.openTransaction("Quadro 3D")
+        try:
+            feitos = [quadro_3d.gerar(doc, s) for s in simbolos]
+            doc.commitTransaction()
+        except Exception:
+            doc.abortTransaction()
+            raise
+        doc.recompute()
+        feitos = [f for f in feitos if f is not None]
+        App.Console.PrintMessage("Quadro 3D: " + "; ".join(f"{f.Label}: {f.Resumo}" for f in feitos) + "\n")
+
+    def IsActive(self):
+        return App.activeDocument() is not None
+
+    def GetResources(self):
+        return recursos(
+            "quadro3d.svg",
+            "Quadro 3D",
+            "Desenha o quadro de distribuição em 3D com os componentes da planilha: disjuntor geral, DPS, IDR, "
+            "DRs e disjuntores dos circuitos nos trilhos DIN, barramentos de fases, neutro e terra e a porta. "
+            "Com o símbolo (ou a planilha) do quadro selecionado, só ele; sem seleção, todos os quadros ligados "
+            "a uma planilha. O Modelo 3D completo também desenha assim os quadros ligados.",
+        )
 
 
 class Modelo3DCompleto:
@@ -101,6 +145,7 @@ class Generate3DSwitches:
         )
 
 
+Gui.addCommand("Quadro3D", Quadro3D())
 Gui.addCommand("Gerar3DCompleto", Modelo3DCompleto())
 Gui.addCommand("Generate3DConduits", Generate3DConduits())
 Gui.addCommand("Generate3DSwitches", Generate3DSwitches())

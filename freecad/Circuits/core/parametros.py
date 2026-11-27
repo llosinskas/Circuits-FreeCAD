@@ -14,6 +14,8 @@ MATERIAIS = ("cobre", "aluminio")
 
 # nome -> (padrão, rótulo na planilha, dica)
 CAMPOS = {
+    "tipo_edificacao": ("", "Tipo de edificação", "Residencial unifamiliar, residencial multifamiliar, comercial ou industrial"),
+    "fornecimento": ("", "Fornecimento", "Monofásico, bifásico ou trifásico, conforme a categoria de atendimento"),
     "concessionaria": ("", "Concessionária", "Distribuidora de energia; define as tabelas de demanda e o padrão de entrada"),
     "tensao_fn": (127.0, "Tensão fase-neutro [V]", "127 ou 220 V, conforme a rede da concessionária"),
     "tensao_ff": (220.0, "Tensão fase-fase [V]", "220 ou 380 V, conforme a rede da concessionária"),

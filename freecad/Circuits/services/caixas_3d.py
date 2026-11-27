@@ -5,6 +5,7 @@ import Part
 from freecad.Circuits.core.simbolos import (ATERRAMENTO, CATALOGO, ENERGIA, PASSAGEM, QUADRO, TOMADA, caixa_local,
                                             posicao_da_caixa)
 from freecad.Circuits.services import pavimentos
+from freecad.Circuits.services import quadro_3d
 from freecad.Circuits.services.tomadas import listar_tomadas
 
 COR_INTERRUPTOR = (0.9, 0.85, 0.7)
@@ -46,8 +47,7 @@ def _criar_caixa(doc, obj, largura, profundidade, altura, elevacao, label, cor):
     x, y, z, dx, dy, dz = caixa_local(posicao_da_caixa(getattr(obj, "Simbolo", "")), largura, profundidade, altura)
 
     nome = f"{obj.Name}_3D"
-    if doc.getObject(nome):
-        doc.removeObject(nome)
+    quadro_3d.remover(doc, nome)  # também o quadro com componentes (App::Part e as peças dele)
 
     caixa = doc.addObject("Part::Feature", nome)
     caixa.Shape = Part.makeBox(dx, dy, dz, App.Vector(x, y, z))
@@ -81,6 +81,9 @@ def gerar_caixas(doc, objetos, tomadas):
 
     for obj in objetos:
         try:
+            if quadro_3d.eh_quadro_com_planilha(doc, obj):  # quadro com planilha: caixa com os componentes
+                criadas += quadro_3d.gerar(doc, obj) is not None
+                continue
             label, cor = _rotulo_e_cor(obj)
             criadas += _criar_caixa(
                 doc, obj,

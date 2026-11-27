@@ -37,7 +37,17 @@ def itens_da_legenda(doc, tamanho=TAMANHO_PADRAO):
         legenda, dica = simbolos.INTERRUPTORES[tipo]
         chave = "interruptor_" + {"Simples": "simples", "Paralelo": "paralelo"}.get(tipo, "intermediario")
         itens.append((chave, simbolos.geometria_interruptor(tipo, tamanho), f"{legenda} - {dica}"))
-    return itens + _itens_de_verticais(doc, tamanho)
+    return itens + _itens_de_fiacao(doc, tamanho) + _itens_de_verticais(doc, tamanho)
+
+
+def _itens_de_fiacao(doc, tamanho):
+    """Marcas dos condutores (fase, neutro, retorno, terra) da fiação desenhada na planta."""
+    from freecad.Circuits.core.simbologia import itens_de_legenda_fiacao, lista_de_condutores
+    usados = set()
+    for obj in doc.Objects:
+        if hasattr(obj, "fiacao_de"):
+            usados.update(lista_de_condutores(getattr(obj, "Condutores", "") or "F+N+T"))
+    return itens_de_legenda_fiacao(usados, tamanho) if usados else []
 
 
 def _itens_de_verticais(doc, tamanho):

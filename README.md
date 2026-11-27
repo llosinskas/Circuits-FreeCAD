@@ -46,7 +46,7 @@ O relatório e o quantitativo em PDF usam a biblioteca `reportlab`. Pelo **Addon
 
 O [Guia de uso](docs/Guia_de_uso.md) mostra este caminho passo a passo, com o que preencher em cada etapa.
 
-1. **Projeto > Novo projeto** cria a estrutura do documento, a planilha *Parâmetros do projeto* e o pavimento *Térreo* (ou ativa o primeiro nível do BIM, se o projeto já tiver níveis). Confira os parâmetros em **Projeto > Parâmetros**: tensões, esquema de aterramento, isolação, temperatura e limites de queda.
+1. **Projeto > Novo projeto** abre o formulário do projeto: identificação (carimbo) e tipo de edificação, pavimentos (subsolos, andares acima do térreo, cobertura, piso a piso e cota do térreo, numa tabela editável; como pastas ou como níveis da bancada BIM), fornecimento de energia (concessionária, 127/220 ou 220/380 V, fases, curto na entrada, esquema e resistência de terra) e condutores e proteção (material, isolação, temperatura, curvas, DR). O tipo de edificação sugere os valores. Ao confirmar, cria a estrutura do documento, os pavimentos com o Térreo ativo e a planilha *Parâmetros do projeto* preenchida; num projeto existente, o formulário abre preenchido para editar. O resto (limites de queda, tempo de curto) fica em **Projeto > Parâmetros**.
 2. **Projeto > Pavimento** ou **Nível do BIM** escolhe ou cria o pavimento em que você vai desenhar.
 3. **Tomadas, Energia, Iluminação e Interruptores**: insira os pontos na planta. Cada símbolo vai sozinho para a pasta do tipo dele no pavimento ativo.
 4. **Iluminação > Luminotécnico**: com um retângulo do ambiente selecionado, calcula e distribui as luminárias.
@@ -122,7 +122,7 @@ O botão **Prumadas verticais** (grupo **Infraestrutura ▾**) projeta as prumad
 
 - **Formulário:** escolha os sistemas, confira os andares e as unidades (vêm dos pavimentos do projeto e da planilha do centro de medição) e as quantidades por unidade: alimentador (seção e condutores), cabos UTP, cabos de interfone e circuitos de emergência. A prévia mostra cada trecho.
 - **Cálculo:** em cada trecho, os cabos dos andares de cima e os eletrodutos pela taxa de ocupação da NBR 5410 (40 % com três cabos ou mais). A energia vai num eletroduto por unidade ou numa eletrocalha vertical; dados e interfone em eletrodutos do tamanho escolhido, quantos forem precisos.
-- **2D:** depois de clicar no ponto do shaft, cada pavimento ganha o símbolo das prumadas (um círculo por sistema com a sigla E, D, I ou IE, a seta quando continua e o texto do trecho com *sobe*, *passa* ou *chega*), na pasta *Prumadas* dele; e o **esquema vertical** (fora de escala, um andar por linha e uma coluna por sistema, com as origens, os trechos e as derivações) fica ao lado.
+- **2D:** depois de clicar no ponto do shaft, cada pavimento ganha o símbolo das prumadas (um círculo por sistema com a sigla E, D, I ou IE, a seta quando continua, o texto do trecho com *sobe*, *passa* ou *chega* e uma seta para cada apartamento: AP1, AP2, AP3...), na pasta *Prumadas* dele; e o **esquema vertical** (fora de escala, um andar por linha e uma coluna por sistema, com as origens, os trechos e, em cada andar, uma seta por apartamento) fica ao lado. O símbolo gira com o objeto e se refaz sozinho quando a prumada é movida ou girada.
 - **3D:** os eletrodutos (ou a eletrocalha) de cada trecho e uma caixa de passagem por andar, nas cores de cada sistema. O objeto é paramétrico: mude as propriedades ou selecione-o e clique de novo no botão para editar; o 2D é refeito.
 - **Quantitativos e relatório:** eletrodutos, eletrocalhas, caixas e cabos entram no grupo *Prumadas verticais*; o relatório traz a tabela de cada sistema, os materiais e o esquema.
 
@@ -143,6 +143,10 @@ Pela especificação Enel 0018 (conexão coletiva, versão 2 de 2025), no grupo 
 O busway, as caixas MEC e as colunas entram nos **Quantitativos**, no grupo *Busway e medição* (metros por corrente, cotovelos, emendas, suportes, corta-fogo, fitas, caixas MEC, plug-ins, caixas P, CDPM, barramentos, DPS), por pavimento.
 
 Os k e as medidas dos busways e das caixas MEC e os preços são valores típicos: confirme com o fabricante homologado e com a Enel.
+
+### BIM e IFC
+
+Todo objeto da bancada recebe a classe IFC e as propriedades para a exportação: `IfcType` (tomada `IfcOutlet`, luminária `IfcLightFixture`, interruptor `IfcSwitchingDevice`, caixa `IfcJunctionBox`, quadro e colunas de medição `IfcElectricDistributionBoard`, disjuntores e DR do quadro 3D `IfcProtectiveDevice`, eletroduto e eletrocalha `IfcCableCarrierSegment`, busway `IfcCableSegment`...), `PredefinedType`, `ObjectType` e `Tag` (o circuito, `QD1-C3`) e `IfcProperties` com os conjuntos do IFC4 (`Pset_ElectricalDeviceCommon`, `Pset_OutletTypeCommon`, `Pset_LightFixtureTypeCommon`, `Pset_CableCarrierSegmentTypeConduitSegment`...) e o conjunto *Circuits_Eletrica* (circuito, quadro, comando, pavimento, altura de montagem, potência). O 3D gerado de cada símbolo, eletroduto ou eletrocalha recebe as mesmas propriedades, e elas se atualizam sozinhas quando o objeto muda. **Modelo 3D > Propriedades BIM** grava tudo de uma vez, e **Modelo 3D > Exportar IFC** grava o arquivo com o exportador da bancada BIM (precisa do IfcOpenShell). Para os pavimentos virarem andares (`IfcBuildingStorey`), use níveis da bancada BIM.
 
 ### Pavimentos
 
@@ -185,6 +189,7 @@ Tudo o que é gerado a partir dos símbolos fica no pavimento deles: a identific
 
 - **Definir circuito:** dá o mesmo circuito (e, se quiser, o quadro) aos pontos selecionados; sugere o próximo número livre.
 - **Ligar interruptor:** dá a mesma letra de comando (a, b, c...) ao interruptor e às luminárias selecionadas. Para paralelos, selecione os dois interruptores junto.
+- **Fiação:** o botão **Fiação** desenha ao lado de cada ponto os condutores que chegam à caixa, no estilo da NBR 5444: uma linha cruzada por um traço por condutor; fase é o traço simples, neutro tem uma bolinha, retorno uma bandeirinha e terra uma barra. Os condutores são os mesmos da identificação: tomada F+N+T, luminária comandada R+N+T, chuveiro 2F+T, interruptor simples F+R, paralelo F+2R, intermediário 4R. A legenda explica as marcas usadas.
 - **Identificar pontos:** escreve ao lado de cada símbolo duas linhas: o circuito, a letra e a potência (`C1 · a · 100 VA`) e os cabos que chegam à caixa, com a seção e os condutores (`#2,5 F+N+T`). F é fase, N neutro, T terra e R retorno: uma luminária comandada recebe `R+N+T`, um interruptor simples `F+R` e um paralelo `F+2R`. A seção vem da planilha de circuitos do quadro.
 
 ## Quadros e unifilar
@@ -259,6 +264,7 @@ Depois de gravar, gere o Unifilar de novo para atualizar as fases no diagrama.
 - **Gerador e transferência:** se o projeto tiver o gerador calculado (planilha *Cargas do gerador* com o resultado gravado), o Unifilar também desenha, à esquerda dos quadros, a entrada com gerador: rede e gerador, cada um com disjuntor, os contatores K1 e K2 intertravados do QTA, a saída para as cargas do gerador e os dados do gerador e dos cabos. O botão Gerador diesel redesenha esse diagrama ao gravar o resultado. Se você mover o diagrama, ele é recriado no mesmo lugar.
 - **Ligação ao quadro geral:** a saída do QTA vai até a entrada do diagrama do quadro geral, na mesma altura, com o texto "Alimenta QGBT". O quadro geral é o que tem a origem começando com **QTA** (ou igual à sigla do símbolo de QTA da planta) na planilha do quadro; sem isso, o único quadro que está entre as cargas do gerador. Gere o Unifilar para refazer a ligação depois de mudar os quadros.
 - **Componentes:** disjuntor geral, DPS, disjuntores e DR dos circuitos (um por grupo de DR), barramentos com o número de terminais e o tamanho da caixa em módulos DIN, com a reserva de circuitos da NBR 5410. A lista fica numa planilha `Componentes <quadro>`.
+- **Quadro 3D:** **Modelo 3D > Quadro 3D** (e o Modelo 3D completo) desenha o quadro ligado a uma planilha com os componentes montados nos trilhos DIN: disjuntor geral, DPS, IDR, cada DR com os disjuntores dos circuitos dele, barramentos de fases, neutro e terra e a porta transparente, na caixa comercial em módulos. Cada peça guarda a especificação, os circuitos e as propriedades IFC.
 
 ## Eletrodutos, fios e verticais
 

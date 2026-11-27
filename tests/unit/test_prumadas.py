@@ -74,7 +74,35 @@ class TestDesenhos(unittest.TestCase):
             self.assertIn(origem, textos)
         self.assertIn("+3,00", textos)
         self.assertTrue(any(t.startswith('12 × Ø') for t in textos))  # energia no primeiro trecho
-        self.assertEqual(sum(1 for t in textos if t == "4 unid."), 3 * 3 + 3)  # derivações e rótulo do andar
+        self.assertEqual(sum(1 for t in textos if t == "4 unid."), 3)  # rótulo de cada andar
+        for ap in ("AP1", "AP2", "AP3", "AP4"):  # uma seta por apartamento: 3 sistemas x 3 andares
+            self.assertEqual(textos.count(ap), 9)
+
+    def test_textos_do_esquema_nao_se_sobrepoem(self):
+        e = p.esquema(p.dimensionar(predio(4)))
+
+        def caixa(t):
+            x, y, texto, altura, _ = t
+            return x, y, x + len(texto) * altura * p.LARGURA_LETRA, y + altura
+        caixas = [caixa(t) for t in e["textos"]]
+        for i, (a0, b0, a1, b1) in enumerate(caixas):
+            for c0, d0, c1, d1 in caixas[i + 1:]:
+                self.assertFalse(a0 < c1 and c0 < a1 and b0 < d1 and d0 < b1, (e["textos"][i],))
+
+    def test_leque_de_setas(self):
+        linhas, textos = p.leque_de_setas(0.0, 0.0, 4, 700.0, 80.0)
+        self.assertEqual([t[2] for t in textos], ["AP1", "AP2", "AP3", "AP4"])
+        ys = [t[1] for t in textos]
+        self.assertEqual(len(set(ys)), 4)
+        self.assertEqual(len(linhas), 4 * 4)
+        self.assertEqual([t[2] for t in p.leque_de_setas(0, 0, 40, 700, 80)[1]], ["AP1 a AP40"])
+        self.assertEqual(p.leque_de_setas(0, 0, 0, 700, 80), ([], []))
+
+    def test_simbolo_em_planta_com_apartamentos(self):
+        r = p.dimensionar(predio(3))
+        andar = p.simbolo_planta(r, 2)
+        self.assertEqual([t[2] for t in andar["textos"] if t[2].startswith("AP")], ["AP1", "AP2", "AP3", "AP4"])
+        self.assertFalse([t for t in p.simbolo_planta(r, 0)["textos"] if t[2].startswith("AP")])  # origem
 
     def test_simbolo_em_planta_por_andar(self):
         r = p.dimensionar(predio(3))

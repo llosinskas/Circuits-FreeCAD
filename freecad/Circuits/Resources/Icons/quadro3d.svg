@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64">
+  <!-- Quadro 3D: caixa em perspectiva com duas fileiras de disjuntores no trilho DIN -->
+  <path d="M10 10L48 6L56 12V58L18 60L10 54Z" fill="#d7dade" stroke="#5f6368" stroke-width="2.5" stroke-linejoin="round"/>
+  <path d="M10 10L18 16V60M18 16L56 12" fill="none" stroke="#5f6368" stroke-width="2" stroke-linejoin="round"/>
+  <path d="M21 26H53M21 44H53" stroke="#9aa0a6" stroke-width="3"/>
+  <g fill="#ffffff" stroke="#202124" stroke-width="1.2">
+    <rect x="22" y="20" width="6" height="12"/><rect x="29" y="20" width="6" height="12"/>
+    <rect x="36" y="20" width="10" height="12" fill="#e8f0fe"/><rect x="47" y="20" width="5" height="12"/>
+    <rect x="22" y="38" width="6" height="12"/><rect x="29" y="38" width="6" height="12"/>
+    <rect x="36" y="38" width="6" height="12"/>
+  </g>
+  <path d="M24 25V28M31 25V28M40 25V28M49 25V28M24 43V46M31 43V46M38 43V46" stroke="#202124" stroke-width="2"/>
+  <path d="M22 54H52" stroke="#188038" stroke-width="3"/>
+</svg>

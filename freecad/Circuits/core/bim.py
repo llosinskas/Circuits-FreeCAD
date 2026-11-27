@@ -320,7 +320,37 @@ def do_equipamento(dados, fator=FATOR_METRO):
     return _resultado("Building Element Proxy", "USERDEFINED", legenda, "", props)
 
 
+PECAS_DO_QUADRO = {
+    "caixa": ("Electric Distribution Board", "DISTRIBUTIONBOARD", "Quadro de distribuição"),
+    "geral": ("Protective Device", "CIRCUITBREAKER", "Disjuntor geral"),
+    "disjuntor": ("Protective Device", "CIRCUITBREAKER", "Disjuntor"),
+    "dr": ("Protective Device", "RESIDUALCURRENTCIRCUITBREAKER", "Interruptor DR"),
+    "idr": ("Protective Device", "RESIDUALCURRENTSWITCH", "Interruptor DR geral"),
+    "dps": ("Protective Device", "VARISTOR", "DPS"),
+    "fases": ("Discrete Accessory", "USERDEFINED", "Barramento de fases"),
+    "neutro": ("Discrete Accessory", "USERDEFINED", "Barramento de neutro"),
+    "terra": ("Discrete Accessory", "USERDEFINED", "Barramento de terra"),
+    "trilho": ("Discrete Accessory", "USERDEFINED", "Trilho DIN"),
+}
+
+
+def do_componente_quadro(dados, fator=FATOR_METRO):
+    """Peça do quadro 3D (``core.quadro_3d``): caixa, disjuntores, DR, DPS, barramentos e trilhos.
+    As outras (placa, alavancas, isoladores, porta) ficam como ``Building Element Proxy``."""
+    ifc_type, predefinido, legenda = PECAS_DO_QUADRO.get(dados.get("peca"), CLASSE_PADRAO + ("Peça do quadro",))
+    especificacao = dados.get("especificacao") or ""
+    circuitos = ", ".join(dados.get("circuitos") or [])
+    props = _comum(dict(dados, descricao=f"{legenda} {especificacao}".strip(), circuito=circuitos), fator)
+    if ifc_type == "Protective Device":
+        props.append(("Pset_ProtectiveDeviceTypeCommon", "Reference", "IfcIdentifier", especificacao or legenda))
+    elif ifc_type == "Electric Distribution Board":
+        props.append(("Pset_ElectricDistributionBoardTypeCommon", "Reference", "IfcIdentifier", dados.get("quadro")))
+    tag = f"{dados.get('quadro')}-{circuitos}" if dados.get("quadro") and circuitos else (dados.get("quadro") or circuitos)
+    return _resultado(ifc_type, predefinido, legenda, tag, props)
+
+
 CLASSIFICADORES = {
+    "componente_quadro": do_componente_quadro,
     "ponto": do_ponto, "interruptor": do_interruptor, "eletroduto": do_eletroduto, "bandeja": da_bandeja,
     "conexao": da_conexao, "suporte": do_suporte, "coluna_medicao": da_coluna_medicao, "prumada": da_prumada,
     "busway": do_busway, "equipamento": do_equipamento,

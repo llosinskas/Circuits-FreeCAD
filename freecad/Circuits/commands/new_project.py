@@ -7,24 +7,56 @@ import FreeCADGui as Gui
 from freecad.Circuits import ELECTRIC_LIBRARY_PATH
 from freecad.Circuits.commands._base import documento_ou_aviso, recursos
 from freecad.Circuits.qt import QtWidgets
-from freecad.Circuits.services import biblioteca, parametros, pavimentos, planilhas
-from freecad.Circuits.services.documento import GRUPOS_PROJETO, criar_grupos
+from freecad.Circuits.services import biblioteca, novo_projeto, parametros, planilhas
+from freecad.Circuits.UI.dialogs.novo_projeto_dialog import NovoProjetoDialog
 from freecad.Circuits.UI.insert_circuit import InsertCircuit
 
 
 class newProjetctEletrical:
+    """Abre o diálogo do projeto: identificação, pavimentos, fornecimento, condutores e proteção.
+
+    Num documento que já é um projeto da bancada, o diálogo vem preenchido e edita o projeto."""
+
     def Activated(self):
-        doc = App.activeDocument() or App.newDocument("Projeto_eletrico")
-        criar_grupos(doc, GRUPOS_PROJETO)
-        pavimentos.garantir_ativo(doc)  # nível do BIM ou Térreo; o usuário troca no botão Pavimento
-        parametros.planilha(doc, criar=True)  # tensões, aterramento, isolação, limites de queda
+        doc = App.activeDocument()
+        editando = doc is not None and parametros.planilha(doc) is not None
+        dialogo = NovoProjetoDialog(novo_projeto.dados_iniciais(doc), novo_projeto.bim_disponivel(), editando)
+        if not dialogo.exec_():
+            return
+        dados = dialogo.get_dados()
+        if doc is None:
+            doc = App.newDocument(_nome_do_documento(dados.get("projeto")))
+        doc.openTransaction("Projeto elétrico")
+        try:
+            feito = novo_projeto.aplicar(doc, dados)
+            doc.commitTransaction()
+        except ValueError as erro:
+            doc.abortTransaction()
+            QtWidgets.QMessageBox.warning(None, "Projeto", str(erro))
+            return
+        except Exception:
+            doc.abortTransaction()
+            raise
+        App.Console.PrintMessage(
+            f"Projeto: {len(feito['criados'])} pavimento(s) criado(s), {len(feito['atualizados'])} atualizado(s); "
+            f"ativo: {feito['ativo']}; parâmetros alterados: {', '.join(feito['parametros']) or 'nenhum'}.\n")
 
     def GetResources(self):
         return recursos(
             "newProject.svg",
             "Novo projeto",
-            "Cria os grupos do projeto elétrico e ativa um pavimento (um nível do BIM, ou o Térreo se não houver)",
+            "Abre o formulário do projeto elétrico: identificação (carimbo), tipo de edificação, pavimentos "
+            "(subsolos, andares, cobertura, piso a piso), fornecimento (concessionária, tensões, fases, curto, "
+            "aterramento), condutores e proteção. Cria os grupos, os pavimentos e os parâmetros; num projeto "
+            "existente, abre preenchido para editar.",
         )
+
+
+def _nome_do_documento(projeto):
+    """Nome interno válido para o documento novo."""
+    import re
+    nome = re.sub(r"\W+", "_", str(projeto or "").strip(), flags=re.ASCII).strip("_")
+    return nome or "Projeto_eletrico"
 
 
 class ParametrosProjeto:

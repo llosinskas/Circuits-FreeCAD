@@ -165,6 +165,8 @@ def scenario(doc):
                  "freecad.Circuits.commands.gerar_unifilar:Add_circuito")
     add.exec_ = lambda self: 1
     add.get_dados = lambda self: dict(DADOS_CIRCUITO)
+    projeto = locate("freecad.Circuits.UI.dialogs.novo_projeto_dialog:NovoProjetoDialog")
+    projeto.exec_ = lambda self: 1  # padrões: casa térrea, só o Térreo
 
     qet_path = os.path.join(tempfile.gettempdir(), "circuits_smoke_sample.qet")
     with open(qet_path, "w", encoding="utf-8") as handle:
