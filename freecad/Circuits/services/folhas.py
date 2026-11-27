@@ -23,6 +23,7 @@ import Draft
 import FreeCAD as App
 
 from freecad.Circuits.core import folhas as regras
+from freecad.Circuits.services import parametros as servico_parametros
 from freecad.Circuits.services import pavimentos
 
 MARCA_FOLHA = "folha_circuits"
@@ -111,11 +112,109 @@ def valores_iniciais(doc, titulo):
     return valores
 
 
+ATUALIZANDO_CARIMBOS = False  # o observador ignora as mudanças feitas por ``atualizar_carimbos``
+
+
+def _garantir_propriedades(folha):
+    """Propriedades do carimbo próprias da folha (título, data, revisão), grupo "Carimbo".
+
+    Nas folhas antigas, nascem com o que estava escrito no carimbo.
+    """
+    textos = textos_do_carimbo(folha)
+    for campo, prop in regras.CARIMBO_DA_FOLHA.items():
+        if hasattr(folha, prop):
+            continue
+        dicas = {"CarimboTitulo": "Conteúdo da folha no carimbo", "CarimboData": "Data no carimbo",
+                 "CarimboRevisao": "Revisão no carimbo"}
+        folha.addProperty("App::PropertyString", prop, "Carimbo", dicas[prop])
+        setattr(folha, prop, textos.get(campo, ""))
+
+
+def _levar_carimbos_antigos_ao_projeto(doc, folhas):
+    """Projetos de antes do carimbo paramétrico: o que estava escrito nos carimbos (obra, cliente...)
+    vira o parâmetro do projeto, se ele estiver em branco."""
+    atuais = servico_parametros.textos(doc)
+    novos = {}
+    for folha in reversed(folhas):  # vale a última folha, como fazia a cópia para a folha nova
+        textos = textos_do_carimbo(folha)
+        for campo, chave in regras.CARIMBO_DO_PROJETO.items():
+            valor = textos.get(campo, "").strip()
+            if campo == "Projeto" and valor == doc.Label:
+                continue
+            if valor and not atuais.get(chave, "").strip() and chave not in novos:
+                novos[chave] = valor
+    if novos:
+        servico_parametros.gravar(doc, novos)
+
+
+def atualizar_carimbos(doc, folhas=None):
+    """Reescreve o carimbo de todas as folhas a partir das fontes (carimbo paramétrico):
+
+    - projeto, obra, cliente, desenho, responsável e registro: da planilha *Parâmetros do projeto*
+      (``core.folhas.CARIMBO_DO_PROJETO``); o projeto em branco é o nome do documento;
+    - conteúdo, data e revisão: das propriedades ``CarimboTitulo``, ``CarimboData`` e
+      ``CarimboRevisao`` de cada folha;
+    - folha: 01/03, 02/03... na ordem de criação; a escala continua com ``organizar``.
+
+    Só grava o que mudou. Returns: quantas folhas mudaram.
+    """
+    global ATUALIZANDO_CARIMBOS
+    todas = listar_folhas(doc)
+    if not todas:
+        return 0
+    ATUALIZANDO_CARIMBOS = True
+    try:
+        servico_parametros.completar(doc)
+        for folha in todas:
+            _garantir_propriedades(folha)
+        _levar_carimbos_antigos_ao_projeto(doc, todas)
+        parametros = servico_parametros.textos(doc)
+        mudaram = 0
+        for numero, folha in enumerate(todas, start=1):
+            if folhas is not None and folha not in folhas:
+                continue
+            dados = {prop: getattr(folha, prop, "") for prop in regras.CARIMBO_DA_FOLHA.values()}
+            valores = regras.valores_do_carimbo(parametros, doc.Label, dados, numero, len(todas))
+            textos = textos_do_carimbo(folha)
+            if textos and any(textos.get(campo) != valor for campo, valor in valores.items() if campo in textos):
+                preencher(folha, valores)
+                mudaram += 1
+        return mudaram
+    finally:
+        ATUALIZANDO_CARIMBOS = False
+
+
+def sincronizar_do_carimbo(doc, folha):
+    """O usuário editou o carimbo na folha (dois cliques no campo): leva o texto para a fonte
+    (parâmetro do projeto ou propriedade da folha) e atualiza todas as folhas.
+
+    Returns:
+        ({chave do parâmetro: texto}, {propriedade: texto}) do que voltou para as fontes.
+    """
+    global ATUALIZANDO_CARIMBOS
+    todas = listar_folhas(doc)
+    if folha not in todas:
+        return {}, {}
+    _garantir_propriedades(folha)
+    numero = todas.index(folha) + 1
+    dados = {prop: getattr(folha, prop, "") for prop in regras.CARIMBO_DA_FOLHA.values()}
+    calculados = regras.valores_do_carimbo(servico_parametros.textos(doc), doc.Label, dados, numero, len(todas))
+    no_projeto, na_folha = regras.mudancas_no_carimbo(textos_do_carimbo(folha), calculados, doc.Label)
+    ATUALIZANDO_CARIMBOS = True
+    try:
+        if no_projeto:
+            servico_parametros.gravar(doc, no_projeto)
+        for prop, valor in na_folha.items():
+            setattr(folha, prop, valor)
+    finally:
+        ATUALIZANDO_CARIMBOS = False
+    atualizar_carimbos(doc)
+    return no_projeto, na_folha
+
+
 def renumerar(doc):
-    """Escreve 01/03, 02/03... no campo Folha de cada folha, na ordem de criação."""
-    folhas = listar_folhas(doc)
-    for numero, folha in enumerate(folhas, start=1):
-        preencher(folha, {"Folha": regras.rotulo_folha(numero, len(folhas))})
+    """Escreve 01/03, 02/03... no campo Folha de cada folha (e o resto do carimbo, pelas fontes)."""
+    atualizar_carimbos(doc)
 
 
 def nova_folha(doc, formato=regras.FORMATO_PADRAO, titulo="Planta baixa"):
@@ -132,7 +231,8 @@ def nova_folha(doc, formato=regras.FORMATO_PADRAO, titulo="Planta baixa"):
     folha.addProperty("App::PropertyString", MARCA_FOLHA, "Circuits", "Formato da folha da bancada")
     setattr(folha, MARCA_FOLHA, formato)
     folha.Label = f"Folha {len(listar_folhas(doc)):02d} - {titulo}"
-    preencher(folha, valores)
+    preencher(folha, valores)  # o que veio da folha anterior vai para os parâmetros, se faltar lá
+    _garantir_propriedades(folha)
     renumerar(doc)
     doc.recompute()
     return folha
@@ -536,5 +636,6 @@ def atualizar(doc, folhas=None):
             # no lugar atual, mesmo que o usuário tenha arrastado a vista
             _aplicar_desenho(doc, vista, info, info["fator"], (_mm(vista.X), _mm(vista.Y)))
             total += 1
+    atualizar_carimbos(doc)
     doc.recompute()
     return total

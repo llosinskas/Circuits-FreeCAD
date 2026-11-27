@@ -10,8 +10,26 @@ from unittest import mock
 from tests import ROOT  # noqa: F401  (configura o caminho do pacote)
 from freecad.Circuits.core import folhas as regras
 
-MODULOS_FREECAD = ("FreeCAD", "FreeCADGui", "Part", "Draft", "TechDraw")
-RECARREGAR = ("freecad.Circuits.services.folhas", "freecad.Circuits.services.pavimentos")
+MODULOS_FREECAD = ("FreeCAD", "FreeCADGui", "Part", "Draft", "TechDraw", "Spreadsheet")
+RECARREGAR = ("freecad.Circuits.services.folhas", "freecad.Circuits.services.pavimentos",
+              "freecad.Circuits.services.parametros")
+
+
+class ParametrosFalsos:
+    """A planilha Parâmetros do projeto, só com os textos (``services.parametros``)."""
+
+    def __init__(self):
+        self.valores = {}
+
+    def completar(self, doc):
+        return None
+
+    def textos(self, doc):
+        return dict(self.valores)
+
+    def gravar(self, doc, valores):
+        self.valores.update(valores)
+        return list(valores)
 
 
 class Vetor:
@@ -81,6 +99,8 @@ class TestFolhasServico(unittest.TestCase):
         for nome in RECARREGAR:
             sys.modules.pop(nome, None)
         self.s = importlib.import_module("freecad.Circuits.services.folhas")
+        self.parametros = ParametrosFalsos()
+        self.s.servico_parametros = self.parametros
         self.doc = Documento()
         # planta: tomada e eletroduto; a subpasta 3D não pode entrar
         self.tomada = desenho("T1", '<circle cx="1000" cy="-1000" r="100"/>')
@@ -108,6 +128,44 @@ class TestFolhasServico(unittest.TestCase):
         self.assertEqual(segunda.Template.EditableTexts["Folha"], "02/02")
         self.assertIs(self.s.folha_ativa(self.doc), segunda)
         self.assertIs(self.s.folha_ativa(self.doc, [primeira]), primeira)
+
+    def test_carimbo_parametrico(self):
+        primeira = self.s.nova_folha(self.doc, "A1", "Planta baixa")
+        segunda = self.s.nova_folha(self.doc, "A3", "Diagramas")
+        self.assertEqual(primeira.CarimboTitulo, "Planta baixa")
+        self.assertEqual(segunda.CarimboRevisao, "00")
+        # mudar a fonte (parâmetros do projeto) muda o carimbo de todas as folhas
+        self.parametros.valores.update(obra="Rua A, 10", cliente="Ana", projeto="Residência Ana")
+        segunda.CarimboRevisao = "01"
+        self.assertEqual(self.s.atualizar_carimbos(self.doc), 2)
+        for folha in (primeira, segunda):
+            textos = folha.Template.EditableTexts
+            self.assertEqual((textos["Obra"], textos["Cliente"], textos["Projeto"]),
+                             ("Rua A, 10", "Ana", "Residência Ana"))
+        self.assertEqual(segunda.Template.EditableTexts["Revisao"], "01")
+        self.assertEqual(primeira.Template.EditableTexts["Revisao"], "00")
+        self.assertEqual(self.s.atualizar_carimbos(self.doc), 0)  # nada mudou: não regrava
+        # editar o campo na folha leva o texto para a fonte e para as outras folhas
+        primeira.Template.EditableTexts = dict(primeira.Template.EditableTexts, Cliente="Ana Souza",
+                                               Titulo="Planta - térreo", Folha="99/99")
+        no_projeto, na_folha = self.s.sincronizar_do_carimbo(self.doc, primeira)
+        self.assertEqual((no_projeto, na_folha), ({"cliente": "Ana Souza"}, {"CarimboTitulo": "Planta - térreo"}))
+        self.assertEqual(segunda.Template.EditableTexts["Cliente"], "Ana Souza")
+        self.assertEqual(primeira.Template.EditableTexts["Folha"], "01/02")  # a numeração é automática
+        # apagar uma folha renumera as outras
+        self.doc.Objects.remove(primeira)
+        self.s.atualizar_carimbos(self.doc)
+        self.assertEqual(segunda.Template.EditableTexts["Folha"], "01/01")
+
+    def test_carimbo_antigo_vai_para_os_parametros(self):
+        antiga = self.s.nova_folha(self.doc, "A1")
+        self.parametros.valores.clear()
+        for prop in self.s.regras.CARIMBO_DA_FOLHA.values():
+            delattr(antiga, prop)  # folha de antes do carimbo paramétrico
+        antiga.Template.EditableTexts = dict(antiga.Template.EditableTexts, Obra="Av. B", Titulo="Elétrica")
+        self.s.atualizar_carimbos(self.doc)
+        self.assertEqual(self.parametros.valores["obra"], "Av. B")
+        self.assertEqual(antiga.CarimboTitulo, "Elétrica")
 
     def test_planta_sem_o_3d_arrumada_na_escala(self):
         with mock.patch.object(self.s.pavimentos, "eh_pavimento", return_value=True):

@@ -338,6 +338,14 @@ class CircuitsWorkbench(gui.Workbench):
         except Exception as erro:
             app.Console.PrintWarning(f"Circuits: atualização automática das verticais desligada: {erro}\n")
 
+        # Carimbo paramétrico: as folhas acompanham os parâmetros do projeto e as propriedades Carimbo….
+        try:
+            from .UI import observador_carimbo
+
+            observador_carimbo.instalar()
+        except Exception as erro:
+            app.Console.PrintWarning(f"Circuits: carimbo paramétrico desligado: {erro}\n")
+
         # Snap especial de ligação: a linha do Draft prende no ponto da caixa dos símbolos.
         try:
             from .UI import snap_conexao

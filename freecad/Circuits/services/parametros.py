@@ -53,3 +53,58 @@ def ler(doc):
         if chave:
             valores[chave] = _texto(folha, f"B{linha}")
     return regras.ler(valores)
+
+
+def _linhas_das_chaves(folha):
+    """{chave: linha} das chaves da coluna C."""
+    linhas = {}
+    for linha in range(PRIMEIRA_LINHA, PRIMEIRA_LINHA + len(regras.CAMPOS) + 40):
+        chave = _texto(folha, f"C{linha}")
+        if chave:
+            linhas[chave] = linha
+    return linhas
+
+
+def completar(doc):
+    """Acrescenta no fim da planilha as linhas dos parâmetros novos (ex.: os do carimbo) que faltam
+    em projetos antigos. Devolve a planilha (criada, se faltar)."""
+    folha = planilha(doc, criar=True)
+    linhas = _linhas_das_chaves(folha)
+    proxima = max(linhas.values(), default=PRIMEIRA_LINHA - 1) + 1
+    for chave, (padrao, rotulo, dica) in regras.CAMPOS.items():
+        if chave in linhas:
+            continue
+        folha.set(f"A{proxima}", f"'{rotulo}")
+        folha.set(f"B{proxima}", f"'{padrao:g}" if isinstance(padrao, float) else f"'{padrao}")
+        folha.set(f"C{proxima}", f"'{chave}")
+        folha.set(f"D{proxima}", f"'{dica}")
+        proxima += 1
+    return folha
+
+
+def textos(doc):
+    """{chave: texto da coluna B}, sem conversão (os campos de texto, como os do carimbo)."""
+    folha = planilha(doc)
+    if folha is None:
+        return {}
+    return {chave: _texto(folha, f"B{linha}") for chave, linha in _linhas_das_chaves(folha).items()}
+
+
+def gravar(doc, valores):
+    """Grava {chave: texto} na coluna B; acrescenta a linha da chave se faltar.
+
+    Returns:
+        Chaves que mudaram.
+    """
+    folha = completar(doc)
+    linhas = _linhas_das_chaves(folha)
+    mudaram = []
+    for chave, valor in valores.items():
+        if chave not in linhas:
+            continue
+        celula = f"B{linhas[chave]}"
+        if _texto(folha, celula) == str(valor).strip():
+            continue
+        folha.set(celula, f"'{valor}")
+        mudaram.append(chave)
+    return mudaram

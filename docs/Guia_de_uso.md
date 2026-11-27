@@ -244,6 +244,8 @@ O luminotécnico fica em **Iluminação ▾ > Luminotécnico** (com o retângulo
 5. Selecione o que vai na prancha (o pavimento, o diagrama unifilar, a legenda, a planilha do quadro de cargas) e clique em **Folhas ▾ > Inserir na folha**. A escala é escolhida sozinha.
 6. **Folhas ▾ > Corte na folha** e **Detalhe na folha:** a partir de uma linha ou de um círculo desenhados na planta.
 7. **Folhas ▾ > Atualizar folhas** depois de qualquer mudança no projeto.
+
+**Carimbo:** preencha uma vez, em **Projeto ▾ > Parâmetros**, as linhas *Carimbo: projeto, obra, cliente, desenho, responsável técnico e CREA/CFT*: elas aparecem em todas as folhas e mudam em todas quando você as muda. O conteúdo, a data e a revisão de cada folha ficam nas propriedades dela (grupo *Carimbo*). A numeração (01/03...) e a escala são automáticas. Também dá para editar o campo com dois cliques na própria folha: o texto vai para o parâmetro e para as outras folhas.
 8. **Documentos ▾ > Relatório PDF:** memorial com os quadros, as demandas, os materiais e os diagramas.
 
 Para imprimir, use os botões de exportação do TechDraw com a folha aberta.

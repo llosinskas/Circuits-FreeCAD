@@ -438,6 +438,22 @@ class TestDimensionarColunas(unittest.TestCase):
         self.assertLess(visor["origem"][1], medidor["origem"][1])  # o visor continua na frente do medidor
         self.assertEqual(len([p for p in solida if p["tipo"] == "medidor"]), 6)
 
+    def test_representacao_solida_nas_caixas_e_metalicas_e_indiretas(self):
+        casos = [c.dimensionar_colunas(3, 40.0, 3, modelo="Caixa E"),
+                 c.dimensionar_colunas(8, 30.0, 3, modelo="Caixa M"),
+                 c.dimensionar_colunas(16, 15.0, 3, modelo="Caixa O"),
+                 c.dimensionar_colunas(1, 200.0, 3, modelo="Indireta")]
+        for dim in casos:
+            oca, solida = c.pecas_do_centro(dim, representacao=c.REPRESENTACOES[1]), c.pecas_do_centro(dim)
+            self.assertTrue(any("lateral" in p["rotulo"] for p in oca), dim["modelo"])
+            self.assertFalse(any("lateral" in p["rotulo"] for p in solida), dim["modelo"])
+            self.assertFalse(any(p["cor_tipo"] == "tampa" for p in solida), dim["modelo"])  # nenhuma transparente
+            tampas = [p for p in solida if p["tipo"] == "tampa"]
+            frente = min(p["origem"][1] for p in tampas)
+            for medidor in (p for p in solida if p["tipo"] == "medidor"):  # todos à vista, na frente da tampa
+                self.assertLessEqual(medidor["origem"][1] + medidor["dims"][1], frente + 1e-6, dim["modelo"])
+            self.assertEqual(sum(p["tipo"] == "medidor" for p in solida), sum(p["tipo"] == "medidor" for p in oca))
+
     def test_construcao_enel_oca_cores_suporte_e_validacao(self):
         pecas = c.pecas_da_coluna(12, "Coluna simples", com_suporte=True)
         tipos = {p["tipo"] for p in pecas}

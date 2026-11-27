@@ -133,6 +133,16 @@ class TestCorte(unittest.TestCase):
         self.assertEqual(folhas.titulo_da_vista("Planta baixa - Térreo", 50), ["PLANTA BAIXA - TÉRREO", "ESCALA 1:50"])
         self.assertEqual(folhas.titulo_da_vista("Circuitos QD1", 1, "tabela"), ["CIRCUITOS QD1"])
 
+class TestCarimboParametrico(unittest.TestCase):
+    def test_valores_e_mudancas(self):
+        valores = folhas.valores_do_carimbo({"obra": "Rua A", "projeto": ""}, "Casa", {"CarimboTitulo": "Planta"}, 2, 3)
+        self.assertEqual((valores["Projeto"], valores["Obra"], valores["Titulo"], valores["Folha"]),
+                         ("Casa", "Rua A", "Planta", "02/03"))
+        editados = dict(valores, Obra="Rua B", Folha="09/09", Escala="1:50", Projeto="Casa")
+        self.assertEqual(folhas.mudancas_no_carimbo(editados, valores, "Casa"), ({"obra": "Rua B"}, {}))
+        self.assertEqual(folhas.mudancas_no_carimbo(dict(valores, Projeto="Casa Nova"), valores, "Casa"),
+                         ({"projeto": "Casa Nova"}, {}))
+
 
 if __name__ == "__main__":
     unittest.main()

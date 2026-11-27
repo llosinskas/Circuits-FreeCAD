@@ -85,6 +85,50 @@ def rotulo_folha(numero, total):
     return f"{numero:02d}/{total:02d}"
 
 
+# Carimbo paramétrico: campo do carimbo -> chave de ``core.parametros.CAMPOS`` (iguais em todas as folhas)
+CARIMBO_DO_PROJETO = {"Projeto": "projeto", "Obra": "obra", "Cliente": "cliente", "Desenho": "desenhista",
+                      "Responsavel": "responsavel", "Registro": "registro"}
+# campo do carimbo -> propriedade da folha (um por folha)
+CARIMBO_DA_FOLHA = {"Titulo": "CarimboTitulo", "Data": "CarimboData", "Revisao": "CarimboRevisao"}
+
+
+def valores_do_carimbo(parametros, nome_documento, folha, numero, total):
+    """Textos do carimbo de uma folha, a partir das fontes (a escala fica com ``organizar``).
+
+    Args:
+        parametros: {chave: texto} de ``core.parametros`` (só as de ``CARIMBO_DO_PROJETO`` importam).
+        nome_documento: o nome do projeto quando ``projeto`` está em branco.
+        folha: {propriedade de ``CARIMBO_DA_FOLHA``: texto}.
+        numero, total: a posição da folha, para ``Folha`` (01/03).
+    Returns:
+        {campo do carimbo: texto}.
+    """
+    valores = {campo: str(parametros.get(chave, "") or "").strip() for campo, chave in CARIMBO_DO_PROJETO.items()}
+    valores["Projeto"] = valores["Projeto"] or str(nome_documento)
+    valores.update({campo: str(folha.get(prop, "") or "") for campo, prop in CARIMBO_DA_FOLHA.items()})
+    valores["Folha"] = rotulo_folha(numero, total)
+    return valores
+
+
+def mudancas_no_carimbo(editados, calculados, nome_documento=""):
+    """O que o usuário mudou direto no carimbo, para levar de volta às fontes.
+
+    Returns:
+        ({chave do parâmetro: texto}, {propriedade da folha: texto}); ``Folha`` e ``Escala``
+        são automáticos e não voltam. Projeto igual ao nome do documento volta em branco.
+    """
+    no_projeto, na_folha = {}, {}
+    for campo, texto in editados.items():
+        texto = str(texto)
+        if campo not in calculados or texto == calculados[campo]:
+            continue
+        if campo in CARIMBO_DO_PROJETO:
+            no_projeto[CARIMBO_DO_PROJETO[campo]] = "" if campo == "Projeto" and texto == nome_documento else texto
+        elif campo in CARIMBO_DA_FOLHA:
+            na_folha[CARIMBO_DA_FOLHA[campo]] = texto
+    return no_projeto, na_folha
+
+
 def proxima_letra(usadas):
     """Letra do próximo corte (A, B, ..., Z, AA, AB...), fora das já usadas."""
     usadas = set(usadas)

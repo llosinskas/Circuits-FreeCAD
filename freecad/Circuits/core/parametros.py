@@ -35,6 +35,13 @@ CAMPOS = {
     "simbolos_descida_caixas": ("S", "Símbolo de descida em cada caixa",
                                 "S: símbolo de subida/descida em toda caixa fora da altura do eletroduto; "
                                 "N: só nas mudanças de altura entre eletrodutos e nas eletrocalhas"),
+    # carimbo das folhas (``core.folhas.CARIMBO_DO_PROJETO``): mudar aqui muda todas as folhas
+    "projeto": ("", "Carimbo: projeto", "Nome do projeto nas folhas; em branco, o nome do documento"),
+    "obra": ("", "Carimbo: obra / endereço", "Aparece no carimbo de todas as folhas"),
+    "cliente": ("", "Carimbo: cliente", "Aparece no carimbo de todas as folhas"),
+    "desenhista": ("", "Carimbo: desenho (desenhista)", "Quem desenhou; aparece no carimbo de todas as folhas"),
+    "responsavel": ("", "Carimbo: responsável técnico", "Aparece no carimbo de todas as folhas"),
+    "registro": ("", "Carimbo: CREA / CFT", "Registro do responsável técnico"),
 }
 PADROES = {nome: dados[0] for nome, dados in CAMPOS.items()}
 _ESCOLHAS = {
