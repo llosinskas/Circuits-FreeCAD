@@ -210,5 +210,57 @@ class TestLuminotecnicoEAterramento(unittest.TestCase):
         self.assertNotIn("Luminotécnico", titulos)
 
 
+class TestCentroEBusway(unittest.TestCase):
+    ANDARES = [{"nome": "Térreo", "cota": 0.0, "unidades": 0, "demanda_a": 63.0, "fases": 2}] + [
+        {"nome": f"{i}º", "cota": 3.0 * i, "unidades": 4, "demanda_a": 63.0, "fases": 2} for i in range(1, 7)]
+    PARAMETROS_CENTRO = {"tensao": 220.0, "uso": 2.0, "distancia_horizontal": 15.0, "comprimento_ramal": 10.0,
+                         "demanda_total_a": 300.0, "andares_por_centro": 3.0}
+
+    def secoes(self, desenho):
+        dados = {"parametros": PARAMETROS, "projeto": {}, "contagem": {},
+                 "centro_medicao": {"andares": self.ANDARES, "parametros": self.PARAMETROS_CENTRO, "precos": {},
+                                    "desenho": desenho}}
+        return dict(m.montar(dados))
+
+    def test_descentralizada_gerada_e_busway_como_alternativa(self):
+        secoes = self.secoes({"solucoes": ["descentralizado"], "colunas": [], "busways": []})
+        centro = secoes["Centro de medição"]
+        t = textos(centro)
+        self.assertIn("Solução adotada: Medição descentralizada", t)
+        self.assertIn("(gerada no projeto)", t)
+        self.assertIn("Centro 1 no 1º: atende 1º, 2º, 3º", t)
+        self.assertIn("I andar = Id edifício × (n · Iun) do andar / Σ (n · Iun) = 300", t)
+        tabelas = [b for b in centro if b[0] == "tabela"]
+        comparacao = next(b for b in tabelas if b[1][0] == "Solução")
+        self.assertEqual(len(comparacao[2]), 3)
+        self.assertTrue(any("adotada" in linha[-1] for linha in comparacao[2]))
+        self.assertTrue(any(b[1][0] == "Item" for b in tabelas))  # orçamento da adotada
+        busway = textos(secoes["Busway"])
+        self.assertIn("alternativa comparada; não adotada", busway)
+        self.assertIn("Ramal de entrada (1 × 4 × 240 mm²): ΔV = k · L · I / 100", busway)
+        self.assertIn("% ≤ 2 % → atende", busway)
+
+    def test_busway_desenhado_e_a_adotada(self):
+        desenho = {"solucoes": ["descentralizado"], "colunas": [], "busways": [
+            {"nome": "BW", "pavimento": "Térreo", "corrente": 250, "trecho": "horizontal", "metros": 15.0}]}
+        secoes = self.secoes(desenho)
+        self.assertIn("Solução adotada: Busway com medição centralizada (desenhada no projeto)",
+                      textos(secoes["Centro de medição"]))
+        busway = secoes["Busway"]
+        self.assertIn("solução adotada no projeto", textos(busway))
+        self.assertTrue(any(b[0] == "tabela" and b[1][0] == "Item" for b in busway))
+        avisos = str(secoes["Avisos e limitações"])
+        self.assertIn("desenhado 250 A e o cálculo atual pede 400 A", avisos)
+        self.assertIn("também tem desenhada a medição descentralizada", avisos)
+
+    def test_sem_unidades_avisa(self):
+        dados = {"parametros": PARAMETROS, "projeto": {}, "contagem": {},
+                 "centro_medicao": {"andares": [{"nome": "Térreo", "cota": 0.0, "unidades": 0, "demanda_a": 63.0,
+                                                 "fases": 2}], "parametros": {}, "precos": {}, "desenho": {}}}
+        secoes = dict(m.montar(dados))
+        self.assertIn("coluna C", textos(secoes["Centro de medição"]))
+        self.assertNotIn("Busway", secoes)
+
+
 if __name__ == "__main__":
     unittest.main()

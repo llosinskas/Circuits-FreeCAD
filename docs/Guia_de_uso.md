@@ -243,6 +243,8 @@ Fica em **Quadros ▾**, nesta ordem:
 4. **Coluna de medição:** insere uma coluna avulsa (clique na planta para posicionar) ou, com uma coluna selecionada, edita a quantidade de medidores, o modelo e o desenho 3D.
 5. **Busway:** com o caminho do QDC ao shaft desenhado e selecionado.
 
+No relatório, a seção *Centro de medição* mostra a solução que está desenhada (o busway, se houver; senão a gerada; senão a mais barata) e a seção *Busway* traz a queda de tensão trecho a trecho e as caixas MEC. Deixe desenhada só uma solução: com duas, o relatório avisa.
+
 A **descentralizada** precisa de pelo menos 2 andares com unidades. Se todos caberiam num centro só (até 4 andares, o padrão de *Andares por centro*), eles são divididos em dois centros. Com *Andares por centro* = 0, ela fica de fora.
 
 O luminotécnico fica em **Iluminação ▾ > Luminotécnico** (com o retângulo do ambiente selecionado), e a resistência de terra em **Aterramento ▾ > Resistência de terra**. Os dois entram no memorial do relatório: o luminotécnico guarda o cálculo no retângulo do ambiente, e a resistência de terra, ao clicar em **Gravar no projeto**, na planilha *Cálculo de aterramento*.
@@ -258,7 +260,7 @@ O luminotécnico fica em **Iluminação ▾ > Luminotécnico** (com o retângulo
 7. **Folhas ▾ > Atualizar folhas** depois de qualquer mudança no projeto.
 
 **Carimbo:** preencha uma vez, em **Projeto ▾ > Parâmetros**, as linhas *Carimbo: projeto, obra, cliente, desenho, responsável técnico e CREA/CFT*: elas aparecem em todas as folhas e mudam em todas quando você as muda. O conteúdo, a data e a revisão de cada folha ficam nas propriedades dela (grupo *Carimbo*). A numeração (01/03...) e a escala são automáticas. Também dá para editar o campo com dois cliques na própria folha: o texto vai para o parâmetro e para as outras folhas.
-8. **Documentos ▾ > Relatório PDF:** o memorial descritivo e de cálculo completo, com capa, sumário, parâmetros e normas, previsão de cargas e luminotécnico por ambiente, quadro de cargas, demanda, cada circuito verificado passo a passo (fórmula e valores), DR, curto-circuito, gerador, centro de medição, luminotécnico dos ambientes, aterramento (hastes, BEP, cabo de cobre nu e a resistência de terra com as contas), ocupação dos eletrodutos, avisos, materiais, diagramas e a vista 3D. Gere antes os diagramas e, se quiser essas seções, o estudo de curto, o gerador e a resistência de terra gravada. O que não atende sai em vermelho e é listado em *Avisos e limitações*.
+8. **Documentos ▾ > Relatório PDF:** o memorial descritivo e de cálculo completo, com capa, sumário, parâmetros e normas, previsão de cargas e luminotécnico por ambiente, quadro de cargas, demanda, cada circuito verificado passo a passo (fórmula e valores), DR, curto-circuito, gerador, centro de medição e busway (comparação de custos, solução adotada, alimentadores, queda trecho a trecho e caixas MEC), luminotécnico dos ambientes, aterramento (hastes, BEP, cabo de cobre nu e a resistência de terra com as contas), ocupação dos eletrodutos, avisos, materiais, diagramas e a vista 3D. Gere antes os diagramas e, se quiser essas seções, o estudo de curto, o gerador e a resistência de terra gravada. O que não atende sai em vermelho e é listado em *Avisos e limitações*.
 
 Para imprimir, use os botões de exportação do TechDraw com a folha aberta.
 

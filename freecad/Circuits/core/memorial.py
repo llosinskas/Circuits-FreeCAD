@@ -16,6 +16,7 @@ Unidades: potências em VA ou W, tensões em V, correntes em A, seções em mm²
 import math
 
 from freecad.Circuits.core import nbr5410, quadro as regras_quadro, quadro_cargas
+from freecad.Circuits.core import centro_medicao as regras_centro
 from freecad.Circuits.core import curto as regras_curto
 from freecad.Circuits.core.functions.Predial import aterramento as regras_aterramento
 from freecad.Circuits.core.functions.Predial import demanda as regras_demanda
@@ -670,20 +671,237 @@ def _secao_gerador(dados):
     return "Grupo gerador", blocos
 
 
+ARGUMENTOS_CENTRO = ("tensao", "uso", "distancia_horizontal", "comprimento_ramal", "demanda_total_a",
+                     "altura_ultimo_pavimento", "andares_por_centro")
+
+
+def _comparacao_do_centro(c):
+    """Refaz a comparação de ``core.centro_medicao`` com os parâmetros gravados na planilha."""
+    parametros = c.get("parametros") or {}
+    argumentos = {k: parametros[k] for k in ARGUMENTOS_CENTRO if k in parametros}
+    if "andares_por_centro" in argumentos:
+        argumentos["andares_por_centro"] = int(argumentos["andares_por_centro"])
+    andares = [regras_centro.andar(a["nome"], a["cota"], a["unidades"], a.get("demanda_a", regras_centro.DEMANDA_PADRAO),
+                                   a.get("fases", regras_centro.FASES_PADRAO)) for a in c.get("andares", [])]
+    return regras_centro.comparar(andares, precos=c.get("precos"), **argumentos), argumentos, andares
+
+
+def _adotada(c, comparacao):
+    """Solução do projeto: a do busway desenhado, a gerada no desenho ou a recomendada pelo custo."""
+    desenho = c.get("desenho") or {}
+    if desenho.get("busways") and comparacao.get("busway"):
+        return "busway", "desenhada no projeto"
+    for solucao in ("descentralizado", "convencional"):
+        if solucao in desenho.get("solucoes", []) and comparacao.get(solucao):
+            return solucao, "gerada no projeto"
+    return comparacao["recomendada"], "a de menor custo; nenhuma foi desenhada ainda"
+
+
+def _tabela_conjuntos(conjuntos):
+    linhas = []
+    for g in conjuntos:
+        cdpm = g.get("cdpm") or "-"
+        if g.get("chave"):
+            cdpm += f"; chave {g['chave']} A, TC {g.get('tc', '-')}"
+        linhas.append([str(g.get("modelo", "-")), str(g.get("medicoes", g.get("caixas", 0))), br(g.get("corrente", 0.0), 1),
+                       cdpm, str(g.get("disjuntor_geral", "-")), str(g.get("barramento") or "-"),
+                       f"{g.get('ramal', '-')}" + (f" × {g['paralelos']}" if g.get("paralelos", 1) > 1 else "")])
+    return ("tabela", ["Caixa", "Medições", "Corrente [A]", "CDPM / proteção", "Disj. geral [A]", "Barramento",
+                       "Ramal [mm²]"], linhas, [0.9, 0.9, 1.0, 2.8, 1.0, 1.0, 1.0])
+
+
+def _tabela_alimentadores(alimentadores):
+    limite = regras_centro.QUEDA_ALIMENTADOR_UNIDADE
+    linhas = [[a["andar"], str(a["unidades"]), f"{a['condutores']} × {br_g(a['secao'])} + PE {br_g(a['pe'])}",
+               br(a["comprimento"], 1), str(a["disjuntor"]), br(a["queda"]), _ok(a["queda"] <= limite + 1e-9)]
+              for a in alimentadores]
+    return ("tabela", ["Andar", "Unidades", "Cabo de cada unidade [mm²]", "L [m]", "Disjuntor [A]", "ΔV [%]",
+                       f"≤ {br_g(limite)} %"], linhas, [1.4, 0.9, 2.2, 0.8, 1.0, 0.8, 1.1])
+
+
+def _abrigo(abrigo):
+    return (f"Abrigo do centro: {br(abrigo['comprimento'], 1)} × {br(abrigo['profundidade'], 1)} m = "
+            f"{br(abrigo['area'], 1)} m² (frente das caixas, circulação e porta aberta).")
+
+
+def _orcamento(custo, titulo):
+    linhas = [[i["descricao"], br_g(round(i["quantidade"], 2)), i["unidade"], br(i["unitario"]), br(i["total"])]
+              for i in custo["itens"]]
+    linhas += [["Mão de obra", "", "", "", br(custo["mao_de_obra"])], ["Total", "", "", "", br(custo["total"])]]
+    return [("subtitulo", titulo),
+            ("tabela", ["Item", "Qtd.", "Un.", "Unitário [R$]", "Total [R$]"], linhas, [3.6, 0.8, 0.6, 1.2, 1.2])]
+
+
 def _secao_centro(dados):
+    """Centro de medição (Enel SP): andares, comparação das soluções e a solução do projeto.
+
+    Returns: (título, blocos, avisos); título None se o projeto não tem a planilha do centro.
+    """
     c = dados.get("centro_medicao")
-    if not c or not c.get("resumo"):
-        return None
-    blocos = [("paragrafo", "Comparação entre a medição agrupada no térreo, a descentralizada por grupos de andares e "
-                            "o barramento blindado (busway), pela especificação Enel 0018: queda de tensão, caixas, "
-                            "alimentadores e orçamento de referência.")]
-    if c.get("andares"):
-        blocos.append(("tabela", ["Pavimento", "Cota [m]", "Unidades", "Demanda/un. [A]", "Fases"],
-                       [[a.get("nome", ""), br(a.get("cota", 0.0)), str(a.get("unidades", 0)),
-                         br_g(a.get("demanda_a", 0.0)), str(a.get("fases", ""))] for a in c["andares"]],
-                       [2, 1, 1, 1.4, 0.8]))
-    blocos.append(("tabela", ["Resultado", "Valor"], [[k, v] for k, v in c["resumo"].items()], [3, 3]))
-    return "Centro de medição", blocos
+    if not c or not c.get("andares"):
+        return None, [], []
+    try:
+        comparacao, argumentos, andares = _comparacao_do_centro(c)
+    except ValueError as erro:
+        return "Centro de medição", [("aviso", str(erro))], [f"Centro de medição: {erro}"]
+    adotada, motivo = _adotada(c, comparacao)
+    avisos = []
+    outras = [regras_centro.NOMES[x] for x in (c.get("desenho") or {}).get("solucoes", [])
+              if x != adotada and x in regras_centro.NOMES]
+    if outras:
+        avisos.append(f"o projeto também tem desenhada a {' e a '.join(outras).lower()}: apague a que não vale "
+                      f"(vale no memorial a {regras_centro.NOMES[adotada].lower()})")
+    tensao = argumentos.get("tensao", 220.0)
+    demanda_total = argumentos.get("demanda_total_a", 0.0)
+    com_unidades = [a for a in andares if a["unidades"] > 0]
+    correntes = dict(zip((a["nome"] for a in com_unidades),
+                         regras_centro.corrente_dos_andares(com_unidades, demanda_total)))
+    soma = sum(a["unidades"] * a["demanda_a"] for a in com_unidades)
+    blocos = [
+        ("paragrafo", "Centro de medição pela especificação Enel SP 0018 (fornecimento em tensão secundária, "
+                      f"conexão coletiva), em {br_g(tensao)} V. Foram comparadas a medição agrupada no térreo, a "
+                      "descentralizada por grupos de andares e o barramento blindado (busway) com medição "
+                      "centralizada nos andares."),
+        ("tabela", ["Pavimento", "Cota [m]", "Unidades", "Demanda/un. [A]", "Fases", "Corrente do andar [A]"],
+         [[a["nome"], br(a["cota"]), str(a["unidades"]), br_g(a["demanda_a"]), str(a["fases"]),
+           br(correntes.get(a["nome"], 0.0), 1) if a["unidades"] else "-"] for a in andares],
+         [1.8, 0.9, 0.9, 1.2, 0.7, 1.4]),
+    ]
+    if demanda_total:
+        blocos.append(("formula", f"I andar = Id edifício × (n · Iun) do andar / Σ (n · Iun) = {br_g(demanda_total)} × "
+                                  f"(n · Iun) / {br_g(soma)}"))
+    else:
+        blocos.append(("formula", f"I total = Σ (n · Iun) = {br_g(soma)} A (sem a demanda do edifício: soma sem "
+                                  "diversidade)"))
+    conv = comparacao["convencional"]
+    blocos.append(("paragrafo", f"Entrada: {conv['qdc']} com {conv['ramal']} circuito(s) de 4 × "
+                                f"{br_g(regras_centro.SECAO_RAMAL)} mm² para {br(conv['corrente'], 1)} A."))
+    custos = comparacao["custos"]
+    linhas = [[regras_centro.NOMES[s], br(custos[s]["material"]), br(custos[s]["mao_de_obra"]), br(custos[s]["total"]),
+               ("recomendada" if s == comparacao["recomendada"] else "") + (" · adotada" if s == adotada else "")]
+              for s in ("convencional", "descentralizado", "busway") if s in custos]
+    blocos += [("subtitulo", "Comparação das soluções (orçamento de referência)"),
+               ("tabela", ["Solução", "Material [R$]", "Mão de obra [R$]", "Total [R$]", ""], linhas,
+                [3.2, 1.2, 1.2, 1.2, 1.4])]
+    if comparacao.get("erro_busway"):
+        blocos.append(("aviso", f"Busway: {comparacao['erro_busway']}"))
+    blocos.append(("paragrafo", f"Solução adotada: {regras_centro.NOMES[adotada]} ({motivo}). Preços de referência "
+                                "da planilha do centro de medição: troque pelas cotações."))
+    if adotada == "convencional":
+        blocos += [("subtitulo", "Medição agrupada no térreo"), _tabela_conjuntos(conv["agrupamentos"]),
+                   ("paragrafo", f"Disjuntor de cada unidade: {conv['disjuntor_unidade']} A. " + _abrigo(conv["abrigo"])),
+                   ("subtitulo", "Alimentadores das unidades (do centro ao quadro da unidade)"),
+                   _tabela_alimentadores(conv["alimentadores"])]
+        avisos += conv.get("avisos", [])
+    elif adotada == "descentralizado":
+        desc = comparacao["descentralizado"]
+        blocos.append(("subtitulo", "Medição descentralizada"))
+        for centro in desc["centros"]:
+            ramal = centro["ramal"]
+            texto = (f"Centro {centro['numero']} no {centro['andar']}: atende {', '.join(centro['andares'])} "
+                     f"({centro['unidades']} unidades, {br(centro['corrente'], 1)} A). Ramal de distribuição do QDC: "
+                     f"{ramal['paralelos']} × 4 × {br_g(ramal['secao'])} mm², {br(ramal['comprimento'], 1)} m")
+            texto += f", chave vertical de {centro['chave']} A no QDC" if centro.get("chave") else ""
+            texto += f"; {centro['qdc_local']} no centro (7.18.2)" if centro.get("qdc_local") else ""
+            blocos += [("paragrafo", texto + ". " + _abrigo(centro["abrigo"])), _tabela_conjuntos(centro["conjuntos"]),
+                       _tabela_alimentadores(centro["alimentadores"])]
+        avisos += desc.get("avisos", [])
+    desenho = c.get("desenho") or {}
+    if desenho.get("colunas"):
+        blocos += [("subtitulo", "Colunas de medição desenhadas no projeto"),
+                   ("tabela", ["Objeto", "Pavimento", "Medições", "Corrente [A]", "Disj. unidade", "Conjuntos"],
+                    [[col["nome"], col["pavimento"], str(col["medidores"]), br(col["corrente"], 1), col["disjuntor"],
+                      "; ".join(col["conjuntos"]) or "-"] for col in desenho["colunas"]],
+                    [1.8, 1.2, 0.9, 1.0, 1.0, 3.0])]
+    if adotada != "busway":
+        blocos += _orcamento(custos[adotada], f"Orçamento: {regras_centro.NOMES[adotada]}")
+    else:
+        blocos.append(("paragrafo", "O dimensionamento do busway, das caixas MEC e o orçamento estão na seção Busway."))
+    blocos += [("aviso", a) for a in avisos]
+    return "Centro de medição", blocos, [f"Centro de medição: {a}" for a in avisos]
+
+
+def _secao_busway(dados):
+    """Busway: queda trecho a trecho, caixas MEC por andar, shaft e materiais. Returns: (título, blocos, avisos)."""
+    c = dados.get("centro_medicao")
+    if not c or not c.get("andares"):
+        return None, [], []
+    try:
+        comparacao, argumentos, _ = _comparacao_do_centro(c)
+    except ValueError:
+        return None, [], []
+    bus = comparacao.get("busway")
+    if not bus:
+        return None, [], []
+    adotada, _ = _adotada(c, comparacao)
+    tensao = argumentos.get("tensao", 220.0)
+    uso = argumentos.get("uso", 2.0)
+    ramal_m = argumentos.get("comprimento_ramal", 0.0)
+    _, circuitos, k_ramal = regras_centro.entrada(bus["corrente"])
+    volts_ramal = regras_centro.queda(k_ramal, ramal_m, bus["corrente"], tensao)[0]
+    papel = "solução adotada no projeto" if adotada == "busway" else "alternativa comparada; não adotada"
+    blocos = [("paragrafo", f"Barramento blindado (busway) do QDC até a prumada e subindo pelo shaft, com uma caixa MEC "
+                            f"por andar ({papel}). Queda de tensão pela Tabela 42 da Enel: ΔV = k · L · I / 100, com a "
+                            f"carga concentrada em cada derivação, limitada a {br_g(uso)} % (Tabela 41).")]
+    avisos = []
+    if ramal_m:
+        blocos.append(("formula", f"Ramal de entrada ({circuitos} × 4 × {br_g(regras_centro.SECAO_RAMAL)} mm²): ΔV = k · L · I / "
+                                  f"100 = {br(k_ramal, 4)} × {br(ramal_m, 1)} × {br(bus['corrente'], 1)} / 100 = "
+                                  f"{br(volts_ramal)} V"))
+    for n, linha in enumerate(bus["linhas"], start=1):
+        titulo = f"Linha {n}: busway {linha['nominal']} A" if len(bus["linhas"]) > 1 else f"Busway {linha['nominal']} A"
+        corpo = []
+        for comprimento, corrente, andar in linha["trechos"]:
+            volts = regras_centro.queda(linha["k"], comprimento, corrente, tensao)[0]
+            corpo.append([f"até {andar}", br(comprimento, 2), br(corrente, 1), br(volts, 3)])
+        ok = linha["queda"] <= uso + 1e-9
+        blocos += [
+            ("subtitulo", titulo),
+            ("paragrafo", f"Atende {', '.join(linha['andares'])}; corrente no início {br(linha['corrente'], 1)} A ≤ "
+                          f"{linha['nominal']} A; k = {br_g(linha['k'])} V/(100 m·A); {br(linha['comprimento'], 1)} m "
+                          "de busway (horizontal e prumada)."),
+            ("tabela", ["Trecho", "L [m]", "I [A]", "ΔV [V]"], corpo, [2, 1, 1, 1]),
+            ("formula", ("ΔV = ΔV ramal + Σ k · L · I / 100 = " + f"{br(volts_ramal)} + " if ramal_m
+                         else "ΔV = Σ k · L · I / 100 = ")
+                        + f"{br(linha['queda_v'] - volts_ramal, 3)} = {br(linha['queda_v'])} V = "
+                        f"{br(linha['queda'])} % ≤ {br_g(uso)} % → {_ok(ok)}"),
+        ]
+        if not ok:
+            avisos.append(f"Busway {linha['nominal']} A: queda de {br(linha['queda'])} % acima de {br_g(uso)} %")
+    blocos += [("subtitulo", "Caixas MEC por andar (Tabela 30)"),
+               ("tabela", ["Andar", "Cota [m]", "Unidades", "Corrente [A]", "Caixas"],
+                [[a["andar"], br(a["cota"]), str(a["unidades"]), br(a["corrente"], 1),
+                  "; ".join(f"{cx['tipo']} ({cx['medicoes']} med., {cx['disjuntor']} A"
+                            + (", indireta" if cx.get("indireta") else "") + ")" for cx in a["caixas"])]
+                 for a in bus["andares"]], [1.4, 0.8, 0.9, 1.0, 3.4])]
+    m = bus["materiais"]
+    metros = "; ".join(f"{br(v, 1)} m de {k} A" for k, v in sorted(m["metros"].items()))
+    blocos += [
+        ("paragrafo", f"Shaft (Desenho 75): {br_g(bus['shaft']['largura'])} × {br_g(bus['shaft']['profundidade'])} mm. "
+                      f"Topo da prumada a {br(bus['topo'], 1)} m."),
+        ("lista", [f"Busway: {metros}", f"Cotovelos {m['cotovelos']}, flanges {m['flanges']}, tampas finais {m['tampas']}",
+                   f"Emendas {m['emendas']} (a cada 3 m), suportes {m['suportes']} (a cada 1,5 m)",
+                   f"Barreiras corta-fogo {m['corta_fogo']} (uma por laje), plug-ins {m['plugins']}",
+                   "Caixas MEC: " + ", ".join(f"{q} × {t}" for t, q in sorted(m.get("mec", {}).items())),
+                   f"Cabo de comunicação {br(m.get('comunicacao_m', 0.0), 1)} m"]),
+    ]
+    desenho = (c.get("desenho") or {}).get("busways") or []
+    if desenho:
+        blocos += [("subtitulo", "Busway desenhado no projeto"),
+                   ("tabela", ["Objeto", "Pavimento", "Trecho", "Corrente [A]", "Comprimento [m]"],
+                    [[b["nome"], b["pavimento"], b["trecho"], str(b["corrente"]), br(b["metros"], 1)] for b in desenho],
+                    [2, 1.4, 1, 1, 1.2])]
+        calculadas = sorted(linha["nominal"] for linha in bus["linhas"])
+        desenhadas = sorted(b["corrente"] for b in desenho if b["trecho"] == "horizontal")
+        if desenhadas and desenhadas != calculadas:
+            avisos.append(f"Busway: desenhado {' + '.join(map(str, desenhadas))} A e o cálculo atual pede "
+                          f"{' + '.join(map(str, calculadas))} A (refaça o Busway)")
+            blocos.append(("aviso", avisos[-1] + "."))
+    if adotada == "busway":
+        blocos += _orcamento(comparacao["custos"]["busway"], "Orçamento: busway")
+    blocos += [("aviso", a) for a in bus.get("avisos", [])]
+    avisos += [f"Busway: {a}" for a in bus.get("avisos", [])] if adotada == "busway" else []
+    return "Busway", blocos, avisos
 
 
 def _secao_ocupacao(dados):
@@ -732,10 +950,17 @@ def montar(dados):
     if titulo:
         secoes.append((titulo, blocos))
         avisos += avisos_terra
-    for funcao in (_secao_gerador, _secao_centro, _secao_ocupacao):
-        secao = funcao(dados)
-        if secao:
-            secoes.append(secao)
+    secao = _secao_gerador(dados)
+    if secao:
+        secoes.append(secao)
+    for funcao in (_secao_centro, _secao_busway):
+        titulo, blocos, mais = funcao(dados)
+        if titulo:
+            secoes.append((titulo, blocos))
+            avisos += mais
+    secao = _secao_ocupacao(dados)
+    if secao:
+        secoes.append(secao)
     if dados.get("ocupacao"):
         avisos += dados["ocupacao"].get("avisos", [])
     secoes.append(("Avisos e limitações", [

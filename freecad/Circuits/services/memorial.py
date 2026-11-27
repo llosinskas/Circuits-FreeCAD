@@ -15,6 +15,7 @@ from freecad.Circuits.core import ocupacao as regras_ocupacao
 from freecad.Circuits.core import parametros as regras_parametros
 from freecad.Circuits.core.simbolos import CATALOGO, PASSAGEM
 from freecad.Circuits.services import parametros as servico_parametros
+from freecad.Circuits.services import pavimentos
 from freecad.Circuits.services import planilhas
 
 
@@ -133,10 +134,39 @@ def _centro(doc, avisos):
             rotulo = centro_medicao._texto(folha, f"{regras_centro.COLUNA_RESULTADO_ROTULO}{linha}")
             if rotulo:
                 resumo[rotulo] = centro_medicao._texto(folha, f"{regras_centro.COLUNA_RESULTADO_VALOR}{linha}")
-        return {"andares": centro_medicao.ler_andares(folha), "resumo": resumo}
+        return {"andares": centro_medicao.ler_andares(folha), "resumo": resumo,
+                "parametros": centro_medicao.ler_parametros(folha), "precos": centro_medicao.ler_precos(folha),
+                "desenho": _desenho_do_centro(doc)}
     except Exception as erro:
         avisos.append(f"Centro de medição fora do memorial: {erro}")
         return None
+
+
+def _desenho_do_centro(doc):
+    """O que está desenhado no projeto: colunas de medição, soluções geradas e trechos de busway."""
+    from freecad.Circuits.services import centro_medicao
+    colunas, busways, solucoes = [], [], set()
+    for obj in doc.Objects:
+        chave = getattr(obj, centro_medicao.MARCA, "")
+        if chave:
+            solucoes.add(chave.split(" ")[0])
+        pavimento = pavimentos.pavimento_do_objeto(doc, obj)
+        nome_pav = pavimento.Label if pavimento is not None else "-"
+        if _tipo(obj) == "ColunaMedicao":
+            colunas.append({"nome": obj.Label, "pavimento": nome_pav, "solucao": str(getattr(obj, "Solucao", "")),
+                            "conjuntos": list(getattr(obj, "Conjuntos", []) or []),
+                            "medidores": int(getattr(obj, "Medidores", 0) or 0),
+                            "corrente": float(getattr(obj, "CorrenteTotal", 0) or 0),
+                            "disjuntor": str(getattr(obj, "DisjuntorUnidade", "") or "")})
+        elif centro_medicao.eh_busway(obj) and hasattr(obj, "Shape"):
+            try:
+                metros = obj.Shape.Length / 1000.0
+            except Exception:
+                metros = 0.0
+            busways.append({"nome": obj.Label, "pavimento": nome_pav, "corrente": int(obj.CorrenteBusway),
+                            "trecho": "vertical" if getattr(obj, "prumada_busway_de", "") else "horizontal",
+                            "metros": metros})
+    return {"colunas": colunas, "busways": busways, "solucoes": sorted(solucoes)}
 
 
 def _ocupacao(doc, avisos):
