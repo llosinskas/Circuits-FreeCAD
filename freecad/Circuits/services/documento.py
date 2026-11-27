@@ -1,23 +1,7 @@
 """Estrutura de grupos do documento."""
 import FreeCAD as App
 
-GRUPOS_PROJETO = [
-    "Arquitetura_referencia",
-    "Niveis",
-    "Pontos_eletricos",
-    "Quadros",
-    "Tomadas",
-    "Iluminacao",
-    "Equipamentos",
-    "Eletrodutos",
-    "Eletrocalha",
-    "Cabos",
-    "Aterramento",
-    "Tabelas_e_planilhas",
-    "Detalhes",
-    "Diagramas",
-    "Projetos_2D",
-]
+# A estrutura de pastas do projeto fica em core/estrutura.py e services/estrutura.py.
 GRUPOS_QUADRO = [
     "Dados",
     "Estrutura funcional",

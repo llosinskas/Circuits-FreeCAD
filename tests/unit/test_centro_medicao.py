@@ -657,3 +657,10 @@ class TestCaixaPEMural(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class TestUnidadesDoNovoProjeto(unittest.TestCase):
+    def test_unidades_informadas_valem(self):
+        from freecad.Circuits.core import centro_medicao as cm
+        linhas = cm.linhas_dos_pavimentos([("Térreo", 0.0, 0), ("1º", 3.0, 6), ("2º", 6.0, None)])
+        self.assertEqual([l["unidades"] for l in linhas], [0, 6, cm.UNIDADES_PADRAO])

@@ -80,7 +80,7 @@ def gerar_notas(doc):
         posicao = _posicao_inicial(doc)
 
     grupo = doc.addObject("App::DocumentObjectGroup", NOME_GRUPO)
-    grupo.Label = "Notas"
+    grupo.Label = "Notas do projeto"
     passo = altura_texto * 1.7
     titulo = Draft.make_text("NOTAS", placement=App.Placement(posicao, App.Rotation()), height=altura_texto * 1.2)
     grupo.addObject(titulo)

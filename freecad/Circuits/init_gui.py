@@ -349,6 +349,14 @@ class CircuitsWorkbench(gui.Workbench):
         except Exception as erro:
             app.Console.PrintWarning(f"Circuits: propriedades BIM automáticas desligadas: {erro}\n")
 
+        # Planilhas, diagramas, legenda e folhas criados na raiz vão para a pasta certa do projeto.
+        try:
+            from .UI import observador_estrutura
+
+            observador_estrutura.instalar()
+        except Exception as erro:
+            app.Console.PrintWarning(f"Circuits: organização das pastas desligada: {erro}\n")
+
         # Símbolos das prumadas acompanham o objeto movido ou girado.
         try:
             from .UI import observador_prumadas

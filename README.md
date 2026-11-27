@@ -46,7 +46,7 @@ O relatório e o quantitativo em PDF usam a biblioteca `reportlab`. Pelo **Addon
 
 O [Guia de uso](docs/Guia_de_uso.md) mostra este caminho passo a passo, com o que preencher em cada etapa.
 
-1. **Projeto > Novo projeto** abre o formulário do projeto: identificação (carimbo) e tipo de edificação, pavimentos (subsolos, andares acima do térreo, cobertura, piso a piso e cota do térreo, numa tabela editável; como pastas ou como níveis da bancada BIM), fornecimento de energia (concessionária, 127/220 ou 220/380 V, fases, curto na entrada, esquema e resistência de terra) e condutores e proteção (material, isolação, temperatura, curvas, DR). O tipo de edificação sugere os valores. Ao confirmar, cria a estrutura do documento, os pavimentos com o Térreo ativo e a planilha *Parâmetros do projeto* preenchida; num projeto existente, o formulário abre preenchido para editar. O resto (limites de queda, tempo de curto) fica em **Projeto > Parâmetros**.
+1. **Projeto > Novo projeto** abre o formulário do projeto: identificação (carimbo) e tipo de edificação, pavimentos (subsolos, andares acima do térreo, cobertura, piso a piso e cota do térreo, numa tabela editável; como pastas ou como níveis da bancada BIM), fornecimento de energia (concessionária, 127/220 ou 220/380 V, fases, curto na entrada, esquema e resistência de terra) e condutores e proteção (material, isolação, temperatura, curvas, DR). O tipo de edificação sugere os valores. A tabela de pavimentos tem as unidades (apartamentos) de cada andar, que vão para as prumadas e o centro de medição; os dados de identificação vão para o carimbo de todas as folhas. Ao confirmar, cria as pastas do projeto (só *Pavimentos* e *Planilhas* de início; *Diagramas*, *Documentos* e *Folhas* aparecem quando há algo para elas, e o que os botões criam vai sozinho para a pasta certa), os pavimentos com o Térreo ativo e a planilha *Parâmetros do projeto* preenchida; num projeto existente, o formulário abre preenchido para editar. O resto (limites de queda, tempo de curto) fica em **Projeto > Parâmetros**.
 2. **Projeto > Pavimento** ou **Nível do BIM** escolhe ou cria o pavimento em que você vai desenhar.
 3. **Tomadas, Energia, Iluminação e Interruptores**: insira os pontos na planta. Cada símbolo vai sozinho para a pasta do tipo dele no pavimento ativo.
 4. **Iluminação > Luminotécnico**: com um retângulo do ambiente selecionado, calcula e distribui as luminárias.
@@ -150,10 +150,10 @@ Todo objeto da bancada recebe a classe IFC e as propriedades para a exportação
 
 ### Pavimentos
 
-Cada pavimento é uma pasta com os símbolos separados por tipo:
+Na raiz do documento ficam no máximo cinco pastas, cada uma criada quando há algo para ela: **Pavimentos**, **Planilhas** (parâmetros, notas, centro de medição, curto, gerador, listas), **Diagramas** (dos quadros sem símbolo na planta), **Documentos** (legenda, notas, detalhes) e **Folhas**. O que os botões criam vai sozinho para a pasta certa (preferência `OrganizarPastas`). Cada pavimento é uma pasta com os símbolos separados por tipo:
 
 ```
-Pontos_eletricos
+Pavimentos
 ├── Térreo
 │   ├── Tomadas
 │   │   └── Tomadas 3D        (caixas geradas pelo Modelo 3D)
@@ -164,7 +164,7 @@ Pontos_eletricos
 │   ├── Eletrodutos
 │   ├── Bandejas e leitos     (bandejas, conexões e suportes)
 │   ├── Circuitos             (textos de identificação dos pontos)
-│   └── Fiação                (traços de fase, neutro e terra)
+│   └── Fiação                (traços de fase, neutro, retorno e terra)
 └── 1º Pavimento
     └── ...
 ```

@@ -25,16 +25,16 @@ COBERTURA = "Cobertura"
 
 # Sugestões ao escolher o tipo de edificação (o usuário pode mudar tudo depois).
 SUGESTOES = {
-    "Residencial unifamiliar": {"subsolos": 0, "andares": 0, "cobertura": False, "piso_a_piso": 3000.0,
+    "Residencial unifamiliar": {"subsolos": 0, "andares": 0, "cobertura": False, "piso_a_piso": 3000.0, "unidades": 0,
                                 "altura_terreo": 3000.0, "sistema": "127/220 V", "fornecimento": "Bifásico",
                                 "esquema": "TN-S", "icc_entrada_ka": 5.0},
-    "Residencial multifamiliar": {"subsolos": 1, "andares": 4, "cobertura": True, "piso_a_piso": 2880.0,
+    "Residencial multifamiliar": {"subsolos": 1, "andares": 4, "cobertura": True, "piso_a_piso": 2880.0, "unidades": 4,
                                   "altura_terreo": 3500.0, "sistema": "127/220 V", "fornecimento": "Trifásico",
                                   "esquema": "TN-S", "icc_entrada_ka": 10.0},
-    "Comercial": {"subsolos": 0, "andares": 1, "cobertura": False, "piso_a_piso": 3500.0,
+    "Comercial": {"subsolos": 0, "andares": 1, "cobertura": False, "piso_a_piso": 3500.0, "unidades": 0,
                   "altura_terreo": 4000.0, "sistema": "127/220 V", "fornecimento": "Trifásico",
                   "esquema": "TN-S", "icc_entrada_ka": 10.0},
-    "Industrial": {"subsolos": 0, "andares": 0, "cobertura": False, "piso_a_piso": 6000.0,
+    "Industrial": {"subsolos": 0, "andares": 0, "cobertura": False, "piso_a_piso": 6000.0, "unidades": 0,
                    "altura_terreo": 8000.0, "sistema": "220/380 V", "fornecimento": "Trifásico",
                    "esquema": "TN-S", "icc_entrada_ka": 20.0},
 }
@@ -52,7 +52,7 @@ def nome_do_andar(numero):
 
 
 def pavimentos(subsolos=0, andares=0, cobertura=False, piso_a_piso=3000.0, altura_terreo=None,
-               cota_terreo=0.0, piso_a_piso_subsolo=None):
+               cota_terreo=0.0, piso_a_piso_subsolo=None, unidades_por_andar=0):
     """Lista dos pavimentos, do mais baixo ao mais alto.
 
     Args:
@@ -63,9 +63,11 @@ def pavimentos(subsolos=0, andares=0, cobertura=False, piso_a_piso=3000.0, altur
         altura_terreo: piso a piso do térreo [mm]; sem ele, ``piso_a_piso``.
         cota_terreo: cota do piso do térreo [mm].
         piso_a_piso_subsolo: dos subsolos [mm]; sem ele, ``piso_a_piso``.
+        unidades_por_andar: apartamentos (ou salas) de cada andar acima do térreo; térreo, subsolos e
+            cobertura ficam com 0. Vão para as prumadas e o centro de medição.
 
     Returns:
-        [{'nome', 'cota', 'altura'}] em mm.
+        [{'nome', 'cota', 'altura', 'unidades'}] em mm.
     """
     subsolos = max(0, min(MAXIMO_SUBSOLOS, int(subsolos)))
     andares = max(0, min(MAXIMO_ANDARES, int(andares)))
@@ -73,15 +75,17 @@ def pavimentos(subsolos=0, andares=0, cobertura=False, piso_a_piso=3000.0, altur
     altura_terreo = float(altura_terreo or piso_a_piso)
     subsolo = float(piso_a_piso_subsolo or piso_a_piso)
     cota_terreo = float(cota_terreo)
-    lista = [{"nome": f"Subsolo {i}", "cota": cota_terreo - i * subsolo, "altura": subsolo}
+    unidades = max(0, int(unidades_por_andar or 0))
+    lista = [{"nome": f"Subsolo {i}", "cota": cota_terreo - i * subsolo, "altura": subsolo, "unidades": 0}
              for i in range(subsolos, 0, -1)]
-    lista.append({"nome": TERREO, "cota": cota_terreo, "altura": altura_terreo})
+    lista.append({"nome": TERREO, "cota": cota_terreo, "altura": altura_terreo,
+                  "unidades": unidades if andares == 0 else 0})
     cota = cota_terreo + altura_terreo
     for i in range(1, andares + 1):
-        lista.append({"nome": nome_do_andar(i), "cota": cota, "altura": piso_a_piso})
+        lista.append({"nome": nome_do_andar(i), "cota": cota, "altura": piso_a_piso, "unidades": unidades})
         cota += piso_a_piso
     if cobertura:
-        lista.append({"nome": COBERTURA, "cota": cota, "altura": piso_a_piso})
+        lista.append({"nome": COBERTURA, "cota": cota, "altura": piso_a_piso, "unidades": 0})
     return lista
 
 
@@ -110,6 +114,8 @@ def validar(dados):
         erros.append("As cotas dos pavimentos precisam crescer de cima para baixo da lista (do mais baixo ao mais alto).")
     if any(float(p.get("altura", 0.0)) <= 0 for p in lista):
         erros.append("O piso a piso de cada pavimento precisa ser maior que zero.")
+    if any(int(p.get("unidades", 0) or 0) < 0 for p in lista):
+        erros.append("As unidades de um pavimento não podem ser negativas.")
     if dados.get("sistema") and dados["sistema"] not in SISTEMAS:
         erros.append(f"Sistema de tensões desconhecido: {dados['sistema']}.")
     return erros
@@ -169,11 +175,13 @@ def dados_iniciais(textos=None, existentes=None, tipo=None):
         dados["sistema"] = sistema_das_tensoes(valores["tensao_fn"], valores["tensao_ff"])
     if existentes:
         dados["pavimentos"] = [{"nome": p["nome"], "cota": float(p["cota"]), "altura": float(p["altura"]),
-                                "bim": bool(p.get("bim"))} for p in existentes]
+                                "unidades": int(p.get("unidades") or 0), "bim": bool(p.get("bim"))}
+                               for p in existentes]
         dados["niveis_bim"] = any(p.get("bim") for p in existentes)
     else:
         dados["pavimentos"] = pavimentos(sugestao["subsolos"], sugestao["andares"], sugestao["cobertura"],
-                                         sugestao["piso_a_piso"], sugestao["altura_terreo"])
+                                         sugestao["piso_a_piso"], sugestao["altura_terreo"],
+                                         unidades_por_andar=sugestao["unidades"])
     dados["novo"] = novo
     return dados
 
@@ -186,6 +194,9 @@ def resumo(dados):
     if lista:
         partes.append(f"de {lista[0]['nome']} ({lista[0]['cota'] / 1000:.2f} m) a {lista[-1]['nome']} "
                       f"({lista[-1]['cota'] / 1000:.2f} m)".replace(".", ","))
+    total = sum(int(p.get("unidades", 0) or 0) for p in lista)
+    if total:
+        partes.append(f"{total} unidade(s)")
     if fn:
         partes.append(f"{dados.get('fornecimento', '').lower()} {fn:g}/{ff:g} V")
     if dados.get("esquema"):

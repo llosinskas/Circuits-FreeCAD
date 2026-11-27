@@ -56,7 +56,7 @@ def criar(doc):
     folha.set("A1", f"'{regras.AJUDA}")
     for coluna, _, titulo in regras.COLUNAS:
         folha.set(f"{coluna}{regras.LINHA_TITULOS}", f"'{titulo}")
-    projeto = [(p.Label, pavimentos.elevacao(p) / 1000.0) for p in pavimentos.listar(doc)]
+    projeto = [(p.Label, pavimentos.elevacao(p) / 1000.0, getattr(p, "Unidades", None)) for p in pavimentos.listar(doc)]
     for linha, dados in enumerate(regras.linhas_dos_pavimentos(projeto), start=regras.PRIMEIRA_LINHA):
         folha.set(f"A{linha}", f"'{dados['nome']}")
         folha.set(f"B{linha}", f"'{str(dados['cota']).replace('.', ',')}")

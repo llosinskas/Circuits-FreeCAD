@@ -1,7 +1,10 @@
 """Novo projeto elétrico no documento: grupos, pavimentos e parâmetros (``core.novo_projeto``)."""
+import FreeCAD as App
+
 from freecad.Circuits.core import novo_projeto as regras
-from freecad.Circuits.services import parametros, pavimentos
-from freecad.Circuits.services.documento import GRUPOS_PROJETO, criar_grupos
+from freecad.Circuits.services import estrutura, parametros, pavimentos
+
+PROPRIEDADE_UNIDADES = "Unidades"
 
 
 def bim_disponivel():
@@ -13,11 +16,26 @@ def bim_disponivel():
 
 
 def existentes(doc):
-    """Pavimentos do documento como no diálogo: [{'nome', 'cota', 'altura', 'bim'}]."""
+    """Pavimentos do documento como no diálogo: [{'nome', 'cota', 'altura', 'bim', 'unidades'}]."""
     if doc is None:
         return []
-    return [{"nome": p["nome"], "cota": p["elevacao_mm"], "altura": p["altura_mm"], "bim": p["bim"]}
-            for p in pavimentos.resumo(doc)]
+    return [{"nome": pav.Label, "cota": pavimentos.elevacao(pav), "altura": pavimentos.altura(pav),
+             "bim": pavimentos.eh_nivel_bim(pav), "unidades": unidades(pav)}
+            for pav in pavimentos.listar(doc)]
+
+
+def unidades(pavimento):
+    """Unidades (apartamentos, salas) do pavimento, gravadas pelo Novo projeto; None se não foram informadas."""
+    valor = getattr(pavimento, PROPRIEDADE_UNIDADES, None)
+    return int(valor) if valor is not None else None
+
+
+def gravar_unidades(pavimento, quantidade):
+    if not hasattr(pavimento, PROPRIEDADE_UNIDADES):
+        pavimento.addProperty("App::PropertyInteger", PROPRIEDADE_UNIDADES, "Pavimento",
+                              "Unidades (apartamentos ou salas) do pavimento: prumadas e centro de medição")
+    if getattr(pavimento, PROPRIEDADE_UNIDADES) != int(quantidade):
+        setattr(pavimento, PROPRIEDADE_UNIDADES, int(quantidade))
 
 
 def dados_iniciais(doc):
@@ -32,14 +50,18 @@ def dados_iniciais(doc):
 def aplicar(doc, dados):
     """Cria ou atualiza o projeto com os dados do diálogo.
 
-    - grupos do projeto (``GRUPOS_PROJETO``);
-    - um pavimento por linha: nível da bancada BIM (``dados['niveis_bim']``) ou pasta da bancada; os níveis
-      do BIM que já existem ficam com a cota e a altura deles;
+    - estrutura de pastas (``services.estrutura.criar``: Pavimentos e Planilhas, o edifício do BIM com
+      níveis, sem as pastas antigas vazias, com o que estava na raiz arrumado);
+    - um pavimento por linha, com as unidades (propriedade ``Unidades``): nível da bancada BIM
+      (``dados['niveis_bim']``, dentro do edifício) ou pasta da bancada; os níveis do BIM que já existem ficam
+      com a cota e a altura deles;
     - o pavimento inicial (Térreo) fica ativo;
-    - planilha de parâmetros com a identificação, o fornecimento, os condutores e a proteção.
+    - planilha de parâmetros com a identificação, o fornecimento, os condutores e a proteção, na pasta
+      Planilhas, e o carimbo das folhas que já existem.
 
     Returns:
-        {'criados': [nomes], 'atualizados': [nomes], 'ativo': nome, 'parametros': [chaves que mudaram]}.
+        {'criados': [nomes], 'atualizados': [nomes], 'ativo': nome, 'parametros': [chaves que mudaram],
+         'estrutura': {...}}.
 
     Raises:
         ValueError: com as mensagens de ``core.novo_projeto.validar``.
@@ -47,16 +69,18 @@ def aplicar(doc, dados):
     erros = regras.validar(dados)
     if erros:
         raise ValueError("\n".join(erros))
-    criar_grupos(doc, GRUPOS_PROJETO)
     criados, atualizados = [], []
     usar_bim = bool(dados.get("niveis_bim")) and bim_disponivel()
-    for pav in dados["pavimentos"]:
-        nome, cota, altura = str(pav["nome"]).strip(), float(pav["cota"]), float(pav["altura"])
+    feito_estrutura = estrutura.criar(doc, usar_bim, str(dados.get("projeto") or "").strip())
+    for linha in dados["pavimentos"]:
+        nome, cota, altura = str(linha["nome"]).strip(), float(linha["cota"]), float(linha["altura"])
         ja_existia = pavimentos.por_nome(doc, nome) is not None
         if usar_bim and not ja_existia:
-            pavimentos.criar_nivel_bim(doc, nome, cota, altura)
+            pav = pavimentos.criar_nivel_bim(doc, nome, cota, altura)
         else:
-            pavimentos.definir(doc, nome, cota, altura)
+            pav = pavimentos.definir(doc, nome, cota, altura)
+        if pav is not None and linha.get("unidades") is not None:
+            gravar_unidades(pav, int(linha["unidades"] or 0))
         (atualizados if ja_existia else criados).append(nome)
     inicial = pavimentos.por_nome(doc, regras.pavimento_inicial(dados["pavimentos"]))
     if inicial is not None:
@@ -65,6 +89,13 @@ def aplicar(doc, dados):
     mudaram = parametros.gravar(doc, regras.valores_dos_parametros(dados))
     if dados.get("projeto"):
         doc.Label = str(dados["projeto"]).strip() or doc.Label
+    estrutura.organizar(doc)  # a planilha de parâmetros vai para Planilhas
+    try:
+        from freecad.Circuits.services import folhas
+        if folhas.listar_folhas(doc):
+            folhas.atualizar_carimbos(doc)
+    except Exception as erro:
+        App.Console.PrintWarning(f"Projeto: carimbo das folhas não atualizado: {erro}\n")
     doc.recompute()
     return {"criados": criados, "atualizados": atualizados, "ativo": inicial.Label if inicial is not None else "",
-            "parametros": mudaram}
+            "parametros": mudaram, "estrutura": feito_estrutura}

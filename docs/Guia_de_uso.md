@@ -35,7 +35,7 @@ O [README](../README.md) descreve cada ferramenta em detalhe. Aqui o foco é a o
 
 1. **Projeto ▾ > Novo projeto.** Abre o formulário do projeto, em quatro abas:
    - **Identificação:** nome do projeto, obra/endereço, cliente, responsável técnico, CREA/CFT e desenhista (vão para o carimbo das folhas) e o tipo de edificação (residencial unifamiliar, multifamiliar, comercial ou industrial). Trocar o tipo sugere os pavimentos, as tensões, o fornecimento e o curto na entrada.
-   - **Edificação e pavimentos:** quantos subsolos, quantos andares acima do térreo, se tem cobertura, o piso a piso do térreo e dos andares e a cota do térreo. A tabela embaixo mostra os pavimentos que serão criados (Subsolo 1, Térreo, 1º Pavimento... Cobertura), com a cota e o piso a piso, e deixa mudar nomes e cotas. Marque **Criar como níveis da bancada BIM** para os pavimentos virarem andares no IFC.
+   - **Edificação e pavimentos:** quantos subsolos, quantos andares acima do térreo, se tem cobertura, o piso a piso do térreo e dos andares, a cota do térreo e as unidades (apartamentos ou salas) por andar. A tabela embaixo mostra os pavimentos que serão criados (Subsolo 1, Térreo, 1º Pavimento... Cobertura), com a cota, o piso a piso e as unidades, e deixa mudar tudo, andar por andar. As unidades vão para as prumadas (uma seta por apartamento) e para a planilha do centro de medição. Marque **Criar como níveis da bancada BIM** para os pavimentos virarem andares no IFC, dentro de um edifício do BIM com o nome do projeto.
    - **Fornecimento de energia:** concessionária, sistema de tensões (127/220 V, 220/380 V...), monofásico, bifásico ou trifásico, curto-circuito na entrada, esquema de aterramento e resistência de terra.
    - **Condutores e proteção:** cobre ou alumínio, isolação, temperatura ambiente, curvas dos disjuntores e sensibilidade do DR.
 
@@ -49,6 +49,19 @@ O [README](../README.md) descreve cada ferramenta em detalhe. Aqui o foco é a o
 3. **Projeto ▾ > Pavimento.** Escolhe o pavimento ativo ou cria um novo, com a cota do piso e a altura de piso a piso. Para usar os níveis do BIM, **Projeto ▾ > Nível do BIM**.
 
 Tudo o que você inserir vai para a pasta do pavimento ativo, separado por tipo (*Tomadas*, *Iluminação*, *Interruptores*, *Quadros e medição*, *Eletrodutos*...).
+
+**Pastas do projeto:** a árvore fica com no máximo cinco pastas, e cada uma só aparece quando há algo para ela:
+
+```
+Residencial Alfa
+├── Pavimentos     Térreo, 1º Pavimento... (cada um com Tomadas, Iluminação, Quadros e medição...)
+├── Planilhas      Parâmetros do projeto, notas, centro de medição, curto, gerador, listas
+├── Diagramas      unifilares e multifilares dos quadros que não têm símbolo na planta
+├── Documentos     legenda, notas desenhadas, detalhes das verticais
+└── Folhas         as pranchas
+```
+
+O que os botões criam vai sozinho para a pasta certa (a planilha e o diagrama de um quadro com símbolo ficam junto do símbolo, na pasta *Quadros e medição* do pavimento). Num projeto antigo, clique em **Novo projeto** de novo e confirme: as pastas antigas vazias somem e o que estava solto na raiz é arrumado; as pastas antigas com alguma coisa dentro ficam. Com níveis da bancada BIM, os pavimentos ficam no edifício do BIM, e a pasta Pavimentos não é criada. Para não arrumar sozinho, desligue a preferência `OrganizarPastas` em `BaseApp/Preferences/Mod/Circuits`.
 
 **Planta de arquitetura:** desenhe ou importe a arquitetura antes (paredes, portas e espaços da bancada BIM, ou um DWG/DXF importado). Os pontos são desenhados por cima dela.
 

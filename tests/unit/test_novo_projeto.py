@@ -7,7 +7,14 @@ from freecad.Circuits.core import parametros
 
 class TestPavimentos(unittest.TestCase):
     def test_casa_terrea(self):
-        self.assertEqual(np.pavimentos(), [{"nome": "Térreo", "cota": 0.0, "altura": 3000.0}])
+        self.assertEqual(np.pavimentos(), [{"nome": "Térreo", "cota": 0.0, "altura": 3000.0, "unidades": 0}])
+
+    def test_unidades_so_nos_andares(self):
+        lista = np.pavimentos(subsolos=1, andares=2, cobertura=True, unidades_por_andar=4)
+        self.assertEqual([p["unidades"] for p in lista], [0, 0, 4, 4, 0])
+        self.assertEqual(np.pavimentos(unidades_por_andar=3)[0]["unidades"], 3)  # só o térreo: as unidades nele
+        self.assertIn("8 unidade(s)", np.resumo({"pavimentos": lista}))
+        self.assertTrue(np.validar({"pavimentos": [{"nome": "A", "cota": 0, "altura": 1, "unidades": -1}]}))
 
     def test_predio_com_subsolos_e_cobertura(self):
         lista = np.pavimentos(subsolos=2, andares=3, cobertura=True, piso_a_piso=2880, altura_terreo=3500)

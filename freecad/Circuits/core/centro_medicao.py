@@ -1240,17 +1240,24 @@ def andar_da_linha(celulas):
 
 
 def linhas_dos_pavimentos(pavimentos, cota_base=None):
-    """Linhas iniciais da planilha a partir de [(nome, cota do piso [m])]: o mais baixo fica sem unidades.
+    """Linhas iniciais da planilha a partir de [(nome, cota do piso [m])] ou [(nome, cota, unidades)]:
+    o mais baixo fica sem unidades.
 
-    Com um pavimento só (projeto que ainda não tem os andares), as unidades ficam nele.
+    Com um pavimento só (projeto que ainda não tem os andares), as unidades ficam nele. As unidades
+    informadas no Novo projeto (o terceiro valor, quando não é None) valem no lugar dessa regra.
     """
     if not pavimentos:
         return [{"nome": f"{i}º pavimento", "cota": 3.0 * i, "unidades": UNIDADES_PADRAO} for i in range(1, 5)]
     ordenados = sorted(pavimentos, key=lambda p: p[1])
     base = ordenados[0][1] if cota_base is None else cota_base
     sem_unidades = 0 if len(ordenados) > 1 else None  # com um pavimento só, as unidades ficam nele
-    return [{"nome": nome, "cota": round(cota - base, 2), "unidades": 0 if i == sem_unidades else UNIDADES_PADRAO}
-            for i, (nome, cota) in enumerate(ordenados)]
+    linhas = []
+    for i, pav in enumerate(ordenados):
+        nome, cota = pav[0], pav[1]
+        informadas = pav[2] if len(pav) > 2 else None
+        unidades = int(informadas) if informadas is not None else (0 if i == sem_unidades else UNIDADES_PADRAO)
+        linhas.append({"nome": nome, "cota": round(cota - base, 2), "unidades": unidades})
+    return linhas
 
 
 # --- geometria: coluna de medição (agrupamento) ----------------------------------------------------------

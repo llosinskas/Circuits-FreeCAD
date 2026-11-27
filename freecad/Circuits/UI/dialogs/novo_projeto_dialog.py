@@ -106,21 +106,30 @@ class NovoProjetoDialog(QtWidgets.QDialog):
         self.piso_a_piso = _duplo((acima[0]["altura"] if acima else sugestao["piso_a_piso"]) / 1000.0,
                                   2.0, 20.0, sufixo=" m")
         self.cota_terreo = _duplo((terreo["cota"] if terreo else 0.0) / 1000.0, -50.0, 500.0, sufixo=" m")
+        self.unidades = QtWidgets.QSpinBox()
+        self.unidades.setRange(0, 200)
+        self.unidades.setValue(max([int(p.get("unidades") or 0) for p in acima] or
+                                   [int((terreo or {}).get("unidades") or 0) if not acima else 0] or [0]))
+        self.unidades.setToolTip("Apartamentos ou salas de cada andar acima do térreo (com o térreo só, nele). "
+                                 "Vão para as prumadas (uma seta por apartamento) e para o centro de medição.")
         for linha, (rotulo, campo) in enumerate((("Subsolos:", self.subsolos), ("Andares acima do térreo:", self.andares),
                                                   ("Piso a piso do térreo:", self.altura_terreo),
                                                   ("Piso a piso dos andares:", self.piso_a_piso),
-                                                  ("Cota do piso do térreo:", self.cota_terreo))):
+                                                  ("Cota do piso do térreo:", self.cota_terreo),
+                                                  ("Unidades por andar:", self.unidades))):
             grade.addWidget(QtWidgets.QLabel(rotulo), linha // 2, (linha % 2) * 2)
             grade.addWidget(campo, linha // 2, (linha % 2) * 2 + 1)
-        grade.addWidget(self.cobertura, 2, 2, 1, 2)
+        grade.addWidget(self.cobertura, 3, 0, 1, 4)
         caixa.addLayout(grade)
         gerar = QtWidgets.QPushButton("Gerar a lista de pavimentos")
         gerar.setToolTip("Refaz a tabela com os números acima (os nomes e cotas editados à mão se perdem)")
         gerar.clicked.connect(self.gerar_pavimentos)
         caixa.addWidget(gerar)
-        self.tabela = QtWidgets.QTableWidget(0, 3)
-        self.tabela.setHorizontalHeaderLabels(["Pavimento", "Cota do piso [m]", "Piso a piso [m]"])
-        self.tabela.horizontalHeader().setStretchLastSection(True)
+        self.tabela = QtWidgets.QTableWidget(0, 4)
+        self.tabela.setHorizontalHeaderLabels(["Pavimento", "Cota do piso [m]", "Piso a piso [m]", "Unidades"])
+        cabecalho = self.tabela.horizontalHeader()
+        cabecalho.setSectionResizeMode(QtWidgets.QHeaderView.ResizeToContents)
+        cabecalho.setSectionResizeMode(0, QtWidgets.QHeaderView.Stretch)
         self.tabela.itemChanged.connect(self.atualizar_resumo)
         caixa.addWidget(self.tabela)
         self.niveis_bim = QtWidgets.QCheckBox("Criar os pavimentos como níveis da bancada BIM (andares no IFC)")
@@ -132,7 +141,7 @@ class NovoProjetoDialog(QtWidgets.QDialog):
         if editando:
             nota = QtWidgets.QLabel("Pavimentos que saírem da lista não são apagados.")
             caixa.addWidget(nota)
-        for campo in (self.subsolos, self.andares):
+        for campo in (self.subsolos, self.andares, self.unidades):
             campo.valueChanged.connect(self.gerar_pavimentos)
         self.cobertura.toggled.connect(self.gerar_pavimentos)
         for campo in (self.altura_terreo, self.piso_a_piso, self.cota_terreo):
@@ -188,7 +197,8 @@ class NovoProjetoDialog(QtWidgets.QDialog):
         sugestao = regras.SUGESTOES.get(tipo)
         if not sugestao:
             return
-        for campo, valor in ((self.subsolos, sugestao["subsolos"]), (self.andares, sugestao["andares"])):
+        for campo, valor in ((self.subsolos, sugestao["subsolos"]), (self.andares, sugestao["andares"]),
+                             (self.unidades, sugestao.get("unidades", 0))):
             campo.blockSignals(True)
             campo.setValue(valor)
             campo.blockSignals(False)
@@ -206,7 +216,7 @@ class NovoProjetoDialog(QtWidgets.QDialog):
     def gerar_pavimentos(self, *_):
         lista = regras.pavimentos(self.subsolos.value(), self.andares.value(), self.cobertura.isChecked(),
                                   self.piso_a_piso.value() * 1000.0, self.altura_terreo.value() * 1000.0,
-                                  self.cota_terreo.value() * 1000.0)
+                                  self.cota_terreo.value() * 1000.0, unidades_por_andar=self.unidades.value())
         self._preencher_tabela(lista)
         self.atualizar_resumo()
 
@@ -214,9 +224,10 @@ class NovoProjetoDialog(QtWidgets.QDialog):
         self.tabela.blockSignals(True)
         self.tabela.setRowCount(len(lista))
         for i, pav in enumerate(lista):
-            for coluna, valor in enumerate((pav["nome"], _metros(pav["cota"]), _metros(pav["altura"]))):
+            valores = (pav["nome"], _metros(pav["cota"]), _metros(pav["altura"]), str(int(pav.get("unidades") or 0)))
+            for coluna, valor in enumerate(valores):
                 item = QtWidgets.QTableWidgetItem(valor)
-                if pav.get("bim") and coluna > 0:
+                if pav.get("bim") and coluna in (1, 2):
                     item.setFlags(item.flags() & ~QtCore.Qt.ItemIsEditable)
                     item.setToolTip("Nível da bancada BIM: cota e altura são editadas no próprio nível")
                 self.tabela.setItem(i, coluna, item)
@@ -225,11 +236,12 @@ class NovoProjetoDialog(QtWidgets.QDialog):
     def pavimentos(self):
         lista = []
         for i in range(self.tabela.rowCount()):
-            celulas = [self.tabela.item(i, c) for c in range(3)]
-            if any(c is None for c in celulas):
+            celulas = [self.tabela.item(i, c) for c in range(4)]
+            if any(c is None for c in celulas[:3]):
                 continue
+            unidades = int(_numero(celulas[3].text() if celulas[3] is not None else 0, 0.0))
             lista.append({"nome": celulas[0].text().strip(), "cota": _numero(celulas[1].text()) * 1000.0,
-                          "altura": _numero(celulas[2].text()) * 1000.0})
+                          "altura": _numero(celulas[2].text()) * 1000.0, "unidades": unidades})
         return lista
 
     def get_dados(self):

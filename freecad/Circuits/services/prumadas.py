@@ -39,7 +39,8 @@ def listar(doc):
 
 def andares_do_projeto(doc, unidades_padrao=4):
     """Andares a partir dos pavimentos do projeto, com as unidades da planilha do centro de medição
-    (pelo nome do pavimento) ou ``unidades_padrao`` (o mais baixo, a origem, sem unidades)."""
+    (pelo nome do pavimento), senão as do Novo projeto (propriedade ``Unidades`` do pavimento), senão
+    ``unidades_padrao`` (o mais baixo, a origem, sem unidades)."""
     unidades = {}
     try:
         from freecad.Circuits.services import centro_medicao
@@ -52,6 +53,9 @@ def andares_do_projeto(doc, unidades_padrao=4):
     andares = []
     for i, pav in enumerate(lista):
         padrao = 0 if i == 0 else int(unidades_padrao)
+        informadas = getattr(pav, "Unidades", None)
+        if informadas is not None:
+            padrao = int(informadas)
         andares.append(regras.andar(pav.Label, pavimentos.elevacao(pav), unidades.get(pav.Label, padrao)))
     return andares
 
