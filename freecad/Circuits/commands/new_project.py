@@ -86,7 +86,21 @@ class newSpreadsheet:
 
 class addCircuit:
     def Activated(self):
-        InsertCircuit().exec_()
+        doc = documento_ou_aviso()
+        if not doc:
+            return
+        quadros = [q.Label for q in planilhas.listar_quadros(doc)]
+        dialogo = InsertCircuit(quadros=quadros)
+        if not dialogo.exec_():
+            return
+        doc.openTransaction("Inserir circuito")
+        try:
+            folha, linha = planilhas.adicionar_circuito_geral(doc, dialogo.get_dados())
+            doc.commitTransaction()
+        except Exception:
+            doc.abortTransaction()
+            raise
+        App.Console.PrintMessage(f"Circuito gravado na linha {linha} de '{folha.Label}'.\n")
 
     def IsActive(self):
         return True
@@ -95,7 +109,7 @@ class addCircuit:
         return recursos(
             "record-svgrepo-com.svg",
             "Formulário de circuito",
-            "Abre o formulário de circuito (em desenvolvimento: ainda não grava os dados)",
+            "Adiciona um circuito preenchido à planilha geral de circuitos do projeto",
         )
 
 

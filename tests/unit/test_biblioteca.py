@@ -52,6 +52,16 @@ class TestBiblioteca(unittest.TestCase):
                 self.assertEqual(b.chave_do_exemplo(b.caminho_do_exemplo(chave)), chave)
         self.assertIsNone(b.chave_do_exemplo("/caminho/Tomada.FCStd"))
 
+    def test_dimensoes_e_filtro_por_origem_e_recentes(self):
+        self.assertEqual(b.dimensoes_do_exemplo("quadro_embutir_24"), (360.0, 100.0, 420.0))
+        self.assertEqual(b.dimensoes_do_exemplo("motor_3cv"), (360.0, 250.0, 280.0))
+        self.assertEqual(b.dimensoes_do_exemplo("inexistente"), (0.0, 0.0, 0.0))
+        itens = b.itens_dos_exemplos() + [b.item_do_arquivo("/x/Tomada.FCStd", "Tomada.FCStd")]
+        self.assertTrue(all(i["exemplo"] for i in b.filtrar(itens, origem="exemplos")))
+        self.assertEqual([i["caminho"] for i in b.filtrar(itens, origem="arquivos")], ["/x/Tomada.FCStd"])
+        recentes = b.filtrar(itens, origem="recentes", recentes=["/x/Tomada.FCStd", "exemplo:plafon_led"])
+        self.assertEqual([i["caminho"] for i in recentes], ["/x/Tomada.FCStd", "exemplo:plafon_led"])
+
 
 if __name__ == "__main__":
     unittest.main()

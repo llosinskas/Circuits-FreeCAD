@@ -363,6 +363,51 @@ class TestDimensionarColunas(unittest.TestCase):
         inicio_2 = min(p["origem"][0] for p in caixas if p["conjunto"] == 2)
         self.assertAlmostEqual(inicio_2 - fim_1, c.FOLGA_ENTRE_AGRUPAMENTOS_MM)
 
+    def test_layout_cdpm_esquerda_direita_dimensoes_e_saidas(self):
+        for posicao in ("Centro", "Esquerda", "Direita"):
+            g = c.coluna_de_medicao(12, "Coluna simples", por_coluna=3, posicao_cdpm=posicao,
+                                    altura_base_mm=450.0, caixa_p_mm=(300.0, 220.0, 550.0))
+            self.assertEqual(g["base"], 450.0)
+            self.assertEqual(g["altura"], 3 * 550.0)
+            self.assertAlmostEqual(g["largura"], 4 * 300.0 + c.CDPM["Coluna simples"][2])
+            caixas = g["caixas"]
+            xs = [p[1][0] for p in caixas] + [p[1][0] + p[2][0] for p in caixas]
+            self.assertAlmostEqual(min(xs) + max(xs), 0.0, delta=1e-6)
+            cdpm = next(p for p in caixas if p[0] == "CDPM")
+            if posicao == "Esquerda":
+                self.assertAlmostEqual(cdpm[1][0], min(xs))
+            elif posicao == "Direita":
+                self.assertAlmostEqual(cdpm[1][0] + cdpm[2][0], max(xs))
+            for i, (_, (x1, _, z1), (dx1, _, dz1)) in enumerate(caixas):
+                for _, (x2, _, z2), (dx2, _, dz2) in caixas[i + 1:]:
+                    self.assertFalse(x1 < x2 + dx2 - 1e-6 and x2 < x1 + dx1 - 1e-6
+                                     and z1 < z2 + dz2 - 1e-6 and z2 < z1 + dz1 - 1e-6)
+
+        with self.assertRaises(ValueError):
+            c.coluna_de_medicao(6, posicao_cdpm="Topo")
+
+        topo = c.pecas_da_coluna(6, "Coluna simples", saida_eletroduto="Topo")
+        tubo_topo = next(p for p in topo if p["rotulo"] == "M01 eletroduto")
+        self.assertEqual(tubo_topo["eixo"], (0.0, 0.0, 1.0))
+        self.assertGreater(tubo_topo["origem"][2], 1000.0)
+
+        base = c.pecas_da_coluna(6, "Coluna simples", saida_eletroduto="Base")
+        tubo_base = next(p for p in base if p["rotulo"] == "M01 eletroduto")
+        self.assertEqual(tubo_base["eixo"], (0.0, 0.0, 1.0))
+        self.assertEqual(tubo_base["comprimento"], 150.0)
+
+        grupo_e = c.pecas_do_grupo_e(3, posicao_cdpm="Esquerda", altura_base_mm=900.0, saida_eletroduto="Topo")
+        cdpm_e = next(p for p in grupo_e if p["rotulo"] == "CDPM")
+        corpo_e1 = next(p for p in grupo_e if p["rotulo"] == "E01")
+        self.assertLess(cdpm_e["origem"][0], corpo_e1["origem"][0])
+        self.assertEqual(corpo_e1["origem"][2], 900.0)
+
+        dims = c.dimensoes_das_pecas(c.pecas_da_coluna(12, "Coluna simples", altura_base_mm=400.0))
+        self.assertEqual(dims["base_mm"], 400.0)
+        self.assertAlmostEqual(dims["profundidade_mm"], c.CAIXA_P_MM[1])
+        texto = c.resumo_coluna(c.dimensionar_colunas(12, 63.0, 2))
+        self.assertIn("Dimensões totais:", texto)
+
 
 
 class TestDescentralizado(unittest.TestCase):

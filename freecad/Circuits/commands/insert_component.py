@@ -37,6 +37,23 @@ class _InserirDaBiblioteca:
     pasta = LIBRARY_PATH
     mensagem = "Componente inserido"
 
+    def _inserir_e_posicionar(self, doc, caminho, modo, pavimento, repetir=False):
+        doc.openTransaction("Inserir componente")
+        try:
+            parte = biblioteca.inserir(doc, caminho, modo, pavimento)
+            doc.commitTransaction()
+        except Exception as erro:
+            doc.abortTransaction()
+            QtWidgets.QMessageBox.critical(None, "Biblioteca", f"Não foi possível inserir:\n\n{erro}")
+            return
+        ao_fixar = None
+        if repetir:
+            ao_fixar = lambda: QtCore.QTimer.singleShot(
+                0, lambda: self._inserir_e_posicionar(doc, caminho, modo, pavimento, True)
+            )
+        _posicionar_com_mouse(parte, f"{self.mensagem}: {parte.Label} (em {pavimento.Label} > Equipamentos).",
+                              ao_fixar=ao_fixar, cota=pavimentos.elevacao(pavimento))
+
     def Activated(self):
         doc = documento_ou_aviso()
         if not doc:
@@ -45,6 +62,7 @@ class _InserirDaBiblioteca:
         if not dialogo.exec_() or not dialogo.get_selected_component():
             return
         caminho, modo = dialogo.get_selected_component(), dialogo.get_modo()
+        repetir = bool(getattr(dialogo, "get_repetir", lambda: False)())
         if modo == biblioteca.LINK and not doc.FileName and not biblioteca.regras.chave_do_exemplo(caminho):
             resposta = QtWidgets.QMessageBox.question(
                 None, "Biblioteca",
@@ -55,16 +73,7 @@ class _InserirDaBiblioteca:
                 return
             modo = biblioteca.COPIA
         pavimento = pavimentos.pavimento_para_insercao(doc, Gui.Selection.getSelection())
-        doc.openTransaction("Inserir componente")
-        try:
-            parte = biblioteca.inserir(doc, caminho, modo, pavimento)
-            doc.commitTransaction()
-        except Exception as erro:
-            doc.abortTransaction()
-            QtWidgets.QMessageBox.critical(None, "Biblioteca", f"Não foi possível inserir:\n\n{erro}")
-            return
-        _posicionar_com_mouse(parte, f"{self.mensagem}: {parte.Label} (em {pavimento.Label} > Equipamentos).",
-                              cota=pavimentos.elevacao(pavimento))
+        self._inserir_e_posicionar(doc, caminho, modo, pavimento, repetir=repetir)
 
     def IsActive(self):
         return True

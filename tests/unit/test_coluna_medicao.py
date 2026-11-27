@@ -116,6 +116,24 @@ class TestColunaParametrica(unittest.TestCase):
         self.assertAlmostEqual(cores[0][3], 0.7)  # tampa transparente
         self.assertEqual(cores[-1][3], 0.0)
 
+    def test_layout_customizado_dimensoes_e_on_document_restored(self):
+        self.obj.Medidores, self.obj.DemandaTotal = 12, 250.0
+        self.obj.PosicaoCDPM = "Esquerda"
+        self.obj.SaidaEletroduto = "Topo"
+        self.obj.AlturaBase = 500.0
+        self.obj.LarguraCaixaP = 300.0
+        self.obj.Proxy.execute(self.obj)
+        self.assertAlmostEqual(self.obj.LarguraTotal, 4 * 300.0 + 260.0)
+        self.assertAlmostEqual(self.obj.AlturaTotal, 3 * 520.0)
+
+        antigo = Objeto()
+        antigo.addProperty("App::PropertyInteger", "Medidores", "Medição")
+        antigo.Medidores = 6
+        self.obj.Proxy.onDocumentRestored(antigo)
+        self.assertEqual(antigo.PosicaoCDPM, "Centro")
+        self.assertEqual(antigo.SaidaEletroduto, "Fundo")
+        self.assertEqual(antigo.AlturaBase, 0.0)
+
 
 if __name__ == "__main__":
     unittest.main()

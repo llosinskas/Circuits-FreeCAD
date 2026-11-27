@@ -269,6 +269,35 @@ class TestServico(unittest.TestCase):
         ponto = Objeto(Proxy=types.SimpleNamespace(Type="Ponto"))
         self.assertEqual(self.s.linhas_desenhadas([wire, conduite, ponto]), [wire])
 
+    def test_ler_e_atualizar_propriedades_da_coluna(self):
+        coluna = Objeto(Medidores=12, MedidoresPorColuna=3, DemandaPorMedidor=63.0, DemandaTotal=0.0,
+                        Fases=2, Modelo="Automático", CDPM="Automático", Tensao=220.0,
+                        ComprimentoRamal=10.0, PosicaoCDPM="Centro", SaidaEletroduto="Fundo",
+                        AlturaBase=0.0, LarguraCaixaP=0.0, ProfundidadeCaixaP=0.0,
+                        AlturaCaixaP=0.0, FolgaConjuntos=0.0, Placement="origem_fixa")
+        with mock.patch.object(sys.modules["FreeCAD"], "Placement", side_effect=lambda p: p):
+            lido = self.s.ler_propriedades_coluna(coluna)
+            self.assertEqual(lido["PosicaoCDPM"], "Centro")
+            self.s.atualizar_colunas(self.doc, coluna, Medidores=18, PosicaoCDPM="Esquerda", AlturaBase=450.0)
+        self.assertEqual(coluna.Medidores, 18)
+        self.assertEqual(coluna.PosicaoCDPM, "Esquerda")
+        self.assertEqual(coluna.AlturaBase, 450.0)
+        self.assertEqual(coluna.Placement, "origem_fixa")
+
+    def test_planilha_geral_adicionar_circuito(self):
+        folha, linha = self.s.planilhas.adicionar_circuito_geral(self.doc, {
+            "ID": "C1", "Origem": "QD01", "Destino": "Tomadas", "Potencia_kW": "1.50",
+            "Tensao": "220", "FatorPotencia": "0.92", "PotenciaAparente_kVA": "1.63",
+            "Corrente": "7.41", "Comprimento": "15.0", "Queda": "0.85",
+            "Cabo": "2.5", "Metodo": "B1", "FCA": "1.0", "FCT": "1.0",
+            "Disjuntor": "16", "Curva": "C", "Fase_R": True, "Fase_S": False, "Fase_T": False,
+        })
+        self.assertEqual(linha, 2)
+        self.assertEqual(folha.getContents("A2"), "'C1")
+        self.assertEqual(folha.getContents("B2"), "'QD01")
+        self.assertEqual(folha.getContents("Q2"), "'S")
+        self.assertEqual(folha.getContents("R2"), "'N")
+
 
 if __name__ == "__main__":
     unittest.main()

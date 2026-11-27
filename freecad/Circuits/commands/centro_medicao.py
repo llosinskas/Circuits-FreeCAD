@@ -9,6 +9,7 @@ from freecad.Circuits.qt import QtWidgets
 from freecad.Circuits.services import alinhamento, pavimentos
 from freecad.Circuits.services import centro_medicao as servico
 from freecad.Circuits.UI.dialogs.calculo_dialog import CalculoDialog
+from freecad.Circuits.UI.dialogs.coluna_medicao_dialog import ColunaMedicaoDialog
 from freecad.Circuits.UI.dialogs.ComponentInserter import ComponentInsertionMode
 
 TITULO = "Centro de medição"
@@ -81,29 +82,43 @@ class PlanejarMedicao:
 
 
 class InserirColunaMedicao:
-    """Insere as colunas de medição paramétricas (padrão Enel) e deixa posicionar na planta."""
+    """Insere ou edita as colunas de medição paramétricas (padrão Enel SP + ajustes de layout)."""
 
     def Activated(self):
         doc = documento_ou_aviso()
         if not doc:
             return
+        selecionada = next(
+            (o for o in Gui.Selection.getSelection() if getattr(getattr(o, "Proxy", None), "Type", "") == "ColunaMedicao"),
+            None,
+        )
+        if selecionada is not None:
+            dialogo = ColunaMedicaoDialog(servico.ler_propriedades_coluna(selecionada), editando=True)
+            if not dialogo.exec_():
+                return
+            doc.openTransaction("Editar coluna de medição")
+            try:
+                coluna = servico.atualizar_colunas(doc, selecionada, **dialogo.get_dados())
+                doc.commitTransaction()
+            except Exception:
+                doc.abortTransaction()
+                raise
+            resumo = "; ".join(coluna.Conjuntos) or "nenhum conjunto"
+            avisos = "".join(f"\n  aviso: {a}" for a in coluna.Avisos)
+            App.Console.PrintMessage(f"Colunas de medição atualizadas ({coluna.Solucao}): {resumo}.{avisos}\n")
+            return
+
         folha = servico.planilha(doc)
         andares = (_andares(folha) or []) if folha is not None else []
         valores = servico.valores_da_planilha(andares, servico.ler_parametros(folha) if folha is not None else {})
-        medidores, ok = QtWidgets.QInputDialog.getInt(
-            None, "Colunas de medição",
-            "Medições diretas. Depois, nas propriedades do objeto, dá para mudar medidores, medidores por coluna\n"
-            "(até 3), demanda, fases, modelo da caixa (P ou K a O) e CDPM; o dimensionamento e o 3D se refazem.",
-            int(valores.get("Medidores", 12)), 1, 2000)
-        if not ok:
+        dialogo = ColunaMedicaoDialog(valores, editando=False)
+        if not dialogo.exec_():
             return
-        if valores.get("Medidores") != medidores:
-            valores["DemandaTotal"] = 0.0  # a demanda do edifício valia para outro número de unidades
-        valores["Medidores"] = medidores
+        dados = dialogo.get_dados()
         pavimento = pavimentos.pavimento_para_insercao(doc, Gui.Selection.getSelection())
         doc.openTransaction("Colunas de medição")
         try:
-            coluna = servico.criar_colunas(doc, pavimento, **valores)
+            coluna = servico.criar_colunas(doc, pavimento, **dados)
             doc.commitTransaction()
         except Exception:
             doc.abortTransaction()
@@ -122,8 +137,8 @@ class InserirColunaMedicao:
         return recursos(
             "coluna_medicao.svg",
             "Coluna de medição",
-            "Insere as colunas de medição paramétricas no padrão Enel SP: escolhe a caixa P (até 3 por coluna e 30 "
-            "por agrupamento) ou as coletivas K a O, dimensiona disjuntor geral, barramento e ramal, e desenha em 3D",
+            "Insere ou edita (com a coluna selecionada) as colunas de medição paramétricas no padrão Enel SP: "
+            "dimensiona caixas, CDPM, barramento e ramal com ajustes de layout e prévia em 3D",
         )
 
 

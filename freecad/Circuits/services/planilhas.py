@@ -14,6 +14,44 @@ def criar_planilha_circuitos(doc):
     return planilha
 
 
+def planilha_geral_circuitos(doc, criar=True):
+    """Planilha geral de circuitos (criada por ``criar_planilha_circuitos``), ou None."""
+    folha = next(
+        (
+            o for o in doc.Objects
+            if getattr(o, "TypeId", "") == "Spreadsheet::Sheet"
+            and not hasattr(o, "circuitos_de")
+            and not hasattr(o, "quadro")
+            and (o.Name == "Circuitos" or _texto(o, "A1") == "ID")
+        ),
+        None,
+    )
+    if folha is None and criar:
+        return criar_planilha_circuitos(doc)
+    return folha
+
+
+def adicionar_circuito_geral(doc, dados):
+    """Acrescenta uma linha à planilha geral de circuitos (``CABECALHO_CIRCUITOS``)."""
+    folha = planilha_geral_circuitos(doc, criar=True)
+    linha = max(ultima_linha(folha) + 1, 2)
+    chaves = (
+        "ID", "Origem", "Destino", "Potencia_kW", "Tensao", "FatorPotencia",
+        "PotenciaAparente_kVA", "Corrente", "Comprimento", "Queda",
+        "Cabo", "Metodo", "FCA", "FCT", "Disjuntor", "Curva",
+        "Fase_R", "Fase_S", "Fase_T",
+    )
+    for indice, chave in enumerate(chaves):
+        valor = dados.get(chave, "")
+        if isinstance(valor, bool):
+            valor = "S" if valor else "N"
+        texto = str(valor).strip()
+        if texto:
+            folha.set(f"{layout.coluna(indice)}{linha}", f"'{texto}")
+    doc.recompute()
+    return folha, linha
+
+
 def criar_planilha_quadro(doc, dados):
     """Cria a planilha de um quadro a partir dos dados do diálogo CriarQuadro."""
     nome_quadro = dados["indentificacao"]

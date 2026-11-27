@@ -158,6 +158,30 @@ def criar_colunas(doc, pavimento=None, **valores):
     return coluna
 
 
+PROPRIEDADES_COLUNA = (
+    "Medidores", "MedidoresPorColuna", "DemandaPorMedidor", "DemandaTotal",
+    "Fases", "Modelo", "CDPM", "Tensao", "ComprimentoRamal",
+    "PosicaoCDPM", "SaidaEletroduto", "AlturaBase",
+    "LarguraCaixaP", "ProfundidadeCaixaP", "AlturaCaixaP", "FolgaConjuntos",
+)
+
+
+def ler_propriedades_coluna(obj):
+    """Lê as propriedades editáveis de um objeto ``ColunaMedicao`` para preencher o diálogo."""
+    return {chave: getattr(obj, chave) for chave in PROPRIEDADES_COLUNA if hasattr(obj, chave)}
+
+
+def atualizar_colunas(doc, obj, **valores):
+    """Atualiza as propriedades de ``ColunaMedicao`` preservando a posição do objeto."""
+    posicao = App.Placement(obj.Placement)
+    for chave, valor in valores.items():
+        if hasattr(obj, chave):
+            setattr(obj, chave, valor)
+    obj.Placement = posicao
+    doc.recompute()
+    return obj
+
+
 def valores_da_planilha(andares, parametros=None):
     """Entradas das colunas a partir dos andares da planilha: medidores, maior demanda e fases, demanda total."""
     parametros = parametros or {}

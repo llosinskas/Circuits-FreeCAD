@@ -215,6 +215,31 @@ class TestModoDeInsercao(unittest.TestCase):
         modo.is_active = False
         self.assertFalse(filtro.eventFilter(None, evento(51, 82)))
 
+    def test_snap_geometrico_teclas_s_g_e_orientar_parede(self):
+        alvos = {
+            "vertices": [(0.0, 0.0), (2000.0, 0.0)],
+            "meios": [(1000.0, 0.0)],
+            "segmentos": [((0.0, 0.0), (2000.0, 0.0))],
+        }
+        modo = self.modo(alvos_snap=alvos, passo_grade=100.0)
+        # 200*2 = 400, 6*2 = 12 <= 20 mm de tolerância -> gruda na aresta horizontal (y=0, ang=0)
+        self.assertEqual(self.mover(200, 6), (400.0, 0.0))
+        self.assertEqual(modo._ultimo_snap["tipo"], "aresta")
+
+        # Tecla O orienta pelo ângulo da parede (0°) e um segundo O vira 180°
+        graus = self.girar_registrando()
+        self.tecla("o")
+        self.tecla("o")
+        self.assertEqual(graus, [0.0, 180.0])
+
+        # Tecla S desliga o snap geométrico; G liga a grade (100 mm)
+        self.tecla("s")
+        self.assertFalse(modo.snap_geometrico)
+        self.assertEqual(self.mover(200, 6), (400.0, 12.0))
+        self.tecla("g")
+        self.assertTrue(modo.snap_grade_ativo)
+        self.assertEqual(self.mover(206, 22), (400.0, 0.0))
+
 
 if __name__ == "__main__":
     unittest.main(verbosity=2)

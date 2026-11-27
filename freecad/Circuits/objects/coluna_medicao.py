@@ -16,7 +16,8 @@ from freecad.Circuits.core import centro_medicao as regras
 
 AUTOMATICO = "Automático"
 RESULTADOS = ("Solucao", "Conjuntos", "DisjuntorUnidade", "CorrenteTotal", "Avisos", "coluna_medicao", "CDPMs",
-              "CaixasMetalicas", "MedicoesMetalicas", "CaixasE", "CDPMsE", "Indiretas")
+              "CaixasMetalicas", "MedicoesMetalicas", "CaixasE", "CDPMsE", "Indiretas",
+              "LarguraTotal", "ProfundidadeTotal", "AlturaTotal")
 SOLUCOES = {"P": "Caixas P em agrupamento modular", "E": "Caixas E com CDPM",
             "metalica": "Caixas coletivas metálicas", "indireta": "Medição indireta (TCs)"}
 
@@ -88,6 +89,27 @@ class ColunaMedicao:
         propriedade("App::PropertyFloat", "ComprimentoRamal", entrada,
                     "Do QDC ao conjunto de medição [m], para o ramal de distribuição", 10.0)
 
+        layout = "Layout"
+        if not hasattr(obj, "PosicaoCDPM"):
+            obj.addProperty("App::PropertyEnumeration", "PosicaoCDPM", layout, "Posição da CDPM no conjunto")
+            obj.PosicaoCDPM = list(regras.POSICOES_CDPM)
+            obj.PosicaoCDPM = "Centro"
+        propriedade("App::PropertyFloat", "AlturaBase", layout,
+                    "Altura da base em relação ao piso [mm]; 0 usa a norma Enel", 0.0)
+        if not hasattr(obj, "SaidaEletroduto"):
+            obj.addProperty("App::PropertyEnumeration", "SaidaEletroduto", layout,
+                            "Direção da saída dos eletrodutos das unidades")
+            obj.SaidaEletroduto = list(regras.SAIDAS_ELETRODUTO)
+            obj.SaidaEletroduto = "Fundo"
+        propriedade("App::PropertyFloat", "LarguraCaixaP", layout,
+                    "Largura da caixa P [mm]; 0 usa 260 mm (Enel)", 0.0)
+        propriedade("App::PropertyFloat", "ProfundidadeCaixaP", layout,
+                    "Profundidade da caixa P [mm]; 0 usa 190 mm (Enel)", 0.0)
+        propriedade("App::PropertyFloat", "AlturaCaixaP", layout,
+                    "Altura da caixa P [mm]; 0 usa 520 mm (Enel)", 0.0)
+        propriedade("App::PropertyFloat", "FolgaConjuntos", layout,
+                    "Espaço entre agrupamentos [mm]; 0 usa 100 mm", 0.0)
+
         saida = "Dimensionamento"
         propriedade("App::PropertyString", "Solucao", saida, "Caixas escolhidas", "", True)
         propriedade("App::PropertyStringList", "Conjuntos", saida, "Cada agrupamento ou caixa coletiva", None, True)
@@ -101,6 +123,9 @@ class ColunaMedicao:
         propriedade("App::PropertyInteger", "CaixasE", saida, "Caixas de medição tipo E", 0, True)
         propriedade("App::PropertyInteger", "CDPMsE", saida, "CDPMs das caixas E", 0, True)
         propriedade("App::PropertyStringList", "Indiretas", saida, "Conjuntos de medição indireta", None, True)
+        propriedade("App::PropertyFloat", "LarguraTotal", saida, "Largura total do conjunto [mm]", 0.0, True)
+        propriedade("App::PropertyFloat", "ProfundidadeTotal", saida, "Profundidade total do conjunto [mm]", 0.0, True)
+        propriedade("App::PropertyFloat", "AlturaTotal", saida, "Altura total do conjunto [mm]", 0.0, True)
         propriedade("App::PropertyStringList", "TiposDasPecas", saida, "Tipo de cada sólido, para as cores")
         obj.setEditorMode("TiposDasPecas", 2)
 
@@ -111,12 +136,25 @@ class ColunaMedicao:
             str(obj.Modelo), cdpm, float(obj.DemandaTotal), float(obj.Tensao), float(obj.ComprimentoRamal))
 
     def execute(self, obj):
+        caixa_p = (
+            float(getattr(obj, "LarguraCaixaP", 0.0) or 0.0),
+            float(getattr(obj, "ProfundidadeCaixaP", 0.0) or 0.0),
+            float(getattr(obj, "AlturaCaixaP", 0.0) or 0.0),
+        )
         try:
             dados = self.dimensionar(obj)
-            pecas = regras.pecas_do_centro(dados)
+            pecas = regras.pecas_do_centro(
+                dados,
+                posicao_cdpm=str(getattr(obj, "PosicaoCDPM", "Centro") or "Centro"),
+                altura_base_mm=float(getattr(obj, "AlturaBase", 0.0) or 0.0),
+                caixa_p_mm=caixa_p if any(v > 0 for v in caixa_p) else None,
+                saida_eletroduto=str(getattr(obj, "SaidaEletroduto", "Fundo") or "Fundo"),
+                folga_conjuntos_mm=float(getattr(obj, "FolgaConjuntos", 0.0) or 0.0),
+            )
         except ValueError as erro:
             dados, pecas = {"modelo": None, "conjuntos": [], "corrente": 0.0, "disjuntor_unidade": None,
                             "avisos": [str(erro)]}, []
+        dims = regras.dimensoes_das_pecas(pecas)
         conjuntos = dados["conjuntos"]
         p = [c for c in conjuntos if c.get("modelo", "P") == "P"]
         e = [c for c in conjuntos if c.get("modelo") == "E"]
@@ -134,6 +172,9 @@ class ColunaMedicao:
         obj.CaixasE = sum(c["medicoes"] for c in e)
         obj.CDPMsE = sum(1 for c in e if c["medicoes"] > 1)
         obj.Indiretas = [c["modelo"] for c in indiretas]
+        obj.LarguraTotal = dims["largura_mm"]
+        obj.ProfundidadeTotal = dims["profundidade_mm"]
+        obj.AlturaTotal = dims["altura_mm"]
         obj.TiposDasPecas = [peca["tipo"] for peca in pecas]
         posicao = obj.Placement
         obj.Shape = Part.makeCompound([_solido(peca) for peca in pecas]) if pecas else Part.Shape()

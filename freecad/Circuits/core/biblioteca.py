@@ -55,16 +55,26 @@ def categoria(nome):
     return "Outros"
 
 
-def filtrar(itens, texto="", categoria_escolhida=None):
-    """Itens ({'nome', 'categoria', ...}) com todas as palavras do texto no nome e da categoria escolhida."""
+def filtrar(itens, texto="", categoria_escolhida=None, origem=None, recentes=None):
+    """Itens ({'nome', 'categoria', ...}) filtrados por texto, categoria, origem e recentes."""
     palavras = [p for p in str(texto).lower().split() if p]
+    recentes_lista = list(recentes or [])
+    recentes_pos = {c: idx for idx, c in enumerate(recentes_lista)}
     resultado = []
     for item in itens:
         if categoria_escolhida and item["categoria"] != categoria_escolhida:
             continue
+        if origem == "exemplos" and not item.get("exemplo"):
+            continue
+        if origem == "arquivos" and item.get("exemplo"):
+            continue
+        if origem == "recentes" and item.get("caminho") not in recentes_pos:
+            continue
         nome = f"{item['nome']} {item.get('descricao', '')}".lower()
         if all(p in nome for p in palavras):
             resultado.append(item)
+    if origem == "recentes":
+        resultado.sort(key=lambda it: recentes_pos.get(it.get("caminho"), len(recentes_pos)))
     return resultado
 
 
@@ -182,3 +192,38 @@ def item_do_arquivo(caminho, nome_arquivo):
     """Item da biblioteca para um arquivo .FCStd."""
     return {"nome": nome_amigavel(nome_arquivo), "categoria": categoria(nome_arquivo), "descricao": nome_arquivo,
             "caminho": caminho, "exemplo": False}
+
+
+def dimensoes_do_exemplo(chave):
+    """Dimensões aproximadas (largura, profundidade, altura) [mm] das primitivas do exemplo."""
+    dados = EXEMPLOS.get(chave)
+    if not dados or not dados.get("primitivas"):
+        return (0.0, 0.0, 0.0)
+    xs, ys, zs = [], [], []
+    for primitiva in dados["primitivas"]:
+        if primitiva[0] == "caixa":
+            (x, y, z), (dx, dy, dz) = primitiva[1], primitiva[2]
+            xs.extend((x, x + dx))
+            ys.extend((y, y + dy))
+            zs.extend((z, z + dz))
+        elif primitiva[0] == "cilindro":
+            (cx, cy, cz), raio, comp, eixo = primitiva[1], primitiva[2], primitiva[3], primitiva[4]
+            ex, ey, ez = (abs(v) for v in eixo)
+            if ex >= ey and ex >= ez:
+                sinal = 1.0 if eixo[0] >= 0 else -1.0
+                xs.extend((cx, cx + sinal * comp))
+                ys.extend((cy - raio, cy + raio))
+                zs.extend((cz - raio, cz + raio))
+            elif ey >= ex and ey >= ez:
+                sinal = 1.0 if eixo[1] >= 0 else -1.0
+                xs.extend((cx - raio, cx + raio))
+                ys.extend((cy, cy + sinal * comp))
+                zs.extend((cz - raio, cz + raio))
+            else:
+                sinal = 1.0 if eixo[2] >= 0 else -1.0
+                xs.extend((cx - raio, cx + raio))
+                ys.extend((cy - raio, cy + raio))
+                zs.extend((cz, cz + sinal * comp))
+    if not xs:
+        return (0.0, 0.0, 0.0)
+    return (round(max(xs) - min(xs), 1), round(max(ys) - min(ys), 1), round(max(zs) - min(zs), 1))

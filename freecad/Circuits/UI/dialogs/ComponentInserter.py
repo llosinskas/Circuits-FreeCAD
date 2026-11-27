@@ -334,7 +334,19 @@ def _criar_filtro_de_teclas(modo):
     teclas seguem para ele normalmente.
     """
     Qt, QEvent = QtCore.Qt, QtCore.QEvent
-    teclas = {Qt.Key_R: "R", Qt.Key_A: "A", Qt.Key_L: "L", Qt.Key_Space: "SPACE", Qt.Key_Escape: "ESCAPE"}
+    teclas = {
+        chave: letra for chave, letra in (
+            (getattr(Qt, "Key_R", None), "R"),
+            (getattr(Qt, "Key_A", None), "A"),
+            (getattr(Qt, "Key_L", None), "L"),
+            (getattr(Qt, "Key_S", None), "S"),
+            (getattr(Qt, "Key_G", None), "G"),
+            (getattr(Qt, "Key_O", None), "O"),
+            (getattr(Qt, "Key_Space", None), "SPACE"),
+            (getattr(Qt, "Key_Escape", None), "ESCAPE"),
+        )
+        if chave is not None
+    }
     campos = tuple(getattr(QtWidgets, nome) for nome in ("QLineEdit", "QAbstractSpinBox", "QTextEdit", "QPlainTextEdit")
                    if hasattr(QtWidgets, nome))
 
@@ -369,6 +381,9 @@ class ComponentInsertionMode:
         Espaço   alinha com o símbolo mais próximo: trava em um eixo, depois no
                  outro, depois solta (a tecla A faz o mesmo)
         L        liga ou desliga o alinhamento automático com os símbolos vizinhos
+        S        liga ou desliga o snap geométrico (vértice, meio, aresta/parede)
+        G        liga ou desliga a grade (100 mm)
+        O        alinha a rotação do símbolo ao ângulo da parede/linha sob o cursor
         ESC      cancela e apaga o objeto
     """
 
@@ -377,7 +392,8 @@ class ComponentInsertionMode:
     _rotacao_da_sequencia = None  # rotação herdada pelo próximo objeto de uma inserção em sequência
     TOLERANCIA_PIXELS = 10  # alcance do alinhamento automático, em pixels da tela
 
-    def __init__(self, obj, ao_fixar=None, plano_z0=False, referencias=None, cota=None):
+    def __init__(self, obj, ao_fixar=None, plano_z0=False, referencias=None, cota=None,
+                 alvos_snap=None, passo_grade=100.0):
         """
         Args:
             obj: objeto que acompanha o cursor.
@@ -388,16 +404,36 @@ class ComponentInsertionMode:
                 prioridade sobre ``plano_z0``.
             referencias: lista de (x, y) dos símbolos já colocados, usada para
                 alinhar. None desliga o alinhamento.
+            alvos_snap: dict ``{'vertices', 'meios', 'segmentos'}``; quando None,
+                coleta automaticamente das geometrias visíveis do documento.
+            passo_grade: passo da grade [mm] quando ligada pela tecla G.
         """
         self.obj = obj
         self.ao_fixar = ao_fixar
         self.plano_z0 = plano_z0
         self.cota = cota
         self.referencias = list(referencias) if referencias else []
+        if alvos_snap is None:
+            try:
+                from freecad.Circuits.services import alinhamento as alinhamento_servico
+                self.alvos_snap = alinhamento_servico.alvos_de_snap(
+                    getattr(obj, "Document", None), exceto=obj, cota=cota
+                )
+            except Exception:
+                self.alvos_snap = {"vertices": [], "meios": [], "segmentos": []}
+        else:
+            self.alvos_snap = alvos_snap
         self.automatico = True
+        self.snap_geometrico = True
+        self.snap_grade_ativo = False
+        self.passo_grade = float(passo_grade)
         self.trava = ComponentInsertionMode._trava_da_sequencia if ao_fixar else None
         self._travas = []
         self._ultimo_ponto = (0.0, 0.0)
+        self._ultimo_snap = None
+        self._ultimo_tipo_snap = None
+        self._ultimo_angulo_o = None
+        self._marcador_node = None
         self.is_active = False
         self.view = Gui.ActiveDocument.ActiveView
         self.cb_mouse = None
@@ -447,12 +483,12 @@ class ComponentInsertionMode:
         self._instalar_filtro()
 
         self._avisar(
-            "Clique fixa | R gira 90° (Shift+R 45°) | Espaço alinha com o símbolo vizinho | "
-            "L alinhamento automático | ESC encerra"
+            "Clique fixa | R gira 90° (Shift+R 45°) | Espaço alinha | L auto | S snap | G grade | O parede | ESC"
         )
 
     def stop(self):
         self.is_active = False
+        self._remover_marcador_snap()
         self._remover_filtro()
         if self.view:
             if self.cb_mouse:
@@ -482,8 +518,63 @@ class ComponentInsertionMode:
         except Exception:
             return 0.0
 
+    def _remover_marcador_snap(self):
+        if self._marcador_node is None or not self.view:
+            self._marcador_node = None
+            return
+        try:
+            self.view.getSceneGraph().removeChild(self._marcador_node)
+        except Exception:
+            pass
+        self._marcador_node = None
+
+    def _atualizar_marcador_snap(self, pnt, tipo_snap):
+        if not tipo_snap:
+            self._remover_marcador_snap()
+            return
+        try:
+            from pivy import coin
+            sg = self.view.getSceneGraph()
+            if sg is None:
+                return
+            if self._marcador_node is None:
+                sep = coin.SoSeparator()
+                mat = coin.SoMaterial()
+                estilo = coin.SoDrawStyle()
+                estilo.lineWidth = 2.0
+                coords = coin.SoCoordinate3()
+                linhas = coin.SoLineSet()
+                sep.addChild(mat)
+                sep.addChild(estilo)
+                sep.addChild(coords)
+                sep.addChild(linhas)
+                sg.addChild(sep)
+                self._marcador_node = sep
+            cores = {
+                "vertice": (0.1, 0.8, 0.2),
+                "meio": (0.0, 0.75, 0.85),
+                "aresta": (0.95, 0.55, 0.1),
+                "alinhado": (0.85, 0.2, 0.75),
+                "grade": (0.5, 0.5, 0.5),
+            }
+            r, g, b = cores.get(tipo_snap, (0.2, 0.6, 1.0))
+            self._marcador_node.getChild(0).diffuseColor.setValue(r, g, b)
+            raio = max(self._tolerancia(*self._ultima_tela) * 0.6, 40.0) if hasattr(self, "_ultima_tela") else 60.0
+            z = pnt.z + 2.0
+            pts = [
+                (pnt.x - raio, pnt.y - raio, z), (pnt.x + raio, pnt.y - raio, z),
+                (pnt.x + raio, pnt.y + raio, z), (pnt.x - raio, pnt.y + raio, z),
+                (pnt.x - raio, pnt.y - raio, z),
+                (pnt.x - raio * 1.4, pnt.y, z), (pnt.x + raio * 1.4, pnt.y, z),
+                (pnt.x, pnt.y - raio * 1.4, z), (pnt.x, pnt.y + raio * 1.4, z),
+            ]
+            self._marcador_node.getChild(2).point.setValues(0, len(pts), pts)
+            self._marcador_node.getChild(3).numVertices.setValues(0, 3, [5, 2, 2])
+        except Exception:
+            pass
+
     def _posicionar(self, x, y):
-        """Leva o objeto ao ponto da tela, aplicando plano, trava e alinhamento."""
+        """Leva o objeto ao ponto da tela, aplicando plano, trava, snap geométrico e alinhamento."""
         pnt = self.view.getPoint(x, y)
         if not pnt:
             return
@@ -496,8 +587,34 @@ class ComponentInsertionMode:
 
         if self.trava:
             pnt.x, pnt.y = alinhamento.aplicar_trava((pnt.x, pnt.y), self.trava)
-        elif self.automatico and self.referencias:
-            pnt.x, pnt.y, _, _ = alinhamento.atrair((pnt.x, pnt.y), self.referencias, self._tolerancia(x, y))
+            self._ultimo_snap = None
+            self._remover_marcador_snap()
+        else:
+            snap = alinhamento.snap_ponto(
+                (pnt.x, pnt.y),
+                self._tolerancia(x, y),
+                vertices=self.alvos_snap.get("vertices", ()),
+                meios=self.alvos_snap.get("meios", ()),
+                segmentos=self.alvos_snap.get("segmentos", ()),
+                referencias=self.referencias,
+                passo_grade=self.passo_grade if self.snap_grade_ativo else 0.0,
+                usar_geometria=self.snap_geometrico,
+                usar_alinhamento=self.automatico,
+            )
+            pnt.x, pnt.y = snap["ponto"]
+            self._ultimo_snap = snap
+            self._atualizar_marcador_snap(pnt, snap["tipo"])
+            if snap["tipo"] != self._ultimo_tipo_snap:
+                self._ultimo_tipo_snap = snap["tipo"]
+                if snap["tipo"]:
+                    rotulos = {
+                        "vertice": "Snap: vértice",
+                        "meio": "Snap: ponto médio",
+                        "aresta": "Snap: aresta/parede (O alinha à parede)",
+                        "alinhado": "Snap: alinhado a símbolo",
+                        "grade": f"Snap: grade {self.passo_grade:g} mm",
+                    }
+                    self._avisar(rotulos.get(snap["tipo"], f"Snap: {snap['tipo']}"))
 
         # No FreeCAD, precisamos ler, alterar e reatribuir o Placement
         pl = self.obj.Placement
@@ -562,8 +679,12 @@ class ComponentInsertionMode:
         self.view.redraw()
         self._avisar(f"Girado {graus:g}°.")
 
+    def _reposicionar_ultimo(self):
+        if hasattr(self, "_ultima_tela"):
+            self._posicionar(*self._ultima_tela)
+
     def tratar_tecla(self, tecla, shift=False):
-        """R gira 90° (Shift+R, 45°), Espaço/A alinha, L alterna o automático, ESC cancela."""
+        """R gira 90° (Shift+R, 45°), Espaço/A alinha, L auto, S snap, G grade, O parede, ESC cancela."""
         if not self.is_active:
             return
         if tecla == "R":
@@ -573,6 +694,32 @@ class ComponentInsertionMode:
         elif tecla == "L":
             self.automatico = not self.automatico
             self._avisar("Alinhamento automático " + ("ligado." if self.automatico else "desligado."))
+            self._reposicionar_ultimo()
+        elif tecla == "S":
+            self.snap_geometrico = not self.snap_geometrico
+            self._avisar("Snap geométrico " + ("ligado." if self.snap_geometrico else "desligado."))
+            self._reposicionar_ultimo()
+        elif tecla == "G":
+            self.snap_grade_ativo = not self.snap_grade_ativo
+            self._avisar(
+                f"Snap em grade ({self.passo_grade:g} mm) " + ("ligado." if self.snap_grade_ativo else "desligado.")
+            )
+            self._reposicionar_ultimo()
+        elif tecla == "O":
+            snap = self._ultimo_snap or {}
+            if snap.get("angulo") is None:
+                self._avisar("Encoste o cursor numa parede ou linha para orientar com O.")
+                return
+            angulo = float(snap["angulo"])
+            if self._ultimo_angulo_o is not None and abs((self._ultimo_angulo_o % 180.0) - angulo) < 1e-6:
+                angulo = (self._ultimo_angulo_o + 180.0) % 360.0
+            self._ultimo_angulo_o = angulo
+            if self.obj and hasattr(self.obj, "Placement"):
+                pl = self.obj.Placement
+                pl.Rotation = App.Rotation(App.Vector(0, 0, 1), angulo)
+                self.obj.Placement = pl
+                self.view.redraw()
+                self._avisar(f"Orientado para {angulo:g}°.")
         elif tecla == "ESCAPE":
             App.Console.PrintMessage("Inserção encerrada.\n")
             self.cancelar()

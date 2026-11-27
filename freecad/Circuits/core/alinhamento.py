@@ -6,6 +6,9 @@ x = 1500, e ("y", 800.0) na horizontal que passa por y = 800.
 """
 
 
+import math
+
+
 def mais_proximo(ponto, referencias):
     """Referência mais próxima do ponto, ou None se não há referências."""
     if not referencias:
@@ -97,3 +100,69 @@ def distribuir(pontos):
         novo[eixo] = inicio + posicao * passo
         resultado[indice] = tuple(novo)
     return resultado
+
+
+def projetar_no_segmento(ponto, a, b):
+    """Projeta ``ponto`` no segmento AB e devolve ``(px, py, dist, angulo_graus)``."""
+    x, y = float(ponto[0]), float(ponto[1])
+    x1, y1 = float(a[0]), float(a[1])
+    x2, y2 = float(b[0]), float(b[1])
+    dx, dy = x2 - x1, y2 - y1
+    comp2 = dx * dx + dy * dy
+    if comp2 <= 1e-12:
+        return (x1, y1, math.hypot(x - x1, y - y1), 0.0)
+    t = max(0.0, min(1.0, ((x - x1) * dx + (y - y1) * dy) / comp2))
+    px, py = x1 + t * dx, y1 + t * dy
+    angulo = math.degrees(math.atan2(dy, dx)) % 180.0
+    return (px, py, math.hypot(x - px, y - py), angulo)
+
+
+def snap_grade(ponto, passo):
+    """Arredonda ``ponto`` para o múltiplo mais próximo de ``passo``."""
+    if not passo or passo <= 0:
+        return tuple(ponto)
+    return (round(ponto[0] / passo) * passo, round(ponto[1] / passo) * passo)
+
+
+def _mais_proximo_no_raio(ponto, alvos, tolerancia):
+    if not alvos or tolerancia <= 0:
+        return None
+    x, y = ponto
+    melhor = None
+    melhor_d2 = tolerancia * tolerancia
+    for alvo in alvos:
+        d2 = (alvo[0] - x) ** 2 + (alvo[1] - y) ** 2
+        if d2 <= melhor_d2:
+            melhor_d2 = d2
+            melhor = tuple(alvo)
+    return melhor
+
+
+def snap_ponto(ponto, tolerancia, vertices=(), meios=(), segmentos=(), referencias=(),
+               passo_grade=0.0, usar_geometria=True, usar_alinhamento=True):
+    """Calcula o snap 2D priorizando vértice > meio > aresta > alinhamento > grade."""
+    ponto = (float(ponto[0]), float(ponto[1]))
+    if usar_geometria and tolerancia > 0:
+        vertice = _mais_proximo_no_raio(ponto, vertices, tolerancia)
+        if vertice is not None:
+            return {"ponto": vertice, "tipo": "vertice", "angulo": None, "guia_x": None, "guia_y": None}
+        meio = _mais_proximo_no_raio(ponto, meios, tolerancia)
+        if meio is not None:
+            return {"ponto": meio, "tipo": "meio", "angulo": None, "guia_x": None, "guia_y": None}
+        melhor_seg = None
+        for a, b in segmentos:
+            px, py, dist, angulo = projetar_no_segmento(ponto, a, b)
+            if dist <= tolerancia and (melhor_seg is None or dist < melhor_seg[0]):
+                melhor_seg = (dist, (px, py), angulo)
+        if melhor_seg is not None:
+            return {"ponto": melhor_seg[1], "tipo": "aresta", "angulo": melhor_seg[2],
+                    "guia_x": None, "guia_y": None}
+    if usar_alinhamento and referencias and tolerancia > 0:
+        nx, ny, ax, ay = atrair(ponto, referencias, tolerancia)
+        if ax or ay:
+            return {"ponto": (nx, ny), "tipo": "alinhado", "angulo": None,
+                    "guia_x": nx if ax else None, "guia_y": ny if ay else None}
+    if passo_grade and passo_grade > 0:
+        return {"ponto": snap_grade(ponto, passo_grade), "tipo": "grade",
+                "angulo": None, "guia_x": None, "guia_y": None}
+    return {"ponto": ponto, "tipo": None, "angulo": None, "guia_x": None, "guia_y": None}

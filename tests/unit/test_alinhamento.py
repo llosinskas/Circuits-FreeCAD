@@ -64,5 +64,39 @@ class TestAlinharEDistribuir(unittest.TestCase):
         self.assertEqual(alinhamento.distribuir([(0, 0), (10, 0)]), [(0, 0), (10, 0)])
 
 
+class TestSnapGeometrico(unittest.TestCase):
+    def test_projetar_no_segmento_com_angulo(self):
+        px, py, dist, ang = alinhamento.projetar_no_segmento((500.0, 15.0), (0.0, 0.0), (1000.0, 0.0))
+        self.assertEqual((px, py, dist, ang), (500.0, 0.0, 15.0, 0.0))
+        px2, py2, dist2, _ = alinhamento.projetar_no_segmento((1500.0, 0.0), (0.0, 0.0), (1000.0, 0.0))
+        self.assertEqual((px2, py2, dist2), (1000.0, 0.0, 500.0))
+
+    def test_prioridade_vertice_meio_aresta_alinhado_grade(self):
+        verts = [(0.0, 0.0), (1000.0, 0.0)]
+        meios = [(500.0, 0.0)]
+        segs = [((0.0, 0.0), (1000.0, 0.0))]
+        refs = [(250.0, 300.0)]
+
+        # Vértice tem prioridade sobre tudo
+        s1 = alinhamento.snap_ponto((8.0, 8.0), 20.0, verts, meios, segs, refs, passo_grade=100.0)
+        self.assertEqual((s1["tipo"], s1["ponto"]), ("vertice", (0.0, 0.0)))
+
+        # Ponto médio
+        s2 = alinhamento.snap_ponto((505.0, 10.0), 20.0, verts, meios, segs, refs, passo_grade=100.0)
+        self.assertEqual((s2["tipo"], s2["ponto"]), ("meio", (500.0, 0.0)))
+
+        # Aresta com ângulo
+        s3 = alinhamento.snap_ponto((200.0, 12.0), 20.0, verts, meios, segs, refs, passo_grade=100.0)
+        self.assertEqual((s3["tipo"], s3["ponto"], s3["angulo"]), ("aresta", (200.0, 0.0), 0.0))
+
+        # Alinhado a outro símbolo
+        s4 = alinhamento.snap_ponto((260.0, 120.0), 20.0, verts, meios, segs, refs, passo_grade=100.0)
+        self.assertEqual((s4["tipo"], s4["ponto"]), ("alinhado", (250.0, 120.0)))
+
+        # Grade quando nenhum alvo está no raio
+        s5 = alinhamento.snap_ponto((830.0, 440.0), 20.0, verts, meios, segs, refs, passo_grade=100.0)
+        self.assertEqual((s5["tipo"], s5["ponto"]), ("grade", (800.0, 400.0)))
+
+
 if __name__ == "__main__":
     unittest.main(verbosity=2)
