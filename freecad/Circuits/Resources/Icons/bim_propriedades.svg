@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64">
+  <!-- Propriedades BIM: cubo do modelo com a etiqueta de propriedades -->
+  <path d="M8 20L28 10L48 20V44L28 54L8 44Z" fill="#e8f0fe" stroke="#1a73e8" stroke-width="3" stroke-linejoin="round"/>
+  <path d="M8 20L28 30L48 20M28 30V54" fill="none" stroke="#1a73e8" stroke-width="3" stroke-linejoin="round"/>
+  <rect x="34" y="34" width="26" height="26" rx="3" fill="#ffffff" stroke="#188038" stroke-width="3"/>
+  <path d="M39 42H55M39 48H55M39 54H49" stroke="#188038" stroke-width="3" stroke-linecap="round"/>
+</svg>

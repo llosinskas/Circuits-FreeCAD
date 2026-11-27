@@ -143,7 +143,8 @@ DOCUMENT_TOOLS = [
     "GenerateReport",
 ]
 SHEET_TOOLS = ["NovaFolha", "InserirNaFolha", "CorteNaFolha", "DetalheNaFolha", "OrganizarFolha", "AtualizarFolhas"]
-MODEL_3D_TOOLS = ["Gerar3DCompleto", "Generate3DSwitches", "Generate3DConduits", "Gerar3D"]
+MODEL_3D_TOOLS = ["Gerar3DCompleto", "Generate3DSwitches", "Generate3DConduits", "Gerar3D", "PropriedadesBIM",
+                  "ExportarIFC"]
 LIBRARY_TOOLS = ["InsertEquipaments", "InsertComponent", "CreateModel", "ListElements"]
 
 # Só no menu: comandos antigos, incompletos ou de uso raro.
@@ -190,7 +191,7 @@ GROUPS = {
         SHEET_TOOLS,
     ),
     "Grupo_3D": (
-        "Modelo 3D", "Modelo 3D completo num clique, ou só caixas, eletrodutos ou tomadas TUG antigas", MODEL_3D_TOOLS,
+        "Modelo 3D", "Modelo 3D completo num clique, ou só caixas, eletrodutos ou tomadas TUG antigas; propriedades BIM e IFC", MODEL_3D_TOOLS,
     ),
     "Grupo_Biblioteca": ("Biblioteca", "Equipamentos e componentes da biblioteca; criar e importar modelos", LIBRARY_TOOLS),
 }
@@ -312,6 +313,7 @@ class CircuitsWorkbench(gui.Workbench):
             ambientes,
             aterramento,
             bandejas,
+            bim,
             centro_medicao,
             folhas,
             identificacao,
@@ -338,6 +340,22 @@ class CircuitsWorkbench(gui.Workbench):
             observador_verticais.instalar()
         except Exception as erro:
             app.Console.PrintWarning(f"Circuits: atualização automática das verticais desligada: {erro}\n")
+
+        # Propriedades BIM (IFC) dos objetos se atualizam quando eles mudam.
+        try:
+            from .UI import observador_bim
+
+            observador_bim.instalar()
+        except Exception as erro:
+            app.Console.PrintWarning(f"Circuits: propriedades BIM automáticas desligadas: {erro}\n")
+
+        # Símbolos das prumadas acompanham o objeto movido ou girado.
+        try:
+            from .UI import observador_prumadas
+
+            observador_prumadas.instalar()
+        except Exception as erro:
+            app.Console.PrintWarning(f"Circuits: atualização das prumadas desligada: {erro}\n")
 
         # Carimbo paramétrico: as folhas acompanham os parâmetros do projeto e as propriedades Carimbo….
         try:

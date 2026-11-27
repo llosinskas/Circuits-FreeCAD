@@ -100,3 +100,41 @@ class TestDesenhos(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class TestSimboloGirado(unittest.TestCase):
+    def setUp(self):
+        from freecad.Circuits.core import prumadas as p
+        self.p = p
+        andares = [p.andar("Térreo", 0, 0), p.andar("1º", 3000, 4), p.andar("2º", 6000, 4)]
+        self.r = p.dimensionar(andares, {})
+
+    def test_sem_rotacao_so_desloca(self):
+        base = self.p.simbolo_planta(self.r, 0)
+        girado = self.p.simbolo_girado(self.r, 0, 0.0)
+        dx, dy = self.p.AFASTAMENTO_SIMBOLO_MM
+        self.assertAlmostEqual(girado["circulos"][0][0], base["circulos"][0][0] + dx)
+        self.assertAlmostEqual(girado["circulos"][0][1], base["circulos"][0][1] + dy)
+
+    def test_noventa_graus_gira_o_afastamento_e_os_circulos(self):
+        girado = self.p.simbolo_girado(self.r, 0, 90.0)
+        dx, dy = self.p.AFASTAMENTO_SIMBOLO_MM
+        x, y, _ = girado["circulos"][0]
+        self.assertAlmostEqual(x, -dy, places=6)
+        self.assertAlmostEqual(y, dx, places=6)
+        segundo = girado["circulos"][1]
+        self.assertAlmostEqual(segundo[0], x, places=6)  # o próximo sistema vai para +y
+        self.assertGreater(segundo[1], y)
+        self.assertTrue(all(abs(t[4] - 90.0) < 1e-9 for t in girado["textos"]))
+
+    def test_texto_nunca_de_cabeca_para_baixo(self):
+        for angulo in (135.0, 180.0, 225.0, -120.0):
+            for t in self.p.simbolo_girado(self.r, 0, angulo)["textos"]:
+                self.assertTrue(-90.0 <= t[4] <= 90.0, (angulo, t[4]))
+
+    def test_texto_virado_ocupa_o_mesmo_lugar(self):
+        desenho = {"linhas": [], "circulos": [], "textos": [(0.0, 0.0, "ABCD", 10.0, 0.0)], "limites": (0, 0, 1, 1)}
+        x, y, _, _, angulo = self.p.girar(desenho, 180.0)["textos"][0]
+        self.assertAlmostEqual(angulo, 0.0)
+        self.assertAlmostEqual(x, -4 * 10.0 * self.p.LARGURA_LETRA)
+        self.assertAlmostEqual(y, -10.0)

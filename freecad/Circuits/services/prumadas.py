@@ -1,5 +1,7 @@
 """Prumadas verticais no documento: andares do projeto, objeto paramétrico, símbolos em cada pavimento,
 esquema vertical e materiais (``core.prumadas``, ``objects.prumada``)."""
+import time
+
 import Draft
 import FreeCAD as App
 import Part
@@ -12,6 +14,15 @@ MARCA_SIMBOLO = "prumada_planta_de"   # símbolo das prumadas num pavimento: nom
 MARCA_ESQUEMA = "esquema_prumadas_de"  # esquema vertical: nome do objeto Prumada
 AFASTAMENTO_ESQUEMA_MM = 3000.0
 GRUPO_MATERIAIS = "Prumadas verticais"
+ULTIMO_DESENHO = 0.0  # time.monotonic() do último desenhar_2d, para o observador não repetir
+
+
+def angulo_do_objeto(obj):
+    """Rotação do objeto em torno de z, em graus."""
+    try:
+        return float(obj.Placement.Rotation.toEuler()[0])
+    except Exception:
+        return 0.0
 
 
 def _tipo(obj):
@@ -111,18 +122,20 @@ def desenhar_2d(doc, obj):
     Returns:
         (quantidade de símbolos, grupo do esquema ou None).
     """
+    global ULTIMO_DESENHO
     resultado = obj.Proxy.resultado(obj)
     _remover(doc, MARCA_SIMBOLO, obj.Name)
     xy = obj.Placement.Base
+    angulo = angulo_do_objeto(obj)
     simbolos = 0
     for i, a in enumerate(resultado["andares"]):
-        desenho = regras.simbolo_planta(resultado, i)
+        desenho = regras.simbolo_girado(resultado, i, angulo)
         if not desenho["circulos"]:
             continue
         pav = pavimentos.por_nome(doc, a["nome"])
         cota = pavimentos.elevacao(pav) if pav is not None else a["cota"]
         objetos = _figura(doc, "Prumadas_planta", f"Prumadas - {a['nome']}", desenho,
-                          App.Vector(xy.x + 400.0, xy.y - 300.0, cota), MARCA_SIMBOLO, obj.Name)
+                          App.Vector(xy.x, xy.y, cota), MARCA_SIMBOLO, obj.Name)
         if pav is not None:
             pasta = pavimentos.pasta(doc, pav, "prumadas")
             for o in objetos:
@@ -136,6 +149,7 @@ def desenhar_2d(doc, obj):
     desenho = regras.esquema(resultado)
     if not desenho["linhas"]:
         doc.recompute()
+        ULTIMO_DESENHO = time.monotonic()
         return simbolos, None
     if origem is None:
         caixa = obj.Shape.BoundBox if not obj.Shape.isNull() else None
@@ -151,6 +165,7 @@ def desenhar_2d(doc, obj):
     if pasta is not None:
         pasta.addObject(grupo)
     doc.recompute()
+    ULTIMO_DESENHO = time.monotonic()
     return simbolos, grupo
 
 
@@ -177,4 +192,4 @@ def dados_do_memorial(doc):
 
 
 __all__ = ["andares_do_projeto", "andares_do_texto", "criar", "atualizar", "desenhar_2d", "listar",
-           "materiais_por_pavimento", "dados_do_memorial"]
+           "materiais_por_pavimento", "dados_do_memorial", "angulo_do_objeto"]

@@ -350,6 +350,57 @@ def simbolo_planta(resultado, indice):
             "limites": (-r, -r - (len(presentes) + 1) * h * 1.5, largura, r * 1.5)}
 
 
+AFASTAMENTO_SIMBOLO_MM = (400.0, -300.0)  # do ponto do shaft ao símbolo em planta, no sistema do objeto
+LARGURA_LETRA = 0.6  # largura média de uma letra, em alturas de texto
+
+
+def _gira(x, y, cos_a, sen_a):
+    return x * cos_a - y * sen_a, x * sen_a + y * cos_a
+
+
+def girar(desenho, angulo, deslocamento=(0.0, 0.0)):
+    """Gira ``desenho`` (de ``simbolo_planta``) de ``angulo`` graus em torno da origem e o desloca.
+
+    Os textos acompanham a rotação, mas nunca ficam de cabeça para baixo: acima de 90°, o texto vira
+    180° e a âncora passa para a outra ponta, ocupando o mesmo lugar.
+    """
+    a = math.radians(angulo)
+    c, s = math.cos(a), math.sin(a)
+    dx, dy = deslocamento
+
+    def ponto(x, y):
+        gx, gy = _gira(x, y, c, s)
+        return gx + dx, gy + dy
+
+    linhas = [(*ponto(x1, y1), *ponto(x2, y2)) for x1, y1, x2, y2 in desenho["linhas"]]
+    circulos = [(*ponto(cx, cy), r) for cx, cy, r in desenho["circulos"]]
+    textos = []
+    for x, y, conteudo, altura, angulo_texto in desenho["textos"]:
+        px, py = ponto(x, y)
+        total = (angulo_texto + angulo) % 360.0
+        if 90.0 < total <= 270.0:
+            t = math.radians(total)
+            ox, oy = _gira(len(str(conteudo)) * altura * LARGURA_LETRA, altura, math.cos(t), math.sin(t))
+            px, py, total = px + ox, py + oy, total - 180.0
+        if total > 180.0:
+            total -= 360.0
+        textos.append((px, py, conteudo, altura, total))
+    xs = [v for l in linhas for v in (l[0], l[2])] + [cx + k * r for cx, _, r in circulos for k in (-1, 1)]
+    ys = [v for l in linhas for v in (l[1], l[3])] + [cy + k * r for _, cy, r in circulos for k in (-1, 1)]
+    xs += [t[0] for t in textos]
+    ys += [t[1] for t in textos]
+    limites = (min(xs), min(ys), max(xs), max(ys)) if xs else desenho["limites"]
+    return {"linhas": linhas, "circulos": circulos, "textos": textos, "limites": limites}
+
+
+def simbolo_girado(resultado, indice, angulo):
+    """``simbolo_planta`` afastado do shaft (``AFASTAMENTO_SIMBOLO_MM``) e girado com o objeto, com a
+    origem no ponto do shaft."""
+    a = math.radians(angulo)
+    deslocamento = _gira(*AFASTAMENTO_SIMBOLO_MM, math.cos(a), math.sin(a))
+    return girar(simbolo_planta(resultado, indice), angulo, deslocamento)
+
+
 # --- 3D -------------------------------------------------------------------------------------------
 
 def pecas_3d(resultado):
