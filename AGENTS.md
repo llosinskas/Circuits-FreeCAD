@@ -189,6 +189,7 @@ Todo símbolo 2D (pontos, interruptores, tomada TUG) é posicionado por `Compone
 | ESC | Encerra e apaga o símbolo ainda não fixado. |
 
 - Começar outro comando de inserção encerra o anterior.
+- **Nada que mexa na vista ou no documento dentro do callback do Coin:** o clique e o ESC só marcam `is_active = False` e deixam o resto (`_fixar`: tirar os callbacks, recomputar, começar a próxima inserção; `cancelar`) para `_depois` (`QTimer.singleShot(0)`, como o Draft). Tirar os callbacks ou pôr nós no grafo de cena de dentro do evento dava "Access violation" no `GUIApplication::notify` no Windows (foi o caso do marcador de snap, removido). Não reproduz no Linux; a inserção em sequência com eventos de mouse do Qt foi conferida no FreeCAD 1.0.2.
 - As teclas chegam por dois caminhos: o filtro do Qt instalado na aplicação durante a inserção (`_criar_filtro_de_teclas`), que aceita o `ShortcutOverride` para os atalhos "R, O", "A, L" e Espaço não engolirem a tecla, e o `SoKeyboardEvent` da vista 3D. Com um campo de texto em foco, o filtro deixa a tecla passar.
 - A lógica é pura (`core/alinhamento.py`) e as teclas são testadas com o FreeCAD simulado em `tests/unit/test_insercao.py`.
 - Para símbolos já colocados: selecione-os e use **Alinhar** (atalho `A, L`; o primeiro selecionado é a referência) ou **Distribuir** (`A, D`).

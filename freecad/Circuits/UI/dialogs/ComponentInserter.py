@@ -586,17 +586,36 @@ class ComponentInsertionMode:
         x, y = info["Position"]
         self._posicionar(x, y)
 
+    @staticmethod
+    def _depois(funcao):
+        """Roda ``funcao`` quando o evento atual terminar (``QTimer.singleShot(0)``), como o Draft faz.
+
+        Tirar os callbacks da vista, recomputar o documento ou começar a próxima inserção
+        de dentro do callback do Coin que está rodando dá "Access violation" no
+        ``GUIApplication::notify`` do FreeCAD no Windows. Sem Qt (testes), roda na hora.
+        """
+        try:
+            QtCore.QTimer.singleShot(0, funcao)
+        except Exception:
+            funcao()
+
     def on_mouse(self, info):
         """Fixa o objeto ao clicar com o botão esquerdo."""
+        if not self.is_active:
+            return  # o clique já fixou: o resto roda depois do evento
         if info["State"] == "DOWN" and info["Button"] == "BUTTON1":
-            App.Console.PrintMessage("Posição fixada.\n")
-            self.stop()
-            # Registra no undo/redo após a colocação final
-            App.ActiveDocument.recompute()
-            if self.ao_fixar:
-                ComponentInsertionMode._trava_da_sequencia = self.trava
-                ComponentInsertionMode._rotacao_da_sequencia = getattr(self.obj.Placement, "Rotation", None)
-                self.ao_fixar()
+            self.is_active = False  # os próximos movimentos não mexem mais no objeto
+            self._depois(self._fixar)
+
+    def _fixar(self):
+        App.Console.PrintMessage("Posição fixada.\n")
+        self.stop()
+        # Registra no undo/redo após a colocação final
+        App.ActiveDocument.recompute()
+        if self.ao_fixar:
+            ComponentInsertionMode._trava_da_sequencia = self.trava
+            ComponentInsertionMode._rotacao_da_sequencia = getattr(self.obj.Placement, "Rotation", None)
+            self.ao_fixar()
 
     def _alternar_trava(self):
         """Espaço: trava no eixo mais próximo do vizinho, depois no outro, depois solta."""
@@ -677,7 +696,8 @@ class ComponentInsertionMode:
                 self._avisar(f"Orientado para {angulo:g}°.")
         elif tecla == "ESCAPE":
             App.Console.PrintMessage("Inserção encerrada.\n")
-            self.cancelar()
+            self.is_active = False
+            self._depois(self.cancelar)  # apaga o objeto fora do evento da tecla
 
     def cancelar(self):
         """Encerra a inserção e apaga o objeto que ainda não foi fixado."""

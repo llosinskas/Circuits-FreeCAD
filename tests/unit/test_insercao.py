@@ -51,6 +51,10 @@ class TestModoDeInsercao(unittest.TestCase):
         gui.ActiveDocument.ActiveView = self.vista
         falsos = {nome: mock.MagicMock(name=nome) for nome in FALSOS}
         falsos["FreeCADGui"] = gui
+        # QTimer.singleShot(0, f): o fim do evento atual; aqui, na hora, ou guardado com ``self.adiar``
+        self.adiar, self.pendentes = False, []
+        falsos["freecad.Circuits.qt"].QtCore.QTimer.singleShot.side_effect = (
+            lambda _ms, funcao: self.pendentes.append(funcao) if self.adiar else funcao())
         self.patch = mock.patch.dict(sys.modules, falsos)
         self.patch.start()
         for nome in RECARREGAR:
@@ -130,6 +134,22 @@ class TestModoDeInsercao(unittest.TestCase):
         proximo = self.Modo(self.obj, referencias=[(1000.0, 0.0)], ao_fixar=lambda: None)
         self.assertEqual(proximo.trava, ("x", 1000.0))
         self.assertIsNone(self.Modo(self.obj).trava)  # inserção avulsa não herda
+
+    def test_clique_fixa_depois_do_evento_do_coin(self):
+        # tirar os callbacks e começar o próximo dentro do evento dá Access violation no Windows
+        fixados = []
+        modo = self.modo(ao_fixar=lambda: fixados.append(True))
+        self.adiar = True
+        self.mover(600, 400)
+        clique = self.vista.callbacks["SoMouseButtonEvent"]
+        clique({"State": "DOWN", "Button": "BUTTON1"})
+        clique({"State": "DOWN", "Button": "BUTTON1"})  # o segundo clique, antes do fim do evento, é ignorado
+        self.assertEqual((fixados, len(self.pendentes)), ([], 1))
+        self.assertIn("SoMouseButtonEvent", self.vista.callbacks)  # ainda não saiu do evento
+        self.assertFalse(modo.is_active)  # mas o movimento já não mexe no objeto
+        self.pendentes.pop()()
+        self.assertEqual(fixados, [True])
+        self.assertNotIn("SoMouseButtonEvent", self.vista.callbacks)
 
     def test_esc_apaga_o_objeto_e_esquece_a_trava(self):
         modo = self.modo(referencias=[(1000.0, 0.0)], ao_fixar=lambda: None)
