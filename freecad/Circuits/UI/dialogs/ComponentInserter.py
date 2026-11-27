@@ -433,11 +433,6 @@ class ComponentInsertionMode:
         self._ultimo_snap = None
         self._ultimo_tipo_snap = None
         self._ultimo_angulo_o = None
-        self._marcador_switch = None
-        self._marcador_mat = None
-        self._marcador_coords = None
-        self._marcador_linhas = None
-        self._coin = None
         self.is_active = False
         self.view = Gui.ActiveDocument.ActiveView
         self.cb_mouse = None
@@ -488,7 +483,6 @@ class ComponentInsertionMode:
         # Com algo selecionado, a tecla Espaço do FreeCAD alternaria a visibilidade.
         Gui.Selection.clearSelection()
 
-        self._criar_marcador_snap()
         self.cb_mouse = self.view.addEventCallback("SoMouseButtonEvent", self.on_mouse)
         self.cb_move = self.view.addEventCallback("SoLocation2Event", self.on_move)
         self.cb_key = self.view.addEventCallback("SoKeyboardEvent", self.on_key)
@@ -500,7 +494,6 @@ class ComponentInsertionMode:
 
     def stop(self):
         self.is_active = False
-        self._remover_marcador_snap()
         self._remover_filtro()
         if self.view:
             if self.cb_mouse:
@@ -521,6 +514,14 @@ class ComponentInsertionMode:
         except Exception:
             pass  # sem janela principal (testes): o painel de relatório basta
 
+    @staticmethod
+    def _status(texto):
+        """Atualiza apenas a barra de status, sem poluir o painel de relatório."""
+        try:
+            Gui.getMainWindow().statusBar().showMessage(texto, 3000)
+        except Exception:
+            pass
+
     def _tolerancia(self, x, y):
         """Comprimento, no desenho, de ``TOLERANCIA_PIXELS`` pixels da tela."""
         try:
@@ -529,101 +530,6 @@ class ComponentInsertionMode:
             return (b - a).Length
         except Exception:
             return 0.0
-
-    def _criar_marcador_snap(self):
-        if self._marcador_switch is not None or not self.view:
-            return
-        try:
-            from pivy import coin
-            sg = self.view.getSceneGraph()
-            if sg is None:
-                return
-            sw = coin.SoSwitch()
-            sw.whichChild = coin.SO_SWITCH_NONE
-            sep = coin.SoSeparator()
-            mat = coin.SoMaterial()
-            estilo = coin.SoDrawStyle()
-            estilo.lineWidth = 2.0
-            coords = coin.SoCoordinate3()
-            linhas = coin.SoLineSet()
-            sep.addChild(mat)
-            sep.addChild(estilo)
-            sep.addChild(coords)
-            sep.addChild(linhas)
-            sw.addChild(sep)
-            sg.addChild(sw)
-            self._coin = coin
-            self._marcador_switch = sw
-            self._marcador_mat = mat
-            self._marcador_coords = coords
-            self._marcador_linhas = linhas
-        except Exception:
-            self._marcador_switch = None
-
-    def _remover_marcador_snap(self):
-        if self._marcador_switch is None:
-            return
-        sw = self._marcador_switch
-        view = self.view
-        coin = self._coin
-        self._marcador_switch = None
-        self._marcador_mat = None
-        self._marcador_coords = None
-        self._marcador_linhas = None
-        self._coin = None
-        try:
-            if coin is not None:
-                sw.whichChild = coin.SO_SWITCH_NONE
-        except Exception:
-            pass
-
-        def _desanexar():
-            try:
-                if view:
-                    sg = view.getSceneGraph()
-                    if sg is not None:
-                        sg.removeChild(sw)
-            except Exception:
-                pass
-
-        try:
-            QtCore.QTimer.singleShot(0, _desanexar)
-        except Exception:
-            _desanexar()
-
-    def _atualizar_marcador_snap(self, pnt, tipo_snap):
-        if self._marcador_switch is None or self._coin is None:
-            return
-        if not tipo_snap:
-            try:
-                self._marcador_switch.whichChild = self._coin.SO_SWITCH_NONE
-            except Exception:
-                pass
-            return
-        try:
-            cores = {
-                "vertice": (0.1, 0.8, 0.2),
-                "meio": (0.0, 0.75, 0.85),
-                "aresta": (0.95, 0.55, 0.1),
-                "alinhado": (0.85, 0.2, 0.75),
-                "grade": (0.5, 0.5, 0.5),
-            }
-            r, g, b = cores.get(tipo_snap, (0.2, 0.6, 1.0))
-            self._marcador_mat.diffuseColor.setValue(r, g, b)
-            raio = max(self._tolerancia(*self._ultima_tela) * 0.6, 40.0) if hasattr(self, "_ultima_tela") else 60.0
-            z = pnt.z + 2.0
-            pts = [
-                (pnt.x - raio, pnt.y - raio, z), (pnt.x + raio, pnt.y - raio, z),
-                (pnt.x + raio, pnt.y + raio, z), (pnt.x - raio, pnt.y + raio, z),
-                (pnt.x - raio, pnt.y - raio, z),
-                (pnt.x - raio * 1.4, pnt.y, z), (pnt.x + raio * 1.4, pnt.y, z),
-                (pnt.x, pnt.y - raio * 1.4, z), (pnt.x, pnt.y + raio * 1.4, z),
-            ]
-            self._marcador_coords.point.setValues(0, len(pts), pts)
-            self._marcador_linhas.numVertices.setValues(0, 3, [5, 2, 2])
-            self._marcador_switch.whichChild = self._coin.SO_SWITCH_ALL
-        except Exception:
-            pass
 
     def _posicionar(self, x, y):
         """Leva o objeto ao ponto da tela, aplicando plano, trava, snap geométrico e alinhamento."""
@@ -640,7 +546,6 @@ class ComponentInsertionMode:
         if self.trava:
             pnt.x, pnt.y = alinhamento.aplicar_trava((pnt.x, pnt.y), self.trava)
             self._ultimo_snap = None
-            self._atualizar_marcador_snap(pnt, None)
         else:
             snap = alinhamento.snap_ponto(
                 (pnt.x, pnt.y),
@@ -655,7 +560,6 @@ class ComponentInsertionMode:
             )
             pnt.x, pnt.y = snap["ponto"]
             self._ultimo_snap = snap
-            self._atualizar_marcador_snap(pnt, snap["tipo"])
             if snap["tipo"] != self._ultimo_tipo_snap:
                 self._ultimo_tipo_snap = snap["tipo"]
                 if snap["tipo"]:
@@ -666,7 +570,7 @@ class ComponentInsertionMode:
                         "alinhado": "Snap: alinhado a símbolo",
                         "grade": f"Snap: grade {self.passo_grade:g} mm",
                     }
-                    self._avisar(rotulos.get(snap["tipo"], f"Snap: {snap['tipo']}"))
+                    self._status(rotulos.get(snap["tipo"], f"Snap: {snap['tipo']}"))
 
         # No FreeCAD, precisamos ler, alterar e reatribuir o Placement
         pl = self.obj.Placement
