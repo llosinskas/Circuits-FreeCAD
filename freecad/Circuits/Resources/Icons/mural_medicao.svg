@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64">
+  <!-- Mural de medição: elevação frontal cotada do agrupamento de caixas P -->
+  <path d="M14 8H50V52H14Z" fill="none" stroke="#ffffff" stroke-width="7" stroke-opacity="0.85" stroke-linejoin="round"/>
+  <path d="M14 8H26V30H14ZM14 30H26V52H14ZM38 8H50V30H38ZM38 30H50V52H38Z" fill="#ffffff" stroke="#5f6368" stroke-width="2"/>
+  <path d="M26 8H38V52H26Z" fill="#dadce0" stroke="#5f6368" stroke-width="2"/>
+  <path d="M17 12H23V19H17ZM17 34H23V41H17ZM41 12H47V19H41ZM41 34H47V41H41Z" fill="#5f6368"/>
+  <path d="M29 12V28M32 12V28M35 12V28" stroke="#c5221f" stroke-width="1.8"/>
+  <path d="M4 58H60" stroke="#202124" stroke-width="2.5"/>
+  <path d="M8 4H56M8 2V6M56 2V6" stroke="#1a73e8" stroke-width="2"/>
+  <path d="M7 8V52M5 8H9M5 52H9" stroke="#1a73e8" stroke-width="2"/>
+</svg>

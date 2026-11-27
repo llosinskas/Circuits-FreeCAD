@@ -143,27 +143,32 @@ class ColunaMedicao:
             int(obj.Medidores), float(obj.DemandaPorMedidor), int(obj.Fases), int(obj.MedidoresPorColuna),
             str(obj.Modelo), cdpm, float(obj.DemandaTotal), float(obj.Tensao), float(obj.ComprimentoRamal))
 
-    def execute(self, obj):
+    def pecas(self, obj, representacao=None):
+        """(dimensionamento, peças) das colunas com as entradas do objeto; ``representacao`` troca a do objeto
+        (o mural usa a interna, com as peças nos lugares reais)."""
         caixa_p = (
             float(getattr(obj, "LarguraCaixaP", 0.0) or 0.0),
             float(getattr(obj, "ProfundidadeCaixaP", 0.0) or 0.0),
             float(getattr(obj, "AlturaCaixaP", 0.0) or 0.0),
         )
+        dados = self.dimensionar(obj)
+        pecas = regras.pecas_do_centro(
+            dados,
+            posicao_cdpm=str(getattr(obj, "PosicaoCDPM", "Centro") or "Centro"),
+            altura_base_mm=float(getattr(obj, "AlturaBase", 0.0) or 0.0),
+            caixa_p_mm=caixa_p if any(v > 0 for v in caixa_p) else None,
+            saida_eletroduto=str(getattr(obj, "SaidaEletroduto", "Fundo") or "Fundo"),
+            folga_conjuntos_mm=float(getattr(obj, "FolgaConjuntos", 0.0) or 0.0),
+            com_suporte=bool(getattr(obj, "ComSuporte", True)),
+            representacao=representacao or str(getattr(obj, "Representacao", "") or regras.REPRESENTACOES[0]),
+        )
+        return dados, pecas
+
+    def execute(self, obj):
         posicao_cdpm = str(getattr(obj, "PosicaoCDPM", "Centro") or "Centro")
         altura_base = float(getattr(obj, "AlturaBase", 0.0) or 0.0)
-        com_suporte = bool(getattr(obj, "ComSuporte", True))
         try:
-            dados = self.dimensionar(obj)
-            pecas = regras.pecas_do_centro(
-                dados,
-                posicao_cdpm=posicao_cdpm,
-                altura_base_mm=altura_base,
-                caixa_p_mm=caixa_p if any(v > 0 for v in caixa_p) else None,
-                saida_eletroduto=str(getattr(obj, "SaidaEletroduto", "Fundo") or "Fundo"),
-                folga_conjuntos_mm=float(getattr(obj, "FolgaConjuntos", 0.0) or 0.0),
-                com_suporte=com_suporte,
-                representacao=str(getattr(obj, "Representacao", "") or regras.REPRESENTACOES[0]),
-            )
+            dados, pecas = self.pecas(obj)
             avisos_layout = regras.avisos_layout_enel(dados, pecas, posicao_cdpm=posicao_cdpm,
                                                       altura_base_mm=altura_base)
         except ValueError as erro:

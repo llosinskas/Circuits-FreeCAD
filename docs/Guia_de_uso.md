@@ -240,8 +240,9 @@ Fica em **Quadros ▾**, nesta ordem:
 1. **Centro de medição** (primeiro clique): cria a planilha *Centro de medição* com os pavimentos do projeto. Num projeto só com o Térreo, as unidades ficam nele; com andares, o mais baixo fica sem unidades. Preencha por andar a cota do piso (B), as unidades (C), a demanda de cada unidade em A (D) e as fases (E).
 2. **Centro de medição** (segundo clique): compara medição agrupada, descentralizada e busway, com o custo de cada uma. **Gravar na planilha** guarda os valores do formulário.
 3. **Gerar centro de medição:** escolha *agrupada* ou *descentralizada*. As colunas de medição, o abrigo e, na descentralizada, o ramal de cada centro são criados na pasta *Busway e medição* do pavimento, ficam selecionados e a vista enquadra neles. Ponha antes um símbolo de **Medição agrupada** na planta para eles nascerem ali.
-4. **Coluna de medição:** insere uma coluna avulsa (clique na planta para posicionar) ou, com uma coluna selecionada, edita a quantidade de medidores, o modelo e o desenho 3D.
-5. **Busway:** com o caminho do QDC ao shaft desenhado e selecionado.
+4. **Mural de medição:** com as colunas selecionadas (ou todas), desenha a elevação frontal cotada, como na norma: caixas numeradas com medidor, disjuntor e suporte L, CDPM com os barramentos, disjuntor geral e DPS, eletroduto de entrada, piso, cotas e notas. Leve-o para a prancha com **Inserir na folha**.
+5. **Coluna de medição:** insere uma coluna avulsa (clique na planta para posicionar) ou, com uma coluna selecionada, edita a quantidade de medidores, o modelo e o desenho 3D.
+6. **Busway:** com o caminho do QDC ao shaft desenhado e selecionado.
 
 No relatório, a seção *Centro de medição* mostra a solução que está desenhada (o busway, se houver; senão a gerada; senão a mais barata) e a seção *Busway* traz a queda de tensão trecho a trecho e as caixas MEC. Deixe desenhada só uma solução: com duas, o relatório avisa.
 

@@ -179,7 +179,98 @@ def atualizar_colunas(doc, obj, **valores):
             setattr(obj, chave, valor)
     obj.Placement = posicao
     doc.recompute()
+    if murais_da_coluna(doc, obj):
+        desenhar_mural(doc, obj)  # o mural acompanha as colunas editadas
     return obj
+
+
+# --- mural (elevação frontal cotada) --------------------------------------------------------------
+
+MARCA_MURAL = "mural_de"
+AFASTAMENTO_MURAL_MM = 1500.0  # do fundo das colunas, na planta, até o piso do mural
+
+
+def eh_coluna(obj):
+    return _tipo(obj) == "ColunaMedicao"
+
+
+def murais_da_coluna(doc, coluna):
+    """Grupos do mural das colunas (propriedade ``mural_de`` = nome do objeto)."""
+    return [o for o in doc.Objects if getattr(o, MARCA_MURAL, None) == coluna.Name]
+
+
+def remover_murais_orfaos(doc):
+    """Apaga os murais de colunas que não existem mais (recriadas pelo Gerar centro de medição)."""
+    for grupo in [o for o in doc.Objects if getattr(o, MARCA_MURAL, None)]:
+        if doc.getObject(getattr(grupo, MARCA_MURAL)) is None:
+            _apagar_grupo(doc, grupo)
+
+
+def _apagar_grupo(doc, grupo):
+    for filho in list(getattr(grupo, "Group", [])):
+        if doc.getObject(filho.Name) is not None:
+            doc.removeObject(filho.Name)
+    if doc.getObject(grupo.Name) is not None:
+        doc.removeObject(grupo.Name)
+
+
+def desenhar_mural(doc, coluna):
+    """Recria o mural (elevação frontal cotada, ``core.centro_medicao.mural``) das colunas de medição.
+
+    Desenhado em verdadeira grandeza na planta, no piso do pavimento: acima das colunas na
+    primeira vez, ou onde o mural anterior estava (o usuário pode movê-lo). Um ``Part::Feature``
+    com as linhas e os círculos e um texto por rótulo, num grupo com ``mural_de`` = nome das
+    colunas, na pasta *Busway e medição* do pavimento delas.
+
+    Returns:
+        O grupo do mural.
+    """
+    dados, pecas = coluna.Proxy.pecas(coluna, representacao=regras.REPRESENTACOES[1])
+    titulo = f"MURAL DE MEDIÇÃO - {coluna.Label} ({int(getattr(coluna, 'Medidores', 0))} medições)"
+    desenho = regras.mural(pecas, titulo, regras.notas_do_mural(dados, getattr(coluna, "MedidoresPorColuna", 3)))
+    origem = None
+    for antigo in murais_da_coluna(doc, coluna):
+        if origem is None:
+            figura = next((o for o in getattr(antigo, "Group", []) if hasattr(o, "Shape") and o.TypeId == "Part::Feature"),
+                          None)
+            if figura is not None:
+                origem = App.Vector(figura.Placement.Base)
+        _apagar_grupo(doc, antigo)
+    if origem is None:
+        caixa = coluna.Shape.BoundBox if not coluna.Shape.isNull() else None
+        base = coluna.Placement.Base
+        y = (caixa.YMax if caixa is not None else base.y) + AFASTAMENTO_MURAL_MM - desenho["limites"][1]
+        origem = App.Vector(base.x, y, base.z)
+    grupo = doc.addObject("App::DocumentObjectGroup", "Mural_medicao")
+    grupo.Label = f"Mural - {coluna.Label}"
+    grupo.addProperty("App::PropertyString", MARCA_MURAL, "Mural", "Colunas de medição deste mural")
+    setattr(grupo, MARCA_MURAL, coluna.Name)
+    arestas = [Part.makeLine(App.Vector(x1, y1, 0), App.Vector(x2, y2, 0))
+               for x1, y1, x2, y2 in desenho["linhas"] if (x1, y1) != (x2, y2)]
+    for cx, cy, raio in desenho["circulos"]:
+        arestas.append(Part.makeCircle(raio, App.Vector(cx, cy, 0)))
+    figura = doc.addObject("Part::Feature", "Mural_desenho")
+    figura.Label = f"Mural {coluna.Label}"
+    figura.Shape = Part.makeCompound(arestas)
+    figura.Placement = App.Placement(origem, App.Rotation())
+    grupo.addObject(figura)
+    for x, y, conteudo, altura, angulo in desenho["textos"]:
+        texto = Draft.make_text([conteudo], placement=App.Placement(origem + App.Vector(x, y, 0),
+                                                                    App.Rotation(App.Vector(0, 0, 1), angulo)),
+                                height=altura)
+        grupo.addObject(texto)
+    pasta = pavimentos.pasta_do_pavimento(doc, coluna, "busway")
+    if pasta is not None:
+        pasta.addObject(grupo)
+    doc.recompute()
+    return grupo
+
+
+def desenhar_murais(doc, colunas=None):
+    """Murais das colunas dadas (ou de todas); apaga os murais de colunas que não existem mais."""
+    remover_murais_orfaos(doc)
+    colunas = [c for c in (colunas if colunas is not None else doc.Objects) if eh_coluna(c)]
+    return [desenhar_mural(doc, c) for c in colunas]
 
 
 def valores_da_planilha(andares, parametros=None):

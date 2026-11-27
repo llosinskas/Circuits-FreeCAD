@@ -1271,23 +1271,27 @@ def coluna_de_medicao(caixas, cdpm=None, por_coluna=MAX_VERTICAL, posicao_cdpm="
     cdpm = cdpm or tipo_cdpm(caixas, caixas * 63.0) or "Coluna MAX"
     largura_p, prof, altura_p = _resolver_caixa_p(caixa_p_mm)
     largura_cdpm = CDPM[cdpm][2]
+    # Desenho 55: as colunas simples e dupla têm 140 mm de fundo; o fundo encosta na mesma parede das caixas P
+    prof_cdpm = min(prof, PROFUNDIDADE_CDPM_MM) if cdpm in ("Coluna simples", "Coluna dupla") else prof
+    y_cdpm = prof - prof_cdpm
     base = float(altura_base_mm) if altura_base_mm and float(altura_base_mm) > 0 else ALTURA_BASE_MM[vertical]
     if posicao_cdpm == "Centro":
-        pecas = [("CDPM", (-largura_cdpm / 2, 0.0, base), (largura_cdpm, prof, vertical * altura_p))]
-        numero = 1
+        pecas = [("CDPM", (-largura_cdpm / 2, y_cdpm, base), (largura_cdpm, prof_cdpm, vertical * altura_p))]
+        posicoes = []
         for lado, quantidade in ((-1, esquerda), (1, direita)):
             for i in range(quantidade):
                 coluna, linha = divmod(i, vertical)
                 x0 = largura_cdpm / 2 + coluna * largura_p
                 x = x0 if lado > 0 else -x0 - largura_p
-                pecas.append((f"M{numero:02d}", (x, 0.0, base + (vertical - 1 - linha) * altura_p),
-                              (largura_p, prof, altura_p)))
-                numero += 1
+                posicoes.append((x, base + (vertical - 1 - linha) * altura_p))
+        # numeradas da esquerda para a direita e de cima para baixo, como nos Desenhos 8.24 a 8.33
+        for numero, (x, z) in enumerate(sorted(posicoes, key=lambda p: (round(p[0], 1), -p[1])), start=1):
+            pecas.append((f"M{numero:02d}", (x, 0.0, z), (largura_p, prof, altura_p)))
     else:
         colunas = math.ceil(caixas / vertical) if caixas else 0
         x_cdpm = 0.0 if posicao_cdpm == "Esquerda" else colunas * largura_p
         x_caixas = largura_cdpm if posicao_cdpm == "Esquerda" else 0.0
-        pecas = [("CDPM", (x_cdpm, 0.0, base), (largura_cdpm, prof, vertical * altura_p))]
+        pecas = [("CDPM", (x_cdpm, y_cdpm, base), (largura_cdpm, prof_cdpm, vertical * altura_p))]
         for i in range(caixas):
             coluna, linha = divmod(i, vertical)
             x = x_caixas + coluna * largura_p
@@ -1302,7 +1306,7 @@ def coluna_de_medicao(caixas, cdpm=None, por_coluna=MAX_VERTICAL, posicao_cdpm="
 # Detalhes da coluna (Desenhos 23 a 26 e 55, ABNT NBR 15820, CT-68/CT-72): medidas [mm]
 TAMPA_MM = 4.0  # tampa de policarbonato transparente
 PAREDE_CAIXA_MM = 10.0  # espessura da carcaça oca (para ver o interior pela tampa transparente)
-DIVISORIA = 0.62  # fração da altura da caixa P acima da divisória (medição em cima, proteção embaixo)
+DIVISORIA = 0.68  # fração da altura da caixa P acima da divisória (medição em cima, proteção embaixo; Desenho 23)
 MEDIDOR_MM = (130.0, 60.0, 190.0)  # largura, profundidade, altura
 DISJUNTOR_UNIDADE_MM = (36.0, 70.0, 90.0)  # bipolar DIN até 100 A
 DISJUNTOR_GERAL_MM = (105.0, 90.0, 160.0)  # tripolar, até 300 A
@@ -1312,6 +1316,16 @@ COMPRIMENTO_BARRA_MM = {"Coluna simples": 600.0, "Coluna dupla": 600.0, "Coluna 
 DIAMETRO_SAIDA_MM = 40.0  # eletroduto do ramal alimentador de cada unidade, pelo fundo da caixa
 DIAMETRO_ENTRADA_MM = 100.0  # eletroduto do ramal de entrada, por baixo da CDPM
 DPS_POR_CDPM = 4  # 3 fases e neutro
+PROFUNDIDADE_CDPM_MM = 140.0  # Desenho 55: a coluna da CDPM é mais rasa que a caixa P (fundo na mesma parede)
+# Desenho 23 a): detalhes externos da caixa P
+NOCAUTE_MM = 76.0  # furos pré-marcados para eletroduto, dois em cima e dois embaixo
+NOCAUTE_PEQUENO_MM = 32.0  # furo pequeno embaixo e nas laterais
+RESSALTO_NOCAUTE_MM = 3.0
+TORRE_MM = 18.0  # torres dos parafusos nos cantos
+NERVURA_LATERAL_MM = 20.0  # faixa horizontal nas laterais, na altura da divisória
+FENDAS_VENTILACAO = 4  # fendas no alto da tampa
+LACRE_MM = (10.0, 22.0)  # diâmetro e comprimento do pino de lacre embaixo da tampa
+CABO_MM = 6.0  # condutores do medidor ao disjuntor
 ALTURA_MIN_BASE_ENEL_MM = 300.0
 ALTURA_MAX_TOPO_ENEL_MM = 1900.0
 
@@ -1340,6 +1354,10 @@ CORES_DAS_PECAS = {
     "etiqueta": ((1.0, 1.0, 1.0), 0),
     "tampa_solida": ((0.74, 0.77, 0.80), 0),  # representação sólida: tampa opaca, cinza do policarbonato fosco
     "janelinha_solida": ((0.36, 0.40, 0.45), 0),
+    "nocaute": ((0.55, 0.57, 0.60), 0),  # tampão dos furos pré-marcados
+    "cabo": ((0.10, 0.10, 0.10), 0),
+    "cabo_neutro": ((0.35, 0.68, 0.95), 0),
+    "lacre": ((0.85, 0.20, 0.15), 0),
 }
 COR_DA_FASE = {"R": "barra_r", "S": "barra_s", "T": "barra_t", "N": "barra_n", "PE": "barra_pe"}
 
@@ -1427,6 +1445,59 @@ def _tubo(pecas, rotulo, centro, raio, comprimento, eixo):
                   "origem": centro, "raio": raio, "comprimento": comprimento, "eixo": eixo})
 
 
+def _cilindro(pecas, tipo, rotulo, centro, raio, comprimento, eixo, cor_tipo=None):
+    pecas.append({"tipo": tipo, "cor_tipo": cor_tipo or tipo, "rotulo": rotulo, "forma": "cilindro",
+                  "origem": centro, "raio": raio, "comprimento": comprimento, "eixo": eixo})
+
+
+def _detalhes_externos_da_caixa_p(pecas, rotulo, x, y, z, dx, dy, dz, divisoria):
+    """Desenho 23 a): o que se vê por fora da caixa P (fica igual nas duas representações).
+
+    Dois furos pré-marcados (nocautes) em cima e embaixo, um pequeno embaixo e um em cada
+    lateral; as torres dos parafusos nos cantos de cima e de baixo; a nervura das laterais na
+    altura da divisória; as fendas de ventilação no alto da tampa; e o pino de lacre embaixo,
+    na frente.
+    """
+    meio = x + dx / 2.0
+    y_meio = y + TAMPA_MM + (dy - TAMPA_MM) / 2.0
+    raio = min(NOCAUTE_MM, dx * 0.32) / 2.0
+    ressalto = RESSALTO_NOCAUTE_MM
+    for face, z_face, sentido in (("topo", z + dz, 1.0), ("base", z, -1.0)):
+        for lado, cx in (("esquerdo", meio - dx * 0.24), ("direito", meio + dx * 0.24)):
+            base = z_face if sentido > 0 else z_face - ressalto
+            _cilindro(pecas, "acabamento", f"{rotulo} nocaute {face} {lado}", (cx, y_meio, base), raio, ressalto,
+                      (0.0, 0.0, 1.0), cor_tipo="corpo")
+            base = z_face + ressalto if sentido > 0 else z_face - 2 * ressalto
+            _cilindro(pecas, "nocaute", f"{rotulo} tampão {face} {lado}", (cx, y_meio, base), raio * 0.72,
+                      ressalto, (0.0, 0.0, 1.0))
+        torre = TORRE_MM
+        for cx in (x + 6.0, x + dx - 6.0 - torre):
+            for cy in (y + TAMPA_MM + 6.0, y + dy - 6.0 - torre):
+                zt = z_face if sentido > 0 else z_face - 2.0
+                _peca(pecas, "acabamento", f"{rotulo} torre {face}", (cx, cy, zt), (torre, torre, 2.0), cor_tipo="corpo")
+    _cilindro(pecas, "nocaute", f"{rotulo} nocaute pequeno base",
+              (meio - dx * 0.06, y + TAMPA_MM + (dy - TAMPA_MM) * 0.78, z - ressalto),
+              NOCAUTE_PEQUENO_MM / 2.0, ressalto, (0.0, 0.0, 1.0))
+    z_furo_lateral = z + (divisoria - z) * 0.5
+    for lado, xf, sentido in (("esquerda", x, -1.0), ("direita", x + dx, 1.0)):
+        x0 = xf if sentido > 0 else xf - 2.0
+        _peca(pecas, "acabamento", f"{rotulo} nervura {lado}",
+              (x0, y + TAMPA_MM, divisoria - NERVURA_LATERAL_MM / 2.0), (2.0, dy - TAMPA_MM, NERVURA_LATERAL_MM),
+              cor_tipo="corpo")
+        xc = xf if sentido > 0 else xf - ressalto
+        _cilindro(pecas, "nocaute", f"{rotulo} nocaute do lado {lado}",
+                  (xc, y + TAMPA_MM + (dy - TAMPA_MM) * 0.55, z_furo_lateral),
+                  NOCAUTE_PEQUENO_MM / 2.0, ressalto, (1.0, 0.0, 0.0))
+    largura_fenda, passo = 5.0, 12.0
+    inicio = meio - (FENDAS_VENTILACAO - 1) * passo / 2.0 - largura_fenda / 2.0
+    for i in range(FENDAS_VENTILACAO):
+        _peca(pecas, "acabamento", f"{rotulo} fenda de ventilação {i + 1}",
+              (inicio + i * passo, y - 1.5, z + dz - 28.0 - 34.0), (largura_fenda, 1.5, 34.0), cor_tipo="borne")
+    diametro, comprimento = LACRE_MM
+    _cilindro(pecas, "acabamento", f"{rotulo} lacre", (meio, y + diametro, z - comprimento), diametro / 2.0,
+              comprimento, (0.0, 0.0, 1.0), cor_tipo="lacre")
+
+
 def _tubo_saida(pecas, rotulo, x_tubo, y, dy, z, dz, z_inferior, saida_eletroduto):
     saida_eletroduto = saida_eletroduto or "Fundo"
     if saida_eletroduto not in SAIDAS_ELETRODUTO:
@@ -1512,16 +1583,44 @@ def pecas_da_coluna(caixas, cdpm=None, por_coluna=MAX_VERTICAL, posicao_cdpm="Ce
         _peca(pecas, "borne", f"{rotulo} suporte medidor",
               (meio - mx * 0.55, y_fundo - 5.0, z_med + 10.0), (mx * 1.1, 5.0, mz * 0.85))
         _medidor_eletronico(pecas, rotulo, meio, y_fundo - 5.0, z_med, mx, my, mz)
+        # barra horizontal de fixação do medidor (Desenho 23 a), vista frontal)
+        _peca(pecas, "borne", f"{rotulo} barra de fixação", (x + esp + 12.0, y_fundo - 12.0, z_med - 14.0),
+              (dx - 2 * esp - 24.0, 12.0, 10.0), cor_tipo="suporte")
 
         jx, jy, jz = DISJUNTOR_UNIDADE_MM
         jz = min(jz, max(45.0, divisoria - z - esp - 20.0))
         jy = min(jy, dy - TAMPA_MM - esp - 20.0)
         z_disj = z + esp + max(8.0, (divisoria - z - esp - jz) / 2.0)
-        _disjuntor_com_alavanca(pecas, f"{rotulo} disjuntor", meio, y_fundo, z_disj, (jx, jy, jz))
+        # suporte "L" do disjuntor: chapa no fundo e aba embaixo (Desenhos 8.24 a 8.33)
+        largura_l = min(dx - 2 * esp - 30.0, jx * 3.0)
+        _peca(pecas, "borne", f"{rotulo} suporte L", (meio - largura_l / 2.0, y_fundo - 3.0, z + esp + 4.0),
+              (largura_l, 3.0, max(20.0, z_disj + jz - (z + esp + 4.0))), cor_tipo="suporte")
+        _peca(pecas, "borne", f"{rotulo} suporte L aba", (meio - largura_l / 2.0, y_fundo - 3.0 - 40.0, z + esp + 4.0),
+              (largura_l, 40.0, 3.0), cor_tipo="suporte")
+        _disjuntor_com_alavanca(pecas, f"{rotulo} disjuntor", meio, y_fundo - 3.0, z_disj, (jx, jy, jz))
+        # condutores do medidor ao disjuntor: duas fases e o neutro (anilhas L e C no texto da norma)
+        topo_disjuntor = z_disj + jz
+        y_cabo = y_fundo - 3.0 - 6.0 - jy * 0.5 - CABO_MM / 2.0
+        for k, (dxc, cor) in enumerate(((-12.0, "cabo"), (0.0, "cabo"), (12.0, "cabo_neutro"))):
+            if z_med - topo_disjuntor > 4.0:
+                _peca(pecas, "cabo", f"{rotulo} condutor {k + 1}", (meio + dxc - CABO_MM / 2.0, y_cabo, topo_disjuntor),
+                      (CABO_MM, CABO_MM, z_med - topo_disjuntor), cor_tipo=cor)
         if divisoria - z - esp > 30.0:
             _peca(pecas, "janelinha", f"{rotulo} janelinha",
                   (x + 22.0, y + TAMPA_MM + 1.0, z + esp + 12.0),
                   (max(20.0, dx - 44.0), 3.0, divisoria - z - esp - 24.0))
+            # moldura da janela de manobra na tampa e o parafuso de lacre à direita
+            jx0, jz0 = x + 22.0, z + esp + 12.0
+            jlarg, jalt = max(20.0, dx - 44.0), divisoria - z - esp - 24.0
+            for nome, origem, dims in (
+                    ("baixo", (jx0, y - 2.0, jz0), (jlarg, 2.0, 5.0)),
+                    ("cima", (jx0, y - 2.0, jz0 + jalt - 5.0), (jlarg, 2.0, 5.0)),
+                    ("esquerda", (jx0, y - 2.0, jz0 + 5.0), (5.0, 2.0, jalt - 10.0)),
+                    ("direita", (jx0 + jlarg - 5.0, y - 2.0, jz0 + 5.0), (5.0, 2.0, jalt - 10.0))):
+                _peca(pecas, "acabamento", f"{rotulo} moldura da janela {nome}", origem, dims, cor_tipo="suporte")
+            _cilindro(pecas, "acabamento", f"{rotulo} trava da janela", (jx0 + jlarg + 8.0, y, jz0 + jalt / 2.0), 6.0,
+                      4.0, (0.0, -1.0, 0.0), cor_tipo="borne")
+        _detalhes_externos_da_caixa_p(pecas, rotulo, x, y, z, dx, dy, dz, divisoria)
         _peca(pecas, "etiqueta", f"{rotulo} identificação", (meio - 40.0, y - 1.0, z + dz - 45.0), (80.0, 1.0, 28.0))
         _tubo_saida(pecas, f"{rotulo} eletroduto", x + dx * 0.3, y, dy, z, dz,
                     z + (divisoria - z) / 2.0, saida_eletroduto)
@@ -1861,7 +1960,7 @@ def pecas_do_centro(dimensionamento, posicao_cdpm="Centro", altura_base_mm=0.0, 
 
 def dimensoes_das_pecas(pecas):
     """Dimensões globais [mm] do envoltório das caixas: largura, profundidade, altura, base e topo."""
-    caixas = [p for p in pecas if p.get("forma") == "caixa" and p.get("tipo") not in ("etiqueta", "suporte")]
+    caixas = [p for p in pecas if p.get("forma") == "caixa" and p.get("tipo") not in ("etiqueta", "suporte", "acabamento")]
     if not caixas:
         return {"largura_mm": 0.0, "profundidade_mm": 0.0, "altura_mm": 0.0, "base_mm": 0.0, "topo_mm": 0.0}
     xs = [p["origem"][0] for p in caixas] + [p["origem"][0] + p["dims"][0] for p in caixas]
@@ -1876,6 +1975,187 @@ def dimensoes_das_pecas(pecas):
         "base_mm": base_mm,
         "topo_mm": topo_mm,
     }
+
+
+# --- mural: elevação frontal cotada do agrupamento (Desenhos 23 e 8.24 a 8.33) -----------------------
+
+ALTURA_TEXTO_MURAL = 30.0  # mm no desenho (verdadeira grandeza): cotas, notas e chamadas
+ALTURA_ROTULO_MURAL = 16.0  # dentro das caixas: "MEDIDOR 01", fases dos barramentos, DPS
+AFASTAMENTO_COTA_MM = 120.0
+TIPOS_NO_MURAL = ("medidor", "visor", "disjuntor", "alavanca", "barra", "isolador", "dps", "janelinha", "suporte")
+FAIXA_TABELA_29 = {1: "1,10 a 1,30 m", 2: "0,60 a 0,80 m", 3: "0,30 a 0,40 m"}
+
+
+def _retangulo(linhas, x, y, dx, dy):
+    linhas += [(x, y, x + dx, y), (x + dx, y, x + dx, y + dy), (x + dx, y + dy, x, y + dy), (x, y + dy, x, y)]
+
+
+def _numero(valor):
+    return f"{valor:.0f}" if abs(valor - round(valor)) < 0.05 else f"{valor:.1f}".replace(".", ",")
+
+
+def _cota_horizontal(desenho, x1, x2, y_objeto, y_cota, texto=None):
+    """Cota com linhas de chamada, traço oblíquo nas pontas e o valor em cima."""
+    linhas, textos = desenho["linhas"], desenho["textos"]
+    sinal = 1.0 if y_cota >= y_objeto else -1.0
+    for x in (x1, x2):
+        linhas.append((x, y_objeto + 10.0 * sinal, x, y_cota + 20.0 * sinal))
+        linhas.append((x - 10.0, y_cota - 10.0, x + 10.0, y_cota + 10.0))
+    linhas.append((x1 - 20.0, y_cota, x2 + 20.0, y_cota))
+    conteudo = texto or _numero(abs(x2 - x1))
+    textos.append(((x1 + x2) / 2.0 - len(conteudo) * ALTURA_TEXTO_MURAL * 0.3, y_cota + 12.0, conteudo,
+                   ALTURA_TEXTO_MURAL, 0.0))
+
+
+def _cota_vertical(desenho, y1, y2, x_objeto, x_cota, texto=None):
+    linhas, textos = desenho["linhas"], desenho["textos"]
+    sinal = 1.0 if x_cota >= x_objeto else -1.0
+    for y in (y1, y2):
+        linhas.append((x_objeto + 10.0 * sinal, y, x_cota + 20.0 * sinal, y))
+        linhas.append((x_cota - 10.0, y - 10.0, x_cota + 10.0, y + 10.0))
+    linhas.append((x_cota, y1 - 20.0, x_cota, y2 + 20.0))
+    conteudo = texto or _numero(abs(y2 - y1))
+    textos.append((x_cota - 12.0, (y1 + y2) / 2.0 - len(conteudo) * ALTURA_TEXTO_MURAL * 0.3, conteudo,
+                   ALTURA_TEXTO_MURAL, 90.0))
+
+
+def _intervalos(pares):
+    """Intervalos (a, b) distintos, em ordem."""
+    vistos = []
+    for a, b in sorted(pares):
+        if not any(abs(a - c) < 1.0 and abs(b - d) < 1.0 for c, d in vistos):
+            vistos.append((a, b))
+    return vistos
+
+
+def mural(pecas, titulo="", notas=()):
+    """Elevação frontal do agrupamento, vista de frente, em mm (x na horizontal, y = altura do piso).
+
+    Projeta as peças da representação interna (``pecas_do_centro(..., representacao=REPRESENTACOES[1])``):
+    o contorno de cada caixa e a moldura da tampa, a divisória, o medidor (com "MEDIDOR 01"...),
+    o disjuntor com a alavanca, o suporte L, a janela de manobra, os barramentos com as fases, o
+    disjuntor geral, os DPS, os suportes e os eletrodutos que descem ao piso; o piso hachurado;
+    as cotas das larguras (em cima), das alturas e da base ao piso (à esquerda) e a largura total
+    (embaixo); o título e as notas.
+
+    Returns:
+        {'linhas': [(x1, y1, x2, y2)], 'circulos': [(cx, cy, raio)], 'textos': [(x, y, texto, altura, ângulo)],
+         'limites': (xmin, ymin, xmax, ymax)}.
+    """
+    desenho = {"linhas": [], "circulos": [], "textos": []}
+    linhas, textos = desenho["linhas"], desenho["textos"]
+    carcacas = {}
+    for p in pecas:
+        chave = p.get("carcaca")
+        if chave is not None:
+            carcacas.setdefault((chave[0], p.get("conjunto")), chave)
+    caixas = []
+    for (rotulo, conjunto), (_, x, _y, z, dx, _dy, dz) in carcacas.items():
+        caixas.append((rotulo, x, z, dx, dz))
+        _retangulo(linhas, x, z, dx, dz)
+        _retangulo(linhas, x + MOLDURA_TAMPA_MM, z + MOLDURA_TAMPA_MM, dx - 2 * MOLDURA_TAMPA_MM,
+                   dz - 2 * MOLDURA_TAMPA_MM)
+    if not caixas:
+        return dict(desenho, limites=(0.0, 0.0, 0.0, 0.0))
+    z_caixas = min(c[2] for c in caixas)
+    for p in pecas:
+        rotulo = p["rotulo"]
+        if p["forma"] == "cilindro":
+            cx, cy, cz = p["origem"]
+            eixo = p["eixo"]
+            if abs(eixo[2]) > 0.9 and p["tipo"] == "eletroduto":
+                comprimento = p["comprimento"]
+                linhas += [(cx - p["raio"], cz, cx - p["raio"], cz + comprimento),
+                           (cx + p["raio"], cz, cx + p["raio"], cz + comprimento)]
+                if "entrada" in rotulo.lower():
+                    textos.append((cx + p["raio"] + 20.0, cz + comprimento * 0.35, "Ramal de ligação/entrada",
+                                   ALTURA_TEXTO_MURAL, 0.0))
+            elif abs(eixo[1]) > 0.9 and "trava" in rotulo:
+                desenho["circulos"].append((cx, cz, p["raio"]))
+            continue
+        (x, _y, z), (dx, _dy, dz) = p["origem"], p["dims"]
+        if "divisória" in rotulo:
+            linhas.append((x, z, x + dx, z))
+            continue
+        if p["tipo"] == "cabo":
+            linhas.append((x + dx / 2.0, z, x + dx / 2.0, z + dz))
+            continue
+        nome = rotulo.lower()
+        if p["tipo"] == "suporte":
+            # o suporte fica atrás das caixas: no mural, só a parte abaixo delas (montantes e sapatas)
+            topo = min(z + dz, z_caixas)
+            if topo - z > 1.0:
+                _retangulo(linhas, x, z, dx, topo - z)
+            continue
+        if p["tipo"] in TIPOS_NO_MURAL or "barra de fixação" in nome or "suporte l" in nome or "trilho" in nome \
+                or "fenda" in nome:
+            _retangulo(linhas, x, z, dx, dz)
+        if p["tipo"] == "medidor":
+            numero = next((t[1:] for t in rotulo.split() if t.startswith("M") and t[1:].isdigit()), "")
+            conteudo = f"MEDIDOR {numero}".strip()
+            textos.append((x + dx / 2.0 - len(conteudo) * ALTURA_ROTULO_MURAL * 0.3, z + dz * 0.2, conteudo,
+                           ALTURA_ROTULO_MURAL, 0.0))
+        elif p["tipo"] == "barra":
+            fase = rotulo.split()[-1]
+            textos.append((x + dx / 2.0 - ALTURA_ROTULO_MURAL * 0.3 * len(fase), z + dz + 10.0, fase,
+                           ALTURA_ROTULO_MURAL, 0.0))
+        elif p["tipo"] == "disjuntor" and "geral" in nome:
+            textos.append((x, z - ALTURA_ROTULO_MURAL - 8.0, "Disjuntor geral", ALTURA_ROTULO_MURAL, 0.0))
+        elif p["tipo"] == "dps" and rotulo.endswith("DPS 1"):
+            textos.append((x, z - ALTURA_ROTULO_MURAL - 6.0, "DPS", ALTURA_ROTULO_MURAL, 0.0))
+    xmin = min(c[1] for c in caixas)
+    xmax = max(c[1] + c[3] for c in caixas)
+    zmin = min(c[2] for c in caixas)
+    zmax = max(c[2] + c[4] for c in caixas)
+    # piso acabado hachurado
+    linhas.append((xmin - 400.0, 0.0, xmax + 400.0, 0.0))
+    x = xmin - 400.0
+    while x < xmax + 400.0 - 60.0:
+        linhas.append((x + 60.0, 0.0, x, -60.0))
+        x += 80.0
+    textos.append((xmax + 60.0, 20.0, "Nível do piso acabado", ALTURA_TEXTO_MURAL, 0.0))
+    # cotas: larguras em cima, alturas e base à esquerda, total embaixo
+    y_cotas = zmax + AFASTAMENTO_COTA_MM
+    for a, b in _intervalos((c[1], c[1] + c[3]) for c in caixas):
+        _cota_horizontal(desenho, a, b, zmax, y_cotas)
+    esquerda = min(c[1] for c in caixas)
+    coluna_esquerda = [c for c in caixas if abs(c[1] - esquerda) < 1.0]
+    x_cota = xmin - AFASTAMENTO_COTA_MM
+    for a, b in _intervalos((c[2], c[2] + c[4]) for c in coluna_esquerda):
+        _cota_vertical(desenho, a, b, esquerda, x_cota)
+    if zmin > 1.0:
+        _cota_vertical(desenho, 0.0, zmin, esquerda, x_cota)
+    _cota_vertical(desenho, zmin, zmax, esquerda, x_cota - AFASTAMENTO_COTA_MM)
+    _cota_horizontal(desenho, xmin, xmax, 0.0, -AFASTAMENTO_COTA_MM - 60.0)
+    if titulo:
+        textos.append((xmin, y_cotas + 90.0, titulo, ALTURA_TEXTO_MURAL * 1.6, 0.0))
+    y_nota = -AFASTAMENTO_COTA_MM - 160.0
+    for nota in notas:
+        textos.append((xmin, y_nota, nota, ALTURA_TEXTO_MURAL, 0.0))
+        y_nota -= ALTURA_TEXTO_MURAL * 1.8
+    limites = (x_cota - AFASTAMENTO_COTA_MM - 60.0, y_nota, xmax + 450.0, y_cotas + 150.0)
+    return dict(desenho, limites=limites)
+
+
+def notas_do_mural(dimensionamento, por_coluna=MAX_VERTICAL):
+    """Notas do mural: caixas, CDPM, disjuntores, barramento e a altura da Tabela 29."""
+    notas = ["Caixas de medição tipo P em policarbonato, 260 x 520 x 190 mm, tampa transparente (ET 0018 Enel SP, "
+             "Desenho 23)."]
+    for numero, c in enumerate(dimensionamento.get("conjuntos", []), start=1):
+        prefixo = f"Agrupamento {numero}: " if len(dimensionamento["conjuntos"]) > 1 else ""
+        if c.get("modelo", "P") == "P":
+            notas.append(f"{prefixo}{c['caixas']} medições, {c['cdpm']} (Desenho 55), disjuntor geral "
+                         f"{c['disjuntor_geral']} A, barramento mínimo {c['barramento']}, ramal {c['ramal']} mm².")
+        else:
+            notas.append(f"{prefixo}{c.get('cdpm', c.get('modelo'))}, {c.get('medicoes', 1)} medição(ões), "
+                         f"disjuntor geral {c['disjuntor_geral']} A.")
+    if dimensionamento.get("disjuntor_unidade"):
+        notas.append(f"Disjuntor DIN de cada unidade: {dimensionamento['disjuntor_unidade']} A (máximo 100 A), "
+                     "no suporte L; eletroduto de saída pelo fundo.")
+    vertical = min(int(por_coluna or MAX_VERTICAL), MAX_VERTICAL)
+    notas.append(f"Base do agrupamento ao piso acabado (Tabela 29, {vertical} caixa(s) na vertical): "
+                 f"{FAIXA_TABELA_29.get(vertical, '-')}; topo da coluna até 1,90 m.")
+    return notas
 
 
 def avisos_layout_enel(dimensionamento, pecas, posicao_cdpm="Centro", altura_base_mm=0.0):

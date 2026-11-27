@@ -241,6 +241,46 @@ class GerarCentroMedicao:
         )
 
 
+class MuralMedicao:
+    """Desenha (ou refaz) a elevação frontal cotada das colunas de medição: o mural."""
+
+    def Activated(self):
+        doc = documento_ou_aviso()
+        if not doc:
+            return
+        selecionadas = [o for o in Gui.Selection.getSelection() if servico.eh_coluna(o)]
+        colunas = selecionadas or [o for o in doc.Objects if servico.eh_coluna(o)]
+        if not colunas:
+            QtWidgets.QMessageBox.information(
+                None, "Mural de medição",
+                "Insira antes as colunas de medição (Coluna de medição ou Gerar centro de medição). O mural é a "
+                "elevação frontal cotada delas, como nos desenhos da ET 0018 da Enel SP.")
+            return
+        doc.openTransaction("Mural de medição")
+        try:
+            grupos = servico.desenhar_murais(doc, colunas)
+            doc.commitTransaction()
+        except Exception:
+            doc.abortTransaction()
+            raise
+        _mostrar([o for g in grupos for o in g.Group])
+        App.Console.PrintMessage(f"Mural de medição: {len(grupos)} desenhado(s) na pasta Busway e medição. Mova à "
+                                 "vontade: o próximo Mural mantém a posição. Para a folha, selecione o grupo e use "
+                                 "Inserir na folha.\n")
+
+    def IsActive(self):
+        return True
+
+    def GetResources(self):
+        return recursos(
+            "mural_medicao.svg",
+            "Mural de medição",
+            "Desenha a elevação frontal cotada das colunas de medição selecionadas (ou de todas): caixas P com "
+            "medidor, disjuntor e suporte L, CDPM com barramentos, disjuntor geral e DPS, eletroduto de entrada, "
+            "piso, cotas e notas (ET 0018 Enel SP, Desenhos 23 e 8.24 a 8.33)",
+        )
+
+
 class InserirBusway:
     """Marca as linhas selecionadas como busway e sobe a prumada com as caixas MEC dos andares."""
 
@@ -306,3 +346,4 @@ Gui.addCommand("PlanejarMedicao", PlanejarMedicao())
 Gui.addCommand("InserirColunaMedicao", InserirColunaMedicao())
 Gui.addCommand("InserirBusway", InserirBusway())
 Gui.addCommand("GerarCentroMedicao", GerarCentroMedicao())
+Gui.addCommand("MuralMedicao", MuralMedicao())

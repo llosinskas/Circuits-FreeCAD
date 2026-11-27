@@ -184,8 +184,8 @@ class TestPlanilhaEGeometria(unittest.TestCase):
         entrada = next(p for p in por_tipo["eletroduto"] if p["rotulo"] == "Eletroduto de entrada")
         self.assertEqual(entrada["origem"][2], 0.0)  # desce até o piso
         for peca in pecas:
-            if peca["forma"] != "caixa" or peca["tipo"] in ("tampa", "etiqueta"):
-                continue
+            if peca["forma"] != "caixa" or peca["tipo"] in ("tampa", "etiqueta", "acabamento"):
+                continue  # o acabamento (torres, nervuras, moldura da janela, fendas) fica por fora
             dono = caixas[peca["rotulo"].split()[0]] if peca["rotulo"].split()[0] in caixas else caixas["CDPM"]
             (x, y, z), (dx, dy, dz) = dono[1], dono[2]
             (px, py, pz), (qx, qy, qz) = peca["origem"], peca["dims"]
@@ -561,6 +561,69 @@ class TestPlanoDeGeracao(unittest.TestCase):
     def test_busway_nao_e_desenhado_aqui(self):
         with self.assertRaises(ValueError):
             c.plano_de_geracao(self.ANDARES, "busway")
+
+
+class TestCaixaPEMural(unittest.TestCase):
+    def pecas(self, interna=True):
+        d = c.dimensionar_colunas(12, 63.0, 2, demanda_total_a=200.0)
+        return d, c.pecas_do_centro(d, representacao=c.REPRESENTACOES[1 if interna else 0])
+
+    def test_numeracao_da_esquerda_para_a_direita(self):
+        g = c.coluna_de_medicao(12, "Coluna simples", 3)
+        caixas = {r: o for r, o, _ in g["caixas"]}
+        self.assertLess(caixas["M01"][0], caixas["M04"][0])  # 01 a 03 na primeira coluna da esquerda
+        self.assertGreater(caixas["M01"][2], caixas["M03"][2])  # de cima para baixo
+        self.assertLess(caixas["M06"][0], caixas["CDPM"][0])
+        self.assertGreater(caixas["M07"][0], caixas["CDPM"][0])
+
+    def test_cdpm_mais_rasa_com_o_fundo_na_parede(self):
+        g = c.coluna_de_medicao(12, "Coluna simples", 3)
+        _, origem, dims = next(p for p in g["caixas"] if p[0] == "CDPM")
+        self.assertEqual(dims[1], c.PROFUNDIDADE_CDPM_MM)
+        self.assertAlmostEqual(origem[1] + dims[1], c.CAIXA_P_MM[1])  # fundo alinhado com o das caixas P
+
+    def test_detalhes_da_caixa_p(self):
+        _, pecas = self.pecas()
+        m01 = [p for p in pecas if p["rotulo"].split()[1] == "M01"]
+        nomes = " | ".join(p["rotulo"] for p in m01)
+        for parte in ("nocaute topo esquerdo", "nocaute base direito", "torre topo", "nervura esquerda",
+                      "fenda de ventilação 4", "lacre", "barra de fixação", "suporte L", "condutor 3",
+                      "moldura da janela", "trava da janela"):
+            self.assertIn(parte, nomes)
+        neutro = next(p for p in m01 if p["rotulo"].endswith("condutor 3"))
+        self.assertEqual(neutro["cor_tipo"], "cabo_neutro")
+        # na sólida, o que fica por fora (acabamento) não muda e os condutores aparecem em relevo
+        _, solida = self.pecas(interna=False)
+        self.assertTrue(any(p["rotulo"].endswith("M01 nocaute topo esquerdo") for p in solida))
+        tampa = next(p for p in solida if p["rotulo"].endswith("M01 tampa"))
+        cabo = next(p for p in solida if p["rotulo"].endswith("M01 condutor 1"))
+        self.assertLess(cabo["origem"][1], tampa["origem"][1])
+
+    def test_mural_cotado(self):
+        d, pecas = self.pecas()
+        m = c.mural(pecas, "MURAL", c.notas_do_mural(d))
+        textos = [t[2] for t in m["textos"]]
+        self.assertEqual([t for t in textos if t.startswith("MEDIDOR")], [f"MEDIDOR {i:02d}" for i in range(1, 13)])
+        self.assertEqual(textos.count("260"), 5)  # 4 colunas de caixas e a CDPM
+        self.assertEqual(textos.count("520"), 3)
+        self.assertIn("320", textos)  # base ao piso (Tabela 29)
+        self.assertIn("1560", textos)  # altura total
+        self.assertIn("1300", textos)  # largura total
+        for fase in ("R", "S", "T", "N", "PE"):
+            self.assertIn(fase, textos)
+        self.assertIn("Disjuntor geral", textos)
+        self.assertIn("Nível do piso acabado", textos)
+        self.assertTrue(any("Coluna simples" in t for t in textos))
+        self.assertTrue(any("0,30 a 0,40 m" in t for t in textos))
+        verticais = [t for t in m["textos"] if t[4] == 90.0]
+        self.assertTrue(verticais)  # cotas da esquerda em pé
+        xmin, ymin, xmax, ymax = m["limites"]
+        self.assertLess(ymin, 0.0)  # notas abaixo do piso
+        self.assertGreater(ymax, 1880.0)
+        self.assertTrue(m["circulos"])  # travas das janelas
+
+    def test_mural_vazio(self):
+        self.assertEqual(c.mural([])["linhas"], [])
 
 
 if __name__ == "__main__":
