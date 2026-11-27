@@ -162,7 +162,7 @@ PROPRIEDADES_COLUNA = (
     "Medidores", "MedidoresPorColuna", "DemandaPorMedidor", "DemandaTotal",
     "Fases", "Modelo", "CDPM", "Tensao", "ComprimentoRamal",
     "PosicaoCDPM", "SaidaEletroduto", "AlturaBase",
-    "LarguraCaixaP", "ProfundidadeCaixaP", "AlturaCaixaP", "FolgaConjuntos", "ComSuporte",
+    "LarguraCaixaP", "ProfundidadeCaixaP", "AlturaCaixaP", "FolgaConjuntos", "ComSuporte", "Representacao",
 )
 
 

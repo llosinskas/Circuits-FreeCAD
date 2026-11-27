@@ -254,14 +254,18 @@ def capacidade_agrupamento(por_coluna=MAX_VERTICAL):
 def distribuicao(caixas, por_coluna=MAX_VERTICAL):
     """(caixas à esquerda, à direita, caixas na vertical) de um agrupamento.
 
-    Com 3 por coluna, 30 caixas ficam em 10 colunas de 3, 5 de cada lado da CDPM.
+    Com 3 por coluna, 30 caixas ficam em 10 colunas de 3, 5 de cada lado da CDPM; 4 caixas,
+    numa coluna de 3 à esquerda e uma de 1 à direita.
     """
     por_coluna = max(1, min(MAX_VERTICAL, int(por_coluna)))
     if caixas > capacidade_agrupamento(por_coluna):
         raise ValueError(f"Um agrupamento com {por_coluna} caixa(s) por coluna tem no máximo "
                          f"{capacidade_agrupamento(por_coluna)} caixas.")
-    vertical = min(por_coluna, max(1, math.ceil(caixas / 2)))
-    esquerda = math.ceil(caixas / 2)
+    # As colunas saem cheias (4 caixas com 3 por coluna: 3 + 1, não 2 + 2); as colunas
+    # se repartem entre os lados da CDPM, a de mais à esquerda.
+    vertical = max(1, min(por_coluna, caixas))
+    colunas = math.ceil(caixas / vertical)
+    esquerda = min(caixas, math.ceil(colunas / 2) * vertical)
     return esquerda, caixas - esquerda, vertical
 
 
@@ -1307,6 +1311,8 @@ CORES_DAS_PECAS = {
     "suporte": ((0.45, 0.48, 0.52), 0),
     "aviso": ((0.96, 0.80, 0.12), 0),
     "etiqueta": ((1.0, 1.0, 1.0), 0),
+    "tampa_solida": ((0.74, 0.77, 0.80), 0),  # representação sólida: tampa opaca, cinza do policarbonato fosco
+    "janelinha_solida": ((0.36, 0.40, 0.45), 0),
 }
 COR_DA_FASE = {"R": "barra_r", "S": "barra_s", "T": "barra_t", "N": "barra_n", "PE": "barra_pe"}
 
@@ -1331,11 +1337,14 @@ def _caixa_oca(pecas, tipo, rotulo, origem, dims, espessura=PAREDE_CAIXA_MM, pre
         _peca(pecas, tipo, rotulo, origem, dims)
         return
     pref = prefixo_paredes or rotulo
+    inicio = len(pecas)
     _peca(pecas, tipo, rotulo, (x, y + dy - esp, z), (dx, esp, dz))
     _peca(pecas, tipo, f"{pref} lateral esquerda", (x, y, z), (esp, dy - esp, dz))
     _peca(pecas, tipo, f"{pref} lateral direita", (x + dx - esp, y, z), (esp, dy - esp, dz))
     _peca(pecas, tipo, f"{pref} fundo inferior", (x + esp, y, z), (dx - 2 * esp, dy - esp, esp))
     _peca(pecas, tipo, f"{pref} topo", (x + esp, y, z + dz - esp), (dx - 2 * esp, dy - esp, esp))
+    for peca in pecas[inicio:]:
+        peca["carcaca"] = (rotulo, x, y, z, dx, dy, dz)  # ``fechar_caixas`` troca as paredes por um sólido
 
 
 def _medidor_eletronico(pecas, rotulo, meio_x, y_fundo, z_base, largura=None, prof=None, altura=None):
@@ -1704,9 +1713,80 @@ def pecas_da_indireta(modelo, altura_base_mm=0.0, com_suporte=False):
     return pecas
 
 
+REPRESENTACOES = ("Sólida", "Interna (tampa transparente)")
+RELEVO_MM = 30.0  # na representação sólida, o que fica dentro da caixa aparece em relevo na tampa
+MOLDURA_TAMPA_MM = 8.0  # a tampa sólida fica recuada disto das bordas da caixa
+
+
+def _dentro(peca, x0, y0, z0, x1, y1, z1, folga=1.0):
+    (px, py, pz), (qx, qy, qz) = peca["origem"], peca["dims"]
+    return (x0 - folga <= px and px + qx <= x1 + folga and y0 - folga <= py and py + qy <= y1 + folga
+            and z0 - folga <= pz and pz + qz <= z1 + folga)
+
+
+def fechar_caixas(pecas, relevo=RELEVO_MM):
+    """Representação sólida: cada caixa oca (``_caixa_oca``) vira um sólido fechado, a tampa
+    fica opaca e o que estava dentro (medidor, visor, disjuntor e alavanca, barramentos, DPS)
+    aparece em relevo na frente da tampa, com a profundidade reduzida a ``relevo`` mm e a
+    mesma ordem de frente para trás. A janelinha vira um painel escuro rente à tampa.
+    Peças fora das caixas (eletrodutos, suportes, etiquetas) não mudam.
+    """
+    carcacas, ordem = {}, []
+    for peca in pecas:
+        chave = peca.get("carcaca")
+        if chave is not None and chave not in carcacas:
+            carcacas[chave] = peca
+            ordem.append(chave)
+    if not carcacas:
+        return [dict(p) for p in pecas]
+    resultado = [dict(p) for p in pecas if p.get("carcaca") is None]
+    usadas = set()
+    novas = []
+    for chave in ordem:
+        rotulo, x, y, z, dx, dy, dz = chave
+        x1, y1, z1 = x + dx, y + dy, z + dz
+        tampa = next((p for p in resultado if p["tipo"] == "tampa" and id(p) not in usadas
+                      and abs(p["origem"][0] - x) < 1.0 and abs(p["origem"][2] - z) < 1.0
+                      and abs(p["dims"][0] - dx) < 1.0 and abs(p["dims"][2] - dz) < 1.0), None)
+        frente = y
+        if tampa is not None:
+            usadas.add(id(tampa))
+            tampa["cor_tipo"] = "tampa_solida"
+            frente = tampa["origem"][1]
+            # a tampa um pouco menor que a caixa: a borda da caixa aparece como moldura e as caixas
+            # vizinhas não se fundem numa placa só
+            borda = min(MOLDURA_TAMPA_MM, dx / 10.0, dz / 10.0)
+            (tx, ty, tz), (tdx, tdy, tdz) = tampa["origem"], tampa["dims"]
+            tampa["origem"], tampa["dims"] = (tx + borda, ty, tz + borda), (tdx - 2 * borda, tdy, tdz - 2 * borda)
+        novas.append({"tipo": carcacas[chave]["tipo"], "cor_tipo": carcacas[chave]["cor_tipo"], "rotulo": rotulo,
+                      "forma": "caixa", "origem": (x, y, z), "dims": (dx, dy, dz)})
+        dentro = [p for p in resultado if p["forma"] == "caixa" and p is not tampa and id(p) not in usadas
+                  and p["tipo"] not in ("suporte", "etiqueta", "tampa") and _dentro(p, x, y, z, x1, y1, z1)]
+        if not dentro:
+            continue
+        ymin = min(p["origem"][1] for p in dentro)
+        ymax = max(p["origem"][1] + p["dims"][1] for p in dentro)
+        escala = min(1.0, relevo / (ymax - ymin)) if ymax > ymin else 1.0
+        profundidade = (ymax - ymin) * escala
+        for p in dentro:
+            usadas.add(id(p))
+            (px, py, pz), (qx, qy, qz) = p["origem"], p["dims"]
+            if p["tipo"] == "janelinha":
+                p["origem"], p["dims"] = (px, frente - 1.0, pz), (qx, 1.0, qz)
+                p["cor_tipo"] = "janelinha_solida"
+                continue
+            p["origem"] = (px, frente - profundidade + (py - ymin) * escala, pz)
+            p["dims"] = (qx, max(0.5, qy * escala), qz)
+    return novas + resultado
+
+
 def pecas_do_centro(dimensionamento, posicao_cdpm="Centro", altura_base_mm=0.0, caixa_p_mm=None,
-                    saida_eletroduto=None, folga_conjuntos_mm=None, com_suporte=False):
-    """Todas as peças dos conjuntos de ``dimensionar_colunas``, lado a lado e centrados em x = 0."""
+                    saida_eletroduto=None, folga_conjuntos_mm=None, com_suporte=False, representacao=None):
+    """Todas as peças dos conjuntos de ``dimensionar_colunas``, lado a lado e centrados em x = 0.
+
+    ``representacao``: ``"Sólida"`` (padrão: caixas fechadas, ``fechar_caixas``) ou a interna,
+    com as caixas ocas e a tampa transparente.
+    """
     conjuntos = dimensionamento["conjuntos"]
     if not conjuntos:
         return []
@@ -1732,6 +1812,8 @@ def pecas_do_centro(dimensionamento, posicao_cdpm="Centro", altura_base_mm=0.0, 
             pecas = pecas_da_indireta(modelo, altura_base_mm=altura_base_mm, com_suporte=com_suporte)
         else:
             pecas = pecas_da_caixa_metalica(modelo, c["medicoes"], altura_base_mm=altura_base_mm, com_suporte=com_suporte)
+        if (representacao or REPRESENTACOES[0]) == REPRESENTACOES[0]:
+            pecas = fechar_caixas(pecas)
         xs = [p["origem"][0] for p in pecas if p["forma"] == "caixa"] + \
              [p["origem"][0] + p["dims"][0] for p in pecas if p["forma"] == "caixa"]
         blocos.append((pecas, min(xs), max(xs) - min(xs)))

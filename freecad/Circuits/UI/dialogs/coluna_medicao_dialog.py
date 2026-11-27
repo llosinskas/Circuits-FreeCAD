@@ -139,6 +139,15 @@ class ColunaMedicaoDialog(QtWidgets.QDialog):
         self.com_suporte.setChecked(bool(atual.get("ComSuporte", True)))
         form_layout.addRow(self.com_suporte)
 
+        self.representacao = QtWidgets.QComboBox()
+        self.representacao.addItems(list(regras.REPRESENTACOES))
+        atual_rep = str(atual.get("Representacao", regras.REPRESENTACOES[0]) or regras.REPRESENTACOES[0])
+        if atual_rep in regras.REPRESENTACOES:
+            self.representacao.setCurrentText(atual_rep)
+        self.representacao.setToolTip("Sólida: caixas fechadas com medidor, disjuntor e barramentos em relevo na "
+                                      "frente. Interna: caixas ocas com a tampa transparente")
+        form_layout.addRow("Desenho 3D", self.representacao)
+
         abas.addTab(aba_layout, "Layout e Dimensões")
         raiz.addWidget(abas)
 
@@ -169,6 +178,7 @@ class ColunaMedicaoDialog(QtWidgets.QDialog):
         for combo in (self.fases, self.modelo, self.cdpm, self.posicao_cdpm, self.saida_eletroduto):
             combo.currentIndexChanged.connect(self.atualizar_previa)
         self.com_suporte.toggled.connect(self.atualizar_previa)
+        self.representacao.currentIndexChanged.connect(self.atualizar_previa)
 
         self.atualizar_previa()
 
@@ -192,6 +202,7 @@ class ColunaMedicaoDialog(QtWidgets.QDialog):
             "AlturaCaixaP": float(self.altura_p.value()),
             "FolgaConjuntos": float(self.folga_conjuntos.value()),
             "ComSuporte": self.com_suporte.isChecked(),
+            "Representacao": self.representacao.currentText(),
         }
 
     def atualizar_previa(self):
@@ -210,6 +221,7 @@ class ColunaMedicaoDialog(QtWidgets.QDialog):
                 saida_eletroduto=dados["SaidaEletroduto"],
                 folga_conjuntos_mm=dados["FolgaConjuntos"],
                 com_suporte=dados["ComSuporte"],
+                representacao=dados["Representacao"],
             )
             avisos_layout = regras.avisos_layout_enel(
                 dim, pecas, posicao_cdpm=dados["PosicaoCDPM"], altura_base_mm=dados["AlturaBase"],

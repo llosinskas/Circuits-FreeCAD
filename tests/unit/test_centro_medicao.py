@@ -54,7 +54,10 @@ class TestConvencional(unittest.TestCase):
 
     def test_disposicao_3_na_vertical_e_6_colunas_por_lado(self):
         self.assertEqual(c.distribuicao(30), (15, 15, 3))
-        self.assertEqual(c.distribuicao(4), (2, 2, 2))
+        self.assertEqual(c.distribuicao(4), (3, 1, 3))  # colunas cheias: 3 + 1, não 2 + 2
+        self.assertEqual(c.distribuicao(7), (6, 1, 3))
+        self.assertEqual(c.distribuicao(4, 2), (2, 2, 2))
+        self.assertEqual(c.distribuicao(2), (2, 0, 2))
         self.assertEqual(c.distribuicao(1), (1, 0, 1))
         with self.assertRaises(ValueError):
             c.distribuicao(31)
@@ -407,6 +410,33 @@ class TestDimensionarColunas(unittest.TestCase):
         self.assertAlmostEqual(dims["profundidade_mm"], c.CAIXA_P_MM[1])
         texto = c.resumo_coluna(c.dimensionar_colunas(12, 63.0, 2))
         self.assertIn("Dimensões totais:", texto)
+
+    def test_coluna_com_3_por_coluna_mostra_3_medidores_empilhados(self):
+        g = c.coluna_de_medicao(4, "Coluna simples", por_coluna=3)
+        alturas = sorted({round(z) for rotulo, (_, _, z), _ in g["caixas"] if rotulo != "CDPM"})
+        self.assertEqual(len(alturas), 3)
+        dim = c.dimensionar_colunas(4, 40.0, 2, por_coluna=3)
+        medidores = [p for p in c.pecas_do_centro(dim) if p["tipo"] == "medidor"]
+        self.assertEqual(len({round(p["origem"][2]) for p in medidores}), 3)
+
+    def test_representacao_solida_fecha_as_caixas(self):
+        dim = c.dimensionar_colunas(6, 63.0, 2, por_coluna=3)
+        oca = c.pecas_do_centro(dim, representacao="Interna (tampa transparente)")
+        solida = c.pecas_do_centro(dim)
+        self.assertTrue(any("lateral" in p["rotulo"] for p in oca))
+        self.assertFalse(any("lateral" in p["rotulo"] for p in solida))  # as paredes viraram um sólido por caixa
+        corpos = [p for p in solida if p["rotulo"] in ("A1 M01", "A1 CDPM") and p["tipo"] in ("corpo", "cdpm")]
+        self.assertEqual(len(corpos), 2)
+        self.assertTrue(all(p["cor_tipo"] == "tampa_solida" for p in solida if p["tipo"] == "tampa"))
+        self.assertEqual(c.CORES_DAS_PECAS["tampa_solida"][1], 0)  # opaca
+        # o medidor fica na frente da tampa, em relevo de até RELEVO_MM
+        tampa = next(p for p in solida if p["rotulo"] == "A1 M01 tampa")
+        medidor = next(p for p in solida if p["rotulo"] == "A1 M01 medidor")
+        self.assertLessEqual(medidor["origem"][1] + medidor["dims"][1], tampa["origem"][1] + 1e-6)
+        self.assertGreaterEqual(medidor["origem"][1], tampa["origem"][1] - c.RELEVO_MM - 1e-6)
+        visor = next(p for p in solida if p["rotulo"] == "A1 M01 visor")
+        self.assertLess(visor["origem"][1], medidor["origem"][1])  # o visor continua na frente do medidor
+        self.assertEqual(len([p for p in solida if p["tipo"] == "medidor"]), 6)
 
     def test_construcao_enel_oca_cores_suporte_e_validacao(self):
         pecas = c.pecas_da_coluna(12, "Coluna simples", com_suporte=True)

@@ -140,8 +140,13 @@ class TestColunaParametrica(unittest.TestCase):
         self.obj.AlturaBase = 150.0
         self.obj.Proxy.execute(self.obj)
         self.assertTrue(self.obj.ComSuporte)
-        for cor in ("barra_r", "barra_s", "barra_t", "barra_n", "barra_pe", "visor", "janelinha", "suporte"):
-            self.assertIn(cor, self.obj.TiposDasPecas)
+        for cor in ("barra_r", "barra_s", "barra_t", "barra_n", "barra_pe", "visor", "janelinha_solida",
+                    "tampa_solida", "suporte"):
+            self.assertIn(cor, self.obj.TiposDasPecas)  # sólida, o padrão
+        self.obj.Representacao = "Interna (tampa transparente)"
+        self.obj.Proxy.execute(self.obj)
+        self.assertIn("janelinha", self.obj.TiposDasPecas)
+        self.assertIn("tampa", self.obj.TiposDasPecas)
         self.assertTrue(any("300 mm" in a for a in self.obj.Avisos))
 
 

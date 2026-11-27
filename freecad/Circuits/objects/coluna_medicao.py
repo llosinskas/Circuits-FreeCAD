@@ -111,6 +111,12 @@ class ColunaMedicao:
                     "Espaço entre agrupamentos [mm]; 0 usa 100 mm", 0.0)
         propriedade("App::PropertyBool", "ComSuporte", layout,
                     "Desenha estrutura metálica de sustentação/pedestal até o piso", True)
+        if not hasattr(obj, "Representacao"):
+            obj.addProperty("App::PropertyEnumeration", "Representacao", layout,
+                            "Sólida: caixas fechadas, tampa opaca e medidor, disjuntor e barramentos em relevo na "
+                            "frente. Interna: caixas ocas com a tampa transparente")
+            obj.Representacao = list(regras.REPRESENTACOES)
+            obj.Representacao = regras.REPRESENTACOES[0]
 
         saida = "Dimensionamento"
         propriedade("App::PropertyString", "Solucao", saida, "Caixas escolhidas", "", True)
@@ -156,6 +162,7 @@ class ColunaMedicao:
                 saida_eletroduto=str(getattr(obj, "SaidaEletroduto", "Fundo") or "Fundo"),
                 folga_conjuntos_mm=float(getattr(obj, "FolgaConjuntos", 0.0) or 0.0),
                 com_suporte=com_suporte,
+                representacao=str(getattr(obj, "Representacao", "") or regras.REPRESENTACOES[0]),
             )
             avisos_layout = regras.avisos_layout_enel(dados, pecas, posicao_cdpm=posicao_cdpm,
                                                       altura_base_mm=altura_base)
@@ -209,6 +216,18 @@ def cores_das_faces(forma, tipos):
     return cores
 
 
+def _fosco(vobj):
+    """Material sem brilho: com o especular padrão, a face de frente para a câmera (vista frontal)
+    sai branca e as cores das peças somem."""
+    materiais = list(getattr(vobj, "ShapeAppearance", ()) or ())
+    if not materiais:
+        return
+    for material in materiais:
+        material.SpecularColor = (0.0, 0.0, 0.0)
+        material.Shininess = 0.0
+    vobj.ShapeAppearance = materiais
+
+
 class ViewProviderColunaMedicao:
     """Pinta cada peça com a cor do tipo dela (tampas transparentes, barramentos de cobre...)."""
 
@@ -230,6 +249,7 @@ class ViewProviderColunaMedicao:
                 cores = cores_das_faces(fp.Shape, list(fp.TiposDasPecas))
                 if cores and len(cores) == len(fp.Shape.Faces):
                     fp.ViewObject.DiffuseColor = cores
+                    _fosco(fp.ViewObject)
             except Exception:
                 pass
 
@@ -237,7 +257,7 @@ class ViewProviderColunaMedicao:
         pass
 
     def getDefaultDisplayMode(self):
-        return "Flat Lines"
+        return "Shaded"  # sólidos coloridos, sem as arestas pretas de cada peça
 
     def dumps(self):
         return None
@@ -253,6 +273,7 @@ def create_coluna_medicao(doc=None, nome="Colunas_medicao", **valores):
     ColunaMedicao(obj)
     try:
         ViewProviderColunaMedicao(obj.ViewObject)
+        obj.ViewObject.DisplayMode = "Shaded"
     except Exception:
         pass
     for chave, valor in valores.items():
