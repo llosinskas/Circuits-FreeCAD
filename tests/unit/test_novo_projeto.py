@@ -62,6 +62,7 @@ class TestDadosIniciais(unittest.TestCase):
     def test_projeto_novo_usa_a_sugestao_do_tipo(self):
         dados = np.dados_iniciais({}, [], tipo="Industrial")
         self.assertTrue(dados["novo"])
+        self.assertTrue(dados["niveis_bim"])  # projeto novo: níveis do BIM, como o botão Nível do BIM
         self.assertEqual(dados["sistema"], "220/380 V")
         self.assertEqual(dados["pavimentos"][0]["altura"], 8000.0)
 
@@ -74,6 +75,8 @@ class TestDadosIniciais(unittest.TestCase):
         self.assertEqual((dados["projeto"], dados["sistema"], dados["esquema"]), ("Edifício X", "220/380 V", "TT"))
         self.assertTrue(dados["niveis_bim"])
         self.assertTrue(dados["pavimentos"][0]["bim"])
+        pastas = np.dados_iniciais(textos, [{"nome": "Térreo", "cota": 0.0, "altura": 3000.0, "bim": False}])
+        self.assertFalse(pastas["niveis_bim"])  # projeto com pavimentos em pasta: só converte se o usuário marcar
 
     def test_resumo(self):
         texto = np.resumo({"pavimentos": np.pavimentos(andares=2), "sistema": "127/220 V",

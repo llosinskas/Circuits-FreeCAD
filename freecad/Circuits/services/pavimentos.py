@@ -194,6 +194,59 @@ def criar_nivel_bim(doc, nome, elevacao_mm=0.0, altura_mm=regras.ALTURA_PADRAO_M
     return nivel
 
 
+def converter_em_nivel(doc, pav):
+    """Troca o pavimento em pasta da bancada por um nível da bancada BIM com o mesmo nome, cota e altura,
+    levando para ele as pastas e os objetos de dentro (as posições não mudam: o nível não soma a cota dele)
+    e as propriedades ``Ativo`` e ``Unidades``. O nível entra no edifício do BIM, se houver.
+
+    Returns:
+        O nível (ou o próprio ``pav``, se já for um nível).
+    """
+    if eh_nivel_bim(pav):
+        return pav
+    try:
+        import Arch
+    except ImportError as erro:
+        raise RuntimeError("A bancada BIM não está disponível neste FreeCAD.") from erro
+    nome, cota, altura_pav = pav.Label, elevacao(pav), altura(pav)
+    ativo_antes = bool(getattr(pav, "Ativo", False))
+    unidades = getattr(pav, "Unidades", None)
+    filhos = list(pav.Group)
+    pav.Label = f"{nome} (antigo)"  # libera o nome para o nível
+    nivel = Arch.makeBuildingPart()
+    nivel.IfcType = "Building Storey"
+    nivel.Label = nome
+    posicao = nivel.Placement
+    posicao.Base = App.Vector(posicao.Base.x, posicao.Base.y, cota)
+    nivel.Placement = posicao  # ainda vazio: nada é deslocado
+    if hasattr(nivel, "Height"):
+        nivel.Height = float(altura_pav)
+    edificio = next((obj for obj in doc.Objects if getattr(obj, "IfcType", "") == "Building"), None)
+    if edificio is not None and hasattr(edificio, "addObject"):
+        edificio.addObject(nivel)
+    for filho in filhos:
+        pav.removeObject(filho)
+        nivel.addObject(filho)
+    if unidades is not None:
+        nivel.addProperty("App::PropertyInteger", "Unidades", "Pavimento", "Unidades (apartamentos ou salas)")
+        nivel.Unidades = int(unidades)
+    doc.removeObject(pav.Name)
+    if ativo_antes:
+        ativar(doc, nivel)
+    return nivel
+
+
+def converter_todos_em_niveis(doc):
+    """Converte todos os pavimentos em pasta da bancada em níveis do BIM. Devolve os nomes convertidos."""
+    convertidos = []
+    for pav in [p for p in listar(doc) if not eh_nivel_bim(p)]:
+        convertidos.append(converter_em_nivel(doc, pav).Label)
+    mae = doc.getObject(GRUPO_MAE)
+    if mae is not None and not mae.Group:
+        doc.removeObject(GRUPO_MAE)  # a pasta Pavimentos ficou vazia: os níveis estão no edifício
+    return convertidos
+
+
 def garantir_ativo(doc):
     """Pavimento ativo; sem nenhum ativo, ativa o mais baixo, e sem pavimentos cria o Térreo.
 

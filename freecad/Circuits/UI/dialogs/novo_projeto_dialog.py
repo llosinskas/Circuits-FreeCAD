@@ -132,11 +132,15 @@ class NovoProjetoDialog(QtWidgets.QDialog):
         cabecalho.setSectionResizeMode(0, QtWidgets.QHeaderView.Stretch)
         self.tabela.itemChanged.connect(self.atualizar_resumo)
         caixa.addWidget(self.tabela)
-        self.niveis_bim = QtWidgets.QCheckBox("Criar os pavimentos como níveis da bancada BIM (andares no IFC)")
+        self.niveis_bim = QtWidgets.QCheckBox("Pavimentos como níveis da bancada BIM (como o botão Nível do BIM; "
+                                              "andares no IFC)")
         self.niveis_bim.setChecked(bool(self.dados.get("niveis_bim")) and bim_disponivel)
         self.niveis_bim.setEnabled(bim_disponivel)
-        self.niveis_bim.setToolTip("Sem marcar, cada pavimento é uma pasta da bancada. Pavimentos que já existem "
-                                   "não mudam de tipo; níveis do BIM existentes mantêm a cota e a altura deles.")
+        self.niveis_bim.setToolTip("Marcado (o padrão), cada pavimento é um nível do BIM dentro do edifício do projeto, "
+                                   "com as pastas de Tomadas, Iluminação, Quadros... dentro dele. Num projeto com "
+                                   "pavimentos em pasta, marcar converte cada um em nível, levando o que está dentro. "
+                                   "Níveis do BIM existentes mantêm a cota e a altura deles. Sem marcar, cada pavimento "
+                                   "é uma pasta da bancada.")
         caixa.addWidget(self.niveis_bim)
         if editando:
             nota = QtWidgets.QLabel("Pavimentos que saírem da lista não são apagados.")

@@ -52,6 +52,8 @@ def aplicar(doc, dados):
 
     - estrutura de pastas (``services.estrutura.criar``: Pavimentos e Planilhas, o edifício do BIM com
       níveis, sem as pastas antigas vazias, com o que estava na raiz arrumado);
+    - com níveis do BIM (o padrão), os pavimentos em pasta que já existem viram níveis
+      (``pavimentos.converter_todos_em_niveis``, com o que está dentro deles);
     - um pavimento por linha, com as unidades (propriedade ``Unidades``): nível da bancada BIM
       (``dados['niveis_bim']``, dentro do edifício) ou pasta da bancada; os níveis do BIM que já existem ficam
       com a cota e a altura deles;
@@ -72,6 +74,7 @@ def aplicar(doc, dados):
     criados, atualizados = [], []
     usar_bim = bool(dados.get("niveis_bim")) and bim_disponivel()
     feito_estrutura = estrutura.criar(doc, usar_bim, str(dados.get("projeto") or "").strip())
+    convertidos = pavimentos.converter_todos_em_niveis(doc) if usar_bim else []
     for linha in dados["pavimentos"]:
         nome, cota, altura = str(linha["nome"]).strip(), float(linha["cota"]), float(linha["altura"])
         ja_existia = pavimentos.por_nome(doc, nome) is not None
@@ -98,4 +101,4 @@ def aplicar(doc, dados):
         App.Console.PrintWarning(f"Projeto: carimbo das folhas não atualizado: {erro}\n")
     doc.recompute()
     return {"criados": criados, "atualizados": atualizados, "ativo": inicial.Label if inicial is not None else "",
-            "parametros": mudaram, "estrutura": feito_estrutura}
+            "parametros": mudaram, "estrutura": feito_estrutura, "convertidos": convertidos}

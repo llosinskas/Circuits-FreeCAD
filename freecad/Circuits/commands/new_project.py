@@ -40,6 +40,10 @@ class newProjetctEletrical:
         App.Console.PrintMessage(
             f"Projeto: {len(feito['criados'])} pavimento(s) criado(s), {len(feito['atualizados'])} atualizado(s); "
             f"ativo: {feito['ativo']}; parâmetros alterados: {', '.join(feito['parametros']) or 'nenhum'}.\n")
+        if feito.get("convertidos"):
+            QtWidgets.QMessageBox.information(
+                None, "Projeto", "Pavimentos convertidos em níveis do BIM, com tudo o que estava dentro deles:\n\n"
+                + "\n".join(feito["convertidos"]))
 
     def GetResources(self):
         return recursos(

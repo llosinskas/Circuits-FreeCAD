@@ -182,6 +182,8 @@ def dados_iniciais(textos=None, existentes=None, tipo=None):
         dados["pavimentos"] = pavimentos(sugestao["subsolos"], sugestao["andares"], sugestao["cobertura"],
                                          sugestao["piso_a_piso"], sugestao["altura_terreo"],
                                          unidades_por_andar=sugestao["unidades"])
+    if not existentes:
+        dados["niveis_bim"] = True  # projeto novo: pavimentos como níveis do BIM, como o botão Nível do BIM
     dados["novo"] = novo
     return dados
 
