@@ -10,7 +10,7 @@ Bancada **Engenharia** para o FreeCAD 1.1: do desenho dos pontos na planta até 
 - Cálculos prediais: demanda, gerador diesel, luminotécnico, pressurização de escada e bomba de recalque.
 - Integração com os níveis da bancada BIM e geração 3D de caixas e eletrodutos.
 
-[![Apoiar com Pix](freecad/Circuits/Resources/Icons/apoiar_botao.svg)](https://widget.livepix.gg/embed/2115da8d-1a60-4616-af64-44a433e22317)
+[![Apoiar com Pix](freecad/Circuits/Resources/Icons/apoiar_botao.svg)](https://livepix.gg/freecadcircuits)
 
 > **Estado do projeto:** em desenvolvimento. A lógica tem testes automáticos, mas boa parte das funções novas ainda não foi validada no FreeCAD por um usuário. Os dimensionamentos são simplificados: leia [Limitações](#limitações) antes de usar um resultado em projeto real.
 
@@ -18,9 +18,9 @@ Bancada **Engenharia** para o FreeCAD 1.1: do desenho dos pontos na planta até 
 
 A bancada é gratuita e de código aberto. Se ela ajuda nos seus projetos, apoie o desenvolvimento com um Pix de qualquer valor pelo LivePix: clique no botão ou escaneie o QR code com o app do banco.
 
-[![Apoiar com Pix](freecad/Circuits/Resources/Icons/apoiar_botao.svg)](https://widget.livepix.gg/embed/2115da8d-1a60-4616-af64-44a433e22317)
+[![Apoiar com Pix](freecad/Circuits/Resources/Icons/apoiar_botao.svg)](https://livepix.gg/freecadcircuits)
 
-[![QR code do LivePix: escaneie para apoiar](freecad/Circuits/Resources/Icons/apoiar_qrcode.png)](https://widget.livepix.gg/embed/2115da8d-1a60-4616-af64-44a433e22317)
+[![QR code do LivePix: escaneie para apoiar](freecad/Circuits/Resources/Icons/apoiar_qrcode.png)](https://livepix.gg/freecadcircuits)
 
 Dentro do FreeCAD, o botão **Apoiar** (barra *Modelo e biblioteca* e menu **Elétrica**) abre o mesmo QR code e o link.
 

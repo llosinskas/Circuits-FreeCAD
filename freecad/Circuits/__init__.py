@@ -26,5 +26,5 @@ __author__ = "Lucas Losinskas"
 __url__ = "https://github.com/llosinskas/Circuits-FreeCAD"
 # Apoio ao projeto (LivePix): o botão Apoiar da bancada e o README abrem este endereço; o QR code
 # Resources/Icons/apoiar_qrcode.png aponta para ele.
-URL_APOIO = "https://widget.livepix.gg/embed/2115da8d-1a60-4616-af64-44a433e22317"
+URL_APOIO = "https://livepix.gg/freecadcircuits"
 __ToolTip__ = "Bancada para a criação e gerenciamento de projetos elétricos: Residênciais, Indústriais e Comerciais"
